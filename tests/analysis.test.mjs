@@ -10,6 +10,7 @@ import {
   alertTransition,
   capitulationConfirmed,
   capitulationDetected,
+  rsiOpportunity,
   sellingPressureStabilized,
   shouldDeliverAlert,
   subscriberCommand,
@@ -108,18 +109,65 @@ test("ADX distingue tendência forte de mercado sem direção", () => {
   assert.equal(wilderAdx(flat), 0);
 });
 
-test("RSI esticado aponta venda e RSI sobrevendido aponta compra", () => {
-  const rising = analyze(marketFromCloses(Array.from({ length: 60 }, (_, index) => 100 + index)));
-  const falling = analyze(marketFromCloses(Array.from({ length: 60 }, (_, index) => 200 - index)));
-
+test("RSI esticado e sobrevendido apontam para reversoes tecnicas", () => {
+  const risingMarket = marketFromCloses(Array.from({ length: 60 }, (_, index) => 100 + index));
+  risingMarket.period = "15M";
+  const fallingMarket = marketFromCloses(Array.from({ length: 60 }, (_, index) => 200 - index));
+  fallingMarket.period = "15M";
+  const rising = analyze(risingMarket);
+  const falling = analyze(fallingMarket);
+  assert.equal(rising?.extreme.status, "VENDA: RSI ESTICADO 15M");
   assert.equal(rising?.extreme.tone, "negative");
-  assert.match(rising?.extreme.status ?? "", /^VENDA/);
-  assert.ok((rising?.signals[2].score ?? 0) < 0);
-
+  assert.equal(falling?.extreme.status, "COMPRA: RSI SOBREVENDIDO 15M");
   assert.equal(falling?.extreme.tone, "positive");
-  assert.match(falling?.extreme.status ?? "", /^COMPRA/);
-  assert.ok((falling?.signals[2].score ?? 0) > 0);
 });
+
+test("RSI abaixo de 20 no 4H identifica oportunidade em formação", () => {
+  const market = marketFromCloses(Array.from({ length: 60 }, (_, index) => 200 - index), { volume: 160 });
+  market.period = "4H";
+  const result = analyze(market);
+  assert.equal(result?.extreme.status, "OPORTUNIDADE EM FORMAÇÃO 4H");
+  assert.equal(result?.extreme.tone, "warning");
+});
+
+test("RSI abaixo de 20 no 4H vira oportunidade após estabilização", () => {
+  const closes = [...Array.from({ length: 59 }, (_, index) => 200 - index), 143];
+  const market = marketFromCloses(closes, { volume: 150 });
+  market.period = "4H";
+  market.candles.at(-1).open = 142;
+  market.candles.at(-1).low = market.candles.at(-2).low;
+  const result = analyze(market);
+  assert.ok(result.extreme.rsi <= 20);
+  assert.equal(result.extreme.status, "OPORTUNIDADE 4H");
+  assert.equal(result.extreme.tone, "positive");
+});
+test("RSI 79 ou maior no 1H identifica oportunidade de venda", () => {
+  const market = marketFromCloses(Array.from({ length: 60 }, (_, index) => 100 + index), { volume: 160 });
+  market.period = "1H";
+  const result = analyze(market);
+  assert.ok(result.extreme.rsi >= 79);
+  assert.equal(result.extreme.status, "OPORTUNIDADE DE VENDA 1H");
+  assert.equal(result.extreme.tone, "warning");
+});
+
+test("RSI 79 ou maior no 4H identifica oportunidade de venda", () => {
+  const market = marketFromCloses(Array.from({ length: 60 }, (_, index) => 100 + index), { volume: 160 });
+  market.period = "4H";
+  const result = analyze(market);
+  assert.ok(result.extreme.rsi >= 79);
+  assert.equal(result.extreme.status, "OPORTUNIDADE DE VENDA 4H");
+});
+
+for (const period of ["1D", "1S"]) {
+  test(`RSI 88 ou maior no ${period} identifica oportunidade de venda`, () => {
+    const market = marketFromCloses(Array.from({ length: 60 }, (_, index) => 100 + index), { volume: 160 });
+    market.period = period;
+    const result = analyze(market);
+    assert.ok(result.extreme.rsi >= 88);
+    assert.equal(result.extreme.status, `OPORTUNIDADE DE VENDA ${period}`);
+    assert.equal(result.extreme.tone, "warning");
+  });
+}
 
 test("Termômetro e painel de extremo usam o mesmo RSI de Wilder", () => {
   const result = analyze(marketFromCloses(Array.from({ length: 60 }, (_, index) => 100 + Math.sin(index / 3) * 5 + index * 0.2)));
@@ -198,6 +246,9 @@ test("filtra alertas conforme a preferência de cada pessoa", () => {
   assert.equal(shouldDeliverAlert("TODOS", "COMPRA"), true);
   assert.equal(shouldDeliverAlert("CAPITULACAO", "COMPRA_FORTE"), false);
   assert.equal(shouldDeliverAlert("CAPITULACAO", "CAPITULACAO"), true);
+  assert.equal(shouldDeliverAlert("FORTES", "OPORTUNIDADE"), true);
+  assert.equal(shouldDeliverAlert("TODOS", "OPORTUNIDADE"), true);
+  assert.equal(shouldDeliverAlert("CAPITULACAO", "OPORTUNIDADE"), false);
 });
 
 test("capitulação exige sobrevenda, distância e volume juntos", () => {
@@ -206,6 +257,24 @@ test("capitulação exige sobrevenda, distância e volume juntos", () => {
   assert.equal(capitulationDetected({ rsi: 29, atrDistance: -1.9, volumeRatio: 1.6 }), false);
   assert.equal(capitulationDetected({ rsi: 29, atrDistance: -2.1, volumeRatio: 1.4 }), false);
 });
+test("oportunidades de RSI respeitam os limites por período", () => {
+  assert.equal(rsiOpportunity("BTC", "15M", 17.9), "COMPRA_RETESTE_15M");
+  assert.equal(rsiOpportunity("BTC", "15M", 18), null);
+  assert.equal(rsiOpportunity("BTC", "4H", 20), "COMPRA_4H");
+  assert.equal(rsiOpportunity("BTC", "1H", 79), "VENDA_1H");
+  assert.equal(rsiOpportunity("BTC", "4H", 79), "VENDA_4H");
+  assert.equal(rsiOpportunity("BTC", "1D", 88), "VENDA_1D");
+  assert.equal(rsiOpportunity("BTC", "1S", 88), "VENDA_1S");
+  assert.equal(rsiOpportunity("BTC", "1D", 87.9), null);
+  assert.equal(rsiOpportunity("BRENT", "1H", 20.9), "COMPRA_BRENT_1H");
+  assert.equal(rsiOpportunity("BRENT", "1H", 21), null);
+  assert.equal(rsiOpportunity("BRENT", "1H", 80), null);
+  assert.equal(rsiOpportunity("BRENT", "1H", 80.1), "VENDA_BRENT_1H");
+  assert.equal(rsiOpportunity("LINK", "1H", 24.9), "COMPRA_LINK_1H");
+  assert.equal(rsiOpportunity("LINK", "4H", 24.9), "COMPRA_LINK_4H");
+  assert.equal(rsiOpportunity("LINK", "1H", 25), null);
+});
+
 test("confirma a capitulação somente com nova queda no 5 min e volume", () => {
   assert.equal(capitulationConfirmed({ sourceClose: 100, confirmationClose: 99, volumeRatio: 1.5 }), true);
   assert.equal(capitulationConfirmed({ sourceClose: 100, confirmationClose: 100, volumeRatio: 2 }), false);

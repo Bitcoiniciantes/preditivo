@@ -2,6 +2,9 @@ import { mkdir, writeFile } from "node:fs/promises";
 
 const assets = [
   { asset: "MSTR", displayName: "MSTR", symbol: "MSTR", file: "mstr" },
+  { asset: "SPCX", displayName: "SPCX", symbol: "SPCX", file: "spcx", requiredPeriods: ["1H"] },
+  { asset: "QBTS", displayName: "QBTS", symbol: "QBTS", file: "qbts", requiredPeriods: ["1H"] },
+  { asset: "BRENT", displayName: "BRENT", symbol: "BZ=F", file: "brent", requiredPeriods: ["1H"] },
   { asset: "PRATA", displayName: "PRATA", symbol: "SI=F", file: "prata" },
   { asset: "COBRE", displayName: "COBRE", symbol: "HG=F", file: "cobre" },
   { asset: "URANIO", displayName: "URÂNIO", symbol: "URNM", file: "uranio" },
@@ -102,10 +105,11 @@ async function buildAsset(config) {
     },
   };
 
-  for (const [period, candles] of Object.entries(output.periods)) {
-    if (candles.length < 55) throw new Error(`${config.displayName} sem histórico suficiente em ${period}`);
+  for (const period of config.requiredPeriods ?? Object.keys(output.periods)) {
+    if ((output.periods[period] ?? []).length < 55) {
+      throw new Error(`${config.displayName} sem histórico suficiente em ${period}`);
+    }
   }
-
   await writeFile(
     new URL(`../public/data/${config.file}.json`, import.meta.url),
     JSON.stringify(output),

@@ -139,53 +139,102 @@ function findDivergence(candles: Candle[], closes: number[]) {
 }
 
 function classifyExtreme(args: {
+  period: string;
   rsi: number;
+  previousRsi: number;
   adx: number;
   atrDistance: number;
+  volumeRatio: number;
+  stabilized: boolean;
+  makingNewLow: boolean;
   divergence: "bullish" | "bearish" | null;
   uptrend: boolean;
 }): ExtremeReading {
-  const { rsi, adx, atrDistance, divergence } = args;
+  const { period, rsi, previousRsi, adx, atrDistance, volumeRatio, stabilized, makingNewLow, divergence, uptrend } = args;
+  const strongTrend = adx >= 25;
   const stretched = Math.abs(atrDistance) >= 2;
-  const metrics = "RSI " + rsi.toFixed(1) + " | ADX " + adx.toFixed(1) + " | distancia " + atrDistance.toFixed(1) + " ATR da MM20.";
-
+  const metrics = `RSI ${rsi.toFixed(1)} • ADX ${adx.toFixed(1)} • distância ${atrDistance.toFixed(1)} ATR da MM20.`;
+  const sellOpportunityRsi = period === "1H" || period === "4H" ? 79 : period === "1D" || period === "1S" ? 88 : null;
+  if (period === "4H" && previousRsi <= 20 && rsi > 20 && stabilized) return {
+    status: "COMPRA EM CONFIRMAÇÃO 4H", summary: "RSI saiu da sobrevenda extrema com estabilização do preço",
+    detail: `${metrics} O candle fechou positivo, sem nova mínima e com volume suficiente. É confirmação inicial; a estrutura ainda precisa sustentar a reação.`,
+    tone: "positive", rsi, adx, atrDistance, divergence,
+  };
+  if (period === "4H" && rsi <= 20 && (stabilized || divergence === "bullish")) return {
+    status: "OPORTUNIDADE 4H", summary: stabilized ? "Sobrevenda extrema com estabilização do preço" : "Sobrevenda extrema com divergência de alta",
+    detail: `${metrics} O flush perdeu força e apresentou confirmação inicial. Trate como oportunidade técnica, não como garantia de fundo.`,
+    tone: "positive", rsi, adx, atrDistance, divergence,
+  };
+  if (period === "4H" && rsi <= 20) return {
+    status: "OPORTUNIDADE EM FORMAÇÃO 4H", summary: makingNewLow && volumeRatio >= 1.5 ? "Flush com sobrevenda extrema e volume elevado" : "RSI em sobrevenda extrema no gráfico de 4 horas",
+    detail: `${metrics} O preço ainda não estabilizou. Aguarde candle positivo sem nova mínima, divergência de alta ou recuperação do RSI acima de 20.`,
+    tone: "warning", rsi, adx, atrDistance, divergence,
+  };
+  if (sellOpportunityRsi !== null && rsi >= sellOpportunityRsi && divergence === "bearish") return {
+    status: `OPORTUNIDADE DE VENDA CONFIRMADA ${period}`, summary: "Sobrecompra extrema com divergência de baixa",
+    detail: `${metrics} O RSI atingiu ${sellOpportunityRsi} ou mais e o preço confirmou perda de força por divergência. Ainda exige confirmação da reversão na estrutura do preço.`,
+    tone: "negative", rsi, adx, atrDistance, divergence,
+  };
+  if (sellOpportunityRsi !== null && rsi >= sellOpportunityRsi) return {
+    status: `OPORTUNIDADE DE VENDA ${period}`, summary: "RSI em sobrecompra extrema",
+    detail: `${metrics} O RSI atingiu ${sellOpportunityRsi} ou mais. É uma oportunidade técnica de venda, mas RSI alto isoladamente não garante topo; aguarde enfraquecimento ou perda de suporte.`,
+    tone: "warning", rsi, adx, atrDistance, divergence,
+  };
+  if (rsi >= 70) return {
+    status: "VENDA: RSI ESTICADO " + period, summary: divergence === "bearish" ? "Exaustão de alta com divergência de baixa" : "RSI esticado: possível reversão de baixa",
+    detail: metrics + " RSI esticado é leitura de venda. A divergência, perda de suporte ou candle de reversão aumentam a confirmação.",
+    tone: "negative", rsi, adx, atrDistance, divergence,
+  };
+  if (rsi <= 30) return {
+    status: "COMPRA: RSI SOBREVENDIDO " + period, summary: divergence === "bullish" ? "Sobrevenda com divergência de alta" : "RSI sobrevendido: possível reversão de alta",
+    detail: metrics + " RSI sobrevendido é leitura de compra. A divergência, recuperação de suporte ou candle de reversão aumentam a confirmação.",
+    tone: "positive", rsi, adx, atrDistance, divergence,
+  };
   if (rsi >= 70 && divergence === "bearish") return {
-    status: "REVERSAO DE BAIXA",
-    summary: "VENDA: RSI esticado com divergencia de baixa confirmada",
-    detail: metrics + " Topo mais alto no preco e perda de forca no RSI: configuracao de reversao para venda.",
+    status: "ALERTA DE EXAUSTÃO", summary: "Sobrecompra com divergência de baixa confirmada",
+    detail: `${metrics} O preço fez topo mais alto, mas o RSI perdeu força. Aguarde confirmação no preço.`,
     tone: "negative", rsi, adx, atrDistance, divergence,
   };
   if (rsi <= 30 && divergence === "bullish") return {
-    status: "REVERSAO DE ALTA",
-    summary: "COMPRA: RSI sobrevendido com divergencia de alta confirmada",
-    detail: metrics + " Fundo mais baixo no preco e ganho de forca no RSI: configuracao de reversao para compra.",
+    status: "POSSÍVEL REAÇÃO", summary: "Sobrevenda com divergência de alta confirmada",
+    detail: `${metrics} O preço fez fundo mais baixo, mas o RSI ganhou força. Ainda exige confirmação no preço.`,
     tone: "positive", rsi, adx, atrDistance, divergence,
   };
-  if (rsi >= 70 || atrDistance >= 2) return {
-    status: stretched ? "VENDA: PRECO ESTICADO" : "VENDA: RSI ESTICADO",
-    summary: "Possivel reversao de baixa",
-    detail: metrics + " Extremo de alta: leitura de venda orientada a reversao para a media.",
+  if (rsi >= 70 && strongTrend && uptrend) return {
+    status: "EXTREMO COM TENDÊNCIA", summary: "Sobrecompra sustentada por tendência forte",
+    detail: `${metrics} Evite interpretar o RSI alto isoladamente como sinal de venda.`,
+    tone: "positive", rsi, adx, atrDistance, divergence,
+  };
+  if (rsi <= 30 && strongTrend && !uptrend) return {
+    status: "EXTREMO COM TENDÊNCIA", summary: "Sobrevenda dentro de tendência forte de baixa",
+    detail: `${metrics} O ativo segue pressionado; RSI baixo sozinho não confirma fundo.`,
     tone: "negative", rsi, adx, atrDistance, divergence,
   };
+  if (rsi >= 70 || atrDistance >= 2) return {
+    status: stretched ? "PREÇO ESTICADO" : "SOBRECOMPRA",
+    summary: strongTrend ? "Movimento elevado, ainda com força de tendência" : "Extremo de alta em mercado sem tendência forte",
+    detail: `${metrics} Em tendência fraca, extremos têm maior chance de retornar à média.`,
+    tone: "warning", rsi, adx, atrDistance, divergence,
+  };
   if (rsi <= 30 || atrDistance <= -2) return {
-    status: stretched ? "COMPRA: PRECO DEPRIMIDO" : "COMPRA: RSI SOBRE VENDIDO",
-    summary: "Possivel reversao de alta",
-    detail: metrics + " Extremo de baixa: leitura de compra orientada a reversao para a media.",
-    tone: "positive", rsi, adx, atrDistance, divergence,
+    status: stretched ? "PREÇO ESTICADO" : "SOBREVENDA",
+    summary: strongTrend ? "Movimento deprimido, ainda com força de tendência" : "Extremo de baixa em mercado sem tendência forte",
+    detail: `${metrics} Em tendência fraca, extremos têm maior chance de retornar à média.`,
+    tone: "warning", rsi, adx, atrDistance, divergence,
   };
   if (divergence) {
     const bullish = divergence === "bullish";
     return {
-      status: bullish ? "REVERSAO DE ALTA" : "REVERSAO DE BAIXA",
-      summary: bullish ? "Momentum melhora apesar de novo fundo no preco" : "Momentum enfraquece apesar de novo topo no preco",
-      detail: metrics + " Divergencia entre preco e RSI: configuracao de reversao " + (bullish ? "para compra." : "para venda."),
+      status: bullish ? "DIVERGÊNCIA DE ALTA" : "DIVERGÊNCIA DE BAIXA",
+      summary: bullish ? "Momentum melhora apesar de novo fundo no preço" : "Momentum enfraquece apesar de novo topo no preço",
+      detail: `${metrics} A divergência usa somente pivôs já confirmados e funciona como alerta, não como entrada.`,
       tone: bullish ? "positive" : "negative", rsi, adx, atrDistance, divergence,
     };
   }
   return {
     status: "SEM EXTREMO",
-    summary: "Preco e momentum dentro da faixa normal",
-    detail: metrics + " Sem configuracao de reversao neste periodo.",
+    summary: strongTrend ? `Tendência ${uptrend ? "de alta" : "de baixa"} com força` : "Preço e momentum dentro da faixa normal",
+    detail: `${metrics} Não há combinação suficiente para indicar exaustão neste período.`,
     tone: "neutral", rsi, adx, atrDistance, divergence,
   };
 }
@@ -220,9 +269,16 @@ export function analyze(data: MarketData | null, now = Date.now()): Analysis | n
   const previous = closes.at(-2)!;
   const sma20 = avg(closes.slice(-20));
   const sma50 = avg(closes.slice(-50));
-  const rsi = wilderRsi(closes)?.value ?? 50;
+  const rsiReading = wilderRsi(closes);
+  const rsi = rsiReading?.value ?? 50;
+  const previousRsi = rsiReading?.previous ?? rsi;
   const vol20 = avg(candles.slice(-21, -1).map((candle) => candle.volume));
   const volRatio = candles.at(-1)!.volume / Math.max(vol20, 1);
+  const lastCandle = candles.at(-1)!;
+  const previousCandle = candles.at(-2)!;
+  const stabilized = lastCandle.close > lastCandle.open && lastCandle.low >= previousCandle.low && volRatio >= 1;
+  const priorLows = candles.slice(-6, -1).map((candle) => candle.low);
+  const makingNewLow = priorLows.length > 0 && lastCandle.low < Math.min(...priorLows);
   const atrAbsolute = avg(trueRanges(candles).slice(-14));
   const atr = last ? (atrAbsolute / last) * 100 : 0;
   const adx = wilderAdx(candles) ?? 0;
@@ -243,11 +299,8 @@ export function analyze(data: MarketData | null, now = Date.now()): Analysis | n
     ? Math.sign(trendDistance) * clamp((adx - 25) / 5, 0, 4)
     : 0;
   const divergenceAdjustment = divergence === "bullish" ? 4 : divergence === "bearish" ? -4 : 0;
-  const momentum = rsi >= 70
-    ? -roundScore(clamp((rsi - 70) * 0.8 - divergenceAdjustment, 0, 16))
-    : rsi <= 30
-      ? roundScore(clamp((30 - rsi) * 0.8 + divergenceAdjustment, 0, 16))
-      : roundScore(clamp((rsi - 50) * 0.65 + regimeBoost + divergenceAdjustment, -16, 16));
+  const momentumBase = rsi >= 70 ? -(rsi - 70) * 1.2 : rsi <= 30 ? (30 - rsi) * 1.2 : (rsi - 50) * 0.65;
+  const momentum = roundScore(clamp(momentumBase + regimeBoost + divergenceAdjustment, -16, 16));
   const volume = roundScore(
     volRatio <= 1
       ? -6 * (1 - volRatio)
@@ -330,10 +383,11 @@ export function analyze(data: MarketData | null, now = Date.now()): Analysis | n
     signals,
     score,
     confidence: Math.round(55 + agreement * 35),
+    rsi,
     change:
       Number.isFinite(last) && Number.isFinite(previous) && previous !== 0
         ? (last / previous - 1) * 100
         : 0,
-    extreme: classifyExtreme({ rsi, adx, atrDistance, divergence, uptrend }),
+    extreme: classifyExtreme({ period: data.period, rsi, previousRsi, adx, atrDistance, volumeRatio: volRatio, stabilized, makingNewLow, divergence, uptrend }),
   };
 }

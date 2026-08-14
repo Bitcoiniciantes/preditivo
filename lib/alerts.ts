@@ -2,13 +2,8 @@ export type AlertBand = "FORA" | "COMPRA" | "COMPRA_FORTE";
 
 export type AlertTransition = "ENTRADA" | "FORTALECEU" | "ENFRAQUECEU" | "ENCERROU" | null;
 export type AlertPreference = "FORTES" | "TODOS" | "CAPITULACAO";
-export type AlertKind =
-  | "COMPRA"
-  | "COMPRA_FORTE"
-  | "SAIDA_COMPRA"
-  | "SAIDA_FORTE"
-  | "CAPITULACAO"
-  | "BTC_COMPRA";
+export type AlertKind = "COMPRA" | "COMPRA_FORTE" | "SAIDA_COMPRA" | "SAIDA_FORTE" | "CAPITULACAO" | "OPORTUNIDADE" | "BTC_COMPRA";
+export type RsiOpportunity = "COMPRA_RETESTE_15M" | "COMPRA_4H" | "VENDA_1H" | "VENDA_4H" | "VENDA_1D" | "VENDA_1S" | "COMPRA_BRENT_1H" | "VENDA_BRENT_1H" | "COMPRA_LINK_1H" | "COMPRA_LINK_4H" | null;
 export type SubscriberCommand =
   | "START"
   | "STOP"
@@ -43,6 +38,24 @@ export function capitulationDetected(metrics: {
   volumeRatio: number;
 }) {
   return metrics.rsi <= 30 && metrics.atrDistance <= -2 && metrics.volumeRatio >= 1.5;
+}
+
+export function rsiOpportunity(asset: string, period: string, rsi: number): RsiOpportunity {
+  if (!Number.isFinite(rsi)) return null;
+  if (asset === "BRENT" && period === "1H") {
+    if (rsi < 21) return "COMPRA_BRENT_1H";
+    if (rsi > 80) return "VENDA_BRENT_1H";
+    return null;
+  }
+  if (asset === "LINK" && period === "1H" && rsi < 25) return "COMPRA_LINK_1H";
+  if (asset === "LINK" && period === "4H" && rsi < 25) return "COMPRA_LINK_4H";
+  if (period === "15M" && rsi < 18) return "COMPRA_RETESTE_15M";
+  if (period === "4H" && rsi <= 20) return "COMPRA_4H";
+  if (period === "1H" && rsi >= 79) return "VENDA_1H";
+  if (period === "4H" && rsi >= 79) return "VENDA_4H";
+  if (period === "1D" && rsi >= 88) return "VENDA_1D";
+  if (period === "1S" && rsi >= 88) return "VENDA_1S";
+  return null;
 }
 
 export function capitulationConfirmed(metrics: {
@@ -88,6 +101,7 @@ export function alertKind(
 export function shouldDeliverAlert(preference: AlertPreference, kind: AlertKind) {
   if (kind === "CAPITULACAO" || kind === "BTC_COMPRA") return true;
   if (preference === "CAPITULACAO") return false;
+  if (kind === "OPORTUNIDADE") return true;
   if (preference === "TODOS") return true;
   return kind === "COMPRA_FORTE" || kind === "SAIDA_FORTE";
 }

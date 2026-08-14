@@ -22,6 +22,8 @@ test("expõe o painel e o motor transparente", async () => {
   assert.ok(page.indexOf('className="card signals"') < page.indexOf('className="analysisColumn analysisRight"'));
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(styles, /\.analysisDesk \.mobileChartPeriods \{ order:5; \}/);
+  assert.match(styles, /main>header nav\{position:absolute;left:50%;top:50%;margin:0;transform:translate\(-50%,-50%\)\}/);
+  assert.match(styles, /\.quickScale\{flex:1 1 360px;min-width:280px;max-width:520px/);
   assert.match(page, /EXTREMO TÉCNICO/);
   assert.match(page, /sinais de nota/);
   assert.match(page, /NEUTRO ↑/);
