@@ -1,8 +1,8 @@
 import { Termometro } from "../page";
 
 export const metadata = {
-  title: "Radar Compra × Venda | Termômetro",
-  description: "Widget compacto do radar técnico do Termômetro.",
+  title: "Radar Compra x Venda | Termometro Preditivo Avancado",
+  description: "Widget do Termometro Preditivo Avancado.",
 };
 
 export default function WidgetPage(){

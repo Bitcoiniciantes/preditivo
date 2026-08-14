@@ -1,6 +1,6 @@
-# Termômetro
+# Termometro Preditivo Avancado
 
-Painel técnico gratuito, determinístico e sem IA para leitura de criptoativos.
+Painel tecnico preditivo avancado para leitura de criptoativos, confluencia, RSI e fluxo.
 
 ## O que já funciona
 

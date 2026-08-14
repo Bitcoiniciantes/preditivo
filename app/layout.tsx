@@ -8,8 +8,8 @@ const geistSans=Geist({variable:"--font-geist-sans",subsets:["latin"]});
 const geistMono=Geist_Mono({variable:"--font-geist-mono",subsets:["latin"]});
 
 export const metadata:Metadata={
- title:"Term\u00f4metro | Mercado em leitura",
- description:"Term\u00f4metro t\u00e9cnico transparente para ativos, sem IA e sem caixa-preta.",
+ title:"Term\u00f4metro Preditivo Avan\u00e7ado",
+ description:"Leitura preditiva avancada de mercado com confluencia, RSI e fluxo.",
  icons:{icon:"./icon.svg"}
 };
 

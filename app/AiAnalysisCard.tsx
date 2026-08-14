@@ -191,7 +191,7 @@ export default function AiAnalysisCard({
       </div>
       {!analysis ? (
         <div className="aiIntro">
-          <p>A IA interpreta os sinais já calculados pelo Termômetro. Ela não altera notas, preços ou níveis.</p>
+          <p>A IA interpreta os sinais já calculados pelo Termômetro Preditivo Avançado. Ela não altera notas, preços ou níveis.</p>
           <button type="button" onClick={() => void generate(false)} disabled={disabled || loading || retryAfter > 0}>
             {loading ? "ANALISANDO…" : retryAfter > 0 ? `AGUARDE ${retryAfter}s` : "GERAR LEITURA"}
           </button>
