@@ -11,7 +11,8 @@ import {
   shouldDeliverAlert,
   subscriberCommand,
 } from "../lib/alerts.ts";
-import { analyze, completedCandles, scoreLabel } from "../lib/analysis.ts";
+import { bitcoinBuyLevel, bitcoinBuyLevels, bitcoinBuyLevelTransition } from "../lib/bitcoin-buy.ts";
+import { analyze, completedCandles, scoreLabel, wilderRsi } from "../lib/analysis.ts";
 import { firebaseHistoryConfigured, saveFirebaseHistory } from "../lib/firebase-history.ts";
 
 const SITE_URL = "https://bitcoiniciantes.github.io/termometro/";
@@ -423,6 +424,24 @@ function formatUsdt(value) {
   }).format(value).replace("US$", "USDT");
 }
 
+function bitcoinBuyLevelMessage(level, candle) {
+  const rule = bitcoinBuyLevels[level];
+  return [
+    `ALERTA BTC: ${rule.action}`,
+    "",
+    `Pavio / minima atingiu: ${formatUsdt(candle.low)}`,
+    `Patamar de compra: ${formatUsdt(rule.ceiling)}`,
+    `Cotacao atual: ${formatUsdt(candle.close)}`,
+    "Candle em formacao: alerta emitido sem aguardar fechamento.",
+    "Monitoramento: preco de mercado consultado a cada 5 minutos.",
+    `Candle abriu: ${localTime(candle.time)}`,
+    "",
+    "Regra de compra configurada pelo administrador.",
+    "Alerta tecnico educacional. Nao executa ordens nem garante resultado.",
+    "",
+    SITE_URL,
+  ].join("\n");
+}
 function bitcoinMovementMessage(movement, reference, current, candleTime) {
   const rising = movement.direction === "ALTA";
   return [
@@ -456,6 +475,31 @@ function capitulationMessage(config, reading, ratio, candleTime) {
     SITE_URL,
     "",
     "Alerta técnico educacional. Não confirma fundo nem representa recomendação personalizada.",
+  ].join("\n");
+}
+function rsiExtremeBand(rsi) {
+  if (rsi < 20) return "SOBREVENDA";
+  if (rsi > 80) return "SOBRECOMPRA";
+  return null;
+}
+
+function rsiExtremeMessage(config, rsi, candle) {
+  const buySignal = rsiExtremeBand(rsi) === "SOBREVENDA";
+  const action = buySignal ? "COMPRA: RSI SOBRE VENDIDO" : "VENDA: RSI ESTICADO";
+  const reversal = buySignal ? "Possivel reversao de alta" : "Possivel reversao de baixa";
+  return [
+    action,
+    "",
+    "Ativo: " + config.asset,
+    "Cotacao atual: " + formatUsdt(candle.close),
+    "Periodo: " + config.period,
+    "RSI: " + rsi.toFixed(1),
+    "Leitura: " + reversal,
+    "Candle abriu: " + localTime(candle.time),
+    "",
+    "Candle ainda aberto; leitura emitida sem aguardar fechamento.",
+    "",
+    SITE_URL,
   ].join("\n");
 }
 function capitulationConfirmedMessage(config, watch, candle, ratio) {
@@ -600,13 +644,23 @@ async function main() {
       const market = await marketData(config);
       const closed = completedCandles(market.candles, config.period);
       const lastClosed = closed.at(-1);
+      const hasOpenCandle = market.candles.length > closed.length;
       const reading = analyze(market);
-      if (!reading || !lastClosed) throw new Error("leitura indisponível");
+      const currentCandle = market.candles.at(-1);
+      const intrabarRsi = wilderRsi(market.candles.map((candle) => candle.close))?.value;
+      if (!reading || !lastClosed || !currentCandle || intrabarRsi === undefined) throw new Error("leitura indisponível");
 
       successful += 1;
       const key = `${config.marketAsset ?? config.asset}-${config.period}`;
       const currentBand = alertBand(reading.score);
       const previous = state.readings[key];
+      const currentBitcoinBuyLevel =
+        config.asset === "BTC" ? bitcoinBuyLevel(currentCandle.low) : null;
+      const bitcoinBuyTransition = config.asset === "BTC"
+        ? bitcoinBuyLevelTransition(previous?.bitcoinBuyLevel, currentBitcoinBuyLevel)
+        : null;
+      const currentRsiExtreme = hasOpenCandle ? rsiExtremeBand(intrabarRsi) : null;
+      const previousRsiExtreme = previous?.rsiExtreme ?? null;
       const watchChanged = await checkCapitulationWatch(
         config,
         key,
@@ -616,7 +670,32 @@ async function main() {
       );
       stateChanged ||= watchChanged;
 
-      if (previous?.candleTime === lastClosed.time) continue;
+      if (currentRsiExtreme && currentRsiExtreme !== previousRsiExtreme) {
+        pendingMessages.push({ kind: "CAPITULACAO", text: rsiExtremeMessage(config, intrabarRsi, currentCandle) });
+        historyEvents.push({ asset: config.asset, period: config.period, candleTime: currentCandle.time, type: `RSI_INTRABAR_${currentRsiExtreme}`, score: reading.score, detail: `RSI ${intrabarRsi.toFixed(1)} • candle em formação` });
+      }
+
+      if (bitcoinBuyTransition) {
+        pendingMessages.push({
+          kind: "BTC_COMPRA",
+          text: bitcoinBuyLevelMessage(bitcoinBuyTransition, currentCandle),
+        });
+        historyEvents.push({
+          asset: "BTC",
+          period: config.period,
+          candleTime: currentCandle.time,
+          type: `BTC_${bitcoinBuyTransition}`,
+          score: reading.score,
+          detail: `pavio ${currentCandle.low.toFixed(2)} USDT | atual ${currentCandle.close.toFixed(2)} USDT`,
+        });
+      }
+      if (previous?.candleTime === lastClosed.time) {
+        state.readings[key] = { ...previous, rsiExtreme: currentRsiExtreme, checkedAt: Date.now() };
+        state.readings[key].bitcoinBuyLevel = currentBitcoinBuyLevel;
+        stateChanged ||= previous?.bitcoinBuyLevel !== currentBitcoinBuyLevel;
+        stateChanged ||= previousRsiExtreme !== currentRsiExtreme;
+        continue;
+      }
 
       if (config.asset === "BTC") {
         for (const [chatId, subscriber] of Object.entries(state.subscribers)) {
@@ -732,6 +811,8 @@ async function main() {
         checkedAt: Date.now(),
         divergence: reading.extreme.divergence,
         capitulation,
+        bitcoinBuyLevel: currentBitcoinBuyLevel,
+        rsiExtreme: currentRsiExtreme,
       };
       stateChanged = true;
     } catch (error) {

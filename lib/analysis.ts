@@ -145,55 +145,47 @@ function classifyExtreme(args: {
   divergence: "bullish" | "bearish" | null;
   uptrend: boolean;
 }): ExtremeReading {
-  const { rsi, adx, atrDistance, divergence, uptrend } = args;
-  const strongTrend = adx >= 25;
+  const { rsi, adx, atrDistance, divergence } = args;
   const stretched = Math.abs(atrDistance) >= 2;
-  const metrics = `RSI ${rsi.toFixed(1)} • ADX ${adx.toFixed(1)} • distância ${atrDistance.toFixed(1)} ATR da MM20.`;
+  const metrics = "RSI " + rsi.toFixed(1) + " | ADX " + adx.toFixed(1) + " | distancia " + atrDistance.toFixed(1) + " ATR da MM20.";
+
   if (rsi >= 70 && divergence === "bearish") return {
-    status: "ALERTA DE EXAUSTÃO", summary: "Sobrecompra com divergência de baixa confirmada",
-    detail: `${metrics} O preço fez topo mais alto, mas o RSI perdeu força. Aguarde confirmação no preço.`,
+    status: "REVERSAO DE BAIXA",
+    summary: "VENDA: RSI esticado com divergencia de baixa confirmada",
+    detail: metrics + " Topo mais alto no preco e perda de forca no RSI: configuracao de reversao para venda.",
     tone: "negative", rsi, adx, atrDistance, divergence,
   };
   if (rsi <= 30 && divergence === "bullish") return {
-    status: "POSSÍVEL REAÇÃO", summary: "Sobrevenda com divergência de alta confirmada",
-    detail: `${metrics} O preço fez fundo mais baixo, mas o RSI ganhou força. Ainda exige confirmação no preço.`,
+    status: "REVERSAO DE ALTA",
+    summary: "COMPRA: RSI sobrevendido com divergencia de alta confirmada",
+    detail: metrics + " Fundo mais baixo no preco e ganho de forca no RSI: configuracao de reversao para compra.",
     tone: "positive", rsi, adx, atrDistance, divergence,
-  };
-  if (rsi >= 70 && strongTrend && uptrend) return {
-    status: "EXTREMO COM TENDÊNCIA", summary: "Sobrecompra sustentada por tendência forte",
-    detail: `${metrics} Evite interpretar o RSI alto isoladamente como sinal de venda.`,
-    tone: "positive", rsi, adx, atrDistance, divergence,
-  };
-  if (rsi <= 30 && strongTrend && !uptrend) return {
-    status: "EXTREMO COM TENDÊNCIA", summary: "Sobrevenda dentro de tendência forte de baixa",
-    detail: `${metrics} O ativo segue pressionado; RSI baixo sozinho não confirma fundo.`,
-    tone: "negative", rsi, adx, atrDistance, divergence,
   };
   if (rsi >= 70 || atrDistance >= 2) return {
-    status: stretched ? "PREÇO ESTICADO" : "SOBRECOMPRA",
-    summary: strongTrend ? "Movimento elevado, ainda com força de tendência" : "Extremo de alta em mercado sem tendência forte",
-    detail: `${metrics} Em tendência fraca, extremos têm maior chance de retornar à média.`,
-    tone: "warning", rsi, adx, atrDistance, divergence,
+    status: stretched ? "VENDA: PRECO ESTICADO" : "VENDA: RSI ESTICADO",
+    summary: "Possivel reversao de baixa",
+    detail: metrics + " Extremo de alta: leitura de venda orientada a reversao para a media.",
+    tone: "negative", rsi, adx, atrDistance, divergence,
   };
   if (rsi <= 30 || atrDistance <= -2) return {
-    status: stretched ? "PREÇO ESTICADO" : "SOBREVENDA",
-    summary: strongTrend ? "Movimento deprimido, ainda com força de tendência" : "Extremo de baixa em mercado sem tendência forte",
-    detail: `${metrics} Em tendência fraca, extremos têm maior chance de retornar à média.`,
-    tone: "warning", rsi, adx, atrDistance, divergence,
+    status: stretched ? "COMPRA: PRECO DEPRIMIDO" : "COMPRA: RSI SOBRE VENDIDO",
+    summary: "Possivel reversao de alta",
+    detail: metrics + " Extremo de baixa: leitura de compra orientada a reversao para a media.",
+    tone: "positive", rsi, adx, atrDistance, divergence,
   };
   if (divergence) {
     const bullish = divergence === "bullish";
     return {
-      status: bullish ? "DIVERGÊNCIA DE ALTA" : "DIVERGÊNCIA DE BAIXA",
-      summary: bullish ? "Momentum melhora apesar de novo fundo no preço" : "Momentum enfraquece apesar de novo topo no preço",
-      detail: `${metrics} A divergência usa somente pivôs já confirmados e funciona como alerta, não como entrada.`,
+      status: bullish ? "REVERSAO DE ALTA" : "REVERSAO DE BAIXA",
+      summary: bullish ? "Momentum melhora apesar de novo fundo no preco" : "Momentum enfraquece apesar de novo topo no preco",
+      detail: metrics + " Divergencia entre preco e RSI: configuracao de reversao " + (bullish ? "para compra." : "para venda."),
       tone: bullish ? "positive" : "negative", rsi, adx, atrDistance, divergence,
     };
   }
   return {
     status: "SEM EXTREMO",
-    summary: strongTrend ? `Tendência ${uptrend ? "de alta" : "de baixa"} com força` : "Preço e momentum dentro da faixa normal",
-    detail: `${metrics} Não há combinação suficiente para indicar exaustão neste período.`,
+    summary: "Preco e momentum dentro da faixa normal",
+    detail: metrics + " Sem configuracao de reversao neste periodo.",
     tone: "neutral", rsi, adx, atrDistance, divergence,
   };
 }
@@ -251,7 +243,11 @@ export function analyze(data: MarketData | null, now = Date.now()): Analysis | n
     ? Math.sign(trendDistance) * clamp((adx - 25) / 5, 0, 4)
     : 0;
   const divergenceAdjustment = divergence === "bullish" ? 4 : divergence === "bearish" ? -4 : 0;
-  const momentum = roundScore(clamp((rsi - 50) * 0.65 + regimeBoost + divergenceAdjustment, -16, 16));
+  const momentum = rsi >= 70
+    ? -roundScore(clamp((rsi - 70) * 0.8 - divergenceAdjustment, 0, 16))
+    : rsi <= 30
+      ? roundScore(clamp((30 - rsi) * 0.8 + divergenceAdjustment, 0, 16))
+      : roundScore(clamp((rsi - 50) * 0.65 + regimeBoost + divergenceAdjustment, -16, 16));
   const volume = roundScore(
     volRatio <= 1
       ? -6 * (1 - volRatio)

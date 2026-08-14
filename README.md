@@ -30,6 +30,6 @@ Abra `http://localhost:3000`.
 npm test
 ```
 
-## Aviso
+## Foco
 
-Ferramenta educacional. As leituras não constituem recomendação de investimento.
+Motor tecnico deterministico para operadores que avaliam sinais de compra, venda, fluxo e reversao.

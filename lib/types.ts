@@ -14,6 +14,8 @@ export type Candle = {
   low: number;
   close: number;
   volume: number;
+  /** Volume-base executado por compradores a mercado (campo 10 do kline Binance). */
+  takerBuyVolume?: number;
 };
 
 export type MarketData = {
@@ -73,6 +75,31 @@ export type Analysis = {
   change: number;
   extreme: ExtremeReading;
 };
+
+export type FlowReading = {
+  window: number;
+  buyVolume: number;
+  sellVolume: number;
+  buyShare: number;
+  deltaPercent: number;
+};
+
+export type ConfluenceRow = {
+  metric: string;
+  baseScore: number;
+  alignment: number;
+  status: "aligned" | "conflict" | "neutral";
+};
+
+export type ConfluenceReading = {
+  score: number;
+  confidence: number;
+  state: "BUY" | "SELL" | "NEUTRAL";
+  rsi: number;
+  flow: FlowReading;
+  rows: ConfluenceRow[];
+};
+
 export type NuplZoneKey =
   | "euphoria"
   | "belief"

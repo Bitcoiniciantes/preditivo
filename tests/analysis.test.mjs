@@ -108,13 +108,17 @@ test("ADX distingue tendência forte de mercado sem direção", () => {
   assert.equal(wilderAdx(flat), 0);
 });
 
-test("extremo de RSI em tendência forte não vira reversão automática", () => {
+test("RSI esticado aponta venda e RSI sobrevendido aponta compra", () => {
   const rising = analyze(marketFromCloses(Array.from({ length: 60 }, (_, index) => 100 + index)));
   const falling = analyze(marketFromCloses(Array.from({ length: 60 }, (_, index) => 200 - index)));
-  assert.equal(rising?.extreme.status, "EXTREMO COM TENDÊNCIA");
-  assert.equal(rising?.extreme.tone, "positive");
-  assert.equal(falling?.extreme.status, "EXTREMO COM TENDÊNCIA");
-  assert.equal(falling?.extreme.tone, "negative");
+
+  assert.equal(rising?.extreme.tone, "negative");
+  assert.match(rising?.extreme.status ?? "", /^VENDA/);
+  assert.ok((rising?.signals[2].score ?? 0) < 0);
+
+  assert.equal(falling?.extreme.tone, "positive");
+  assert.match(falling?.extreme.status ?? "", /^COMPRA/);
+  assert.ok((falling?.signals[2].score ?? 0) > 0);
 });
 
 test("Termômetro e painel de extremo usam o mesmo RSI de Wilder", () => {

@@ -85,7 +85,16 @@ function parseCandles(body: unknown): Candle[] {
     const values = row.slice(0, 6).map(Number);
     if (!values.every(Number.isFinite)) return [];
     const [time, open, high, low, close, volume] = values;
-    return [{ time, open, high, low, close, volume }];
+    const takerBuyVolume = Number(row[9]);
+    return [{
+      time,
+      open,
+      high,
+      low,
+      close,
+      volume,
+      ...(Number.isFinite(takerBuyVolume) ? { takerBuyVolume } : {}),
+    }];
   });
 
   if (candles.length < 55) throw new Error("Histórico de mercado insuficiente");

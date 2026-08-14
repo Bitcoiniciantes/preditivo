@@ -2,7 +2,13 @@ export type AlertBand = "FORA" | "COMPRA" | "COMPRA_FORTE";
 
 export type AlertTransition = "ENTRADA" | "FORTALECEU" | "ENFRAQUECEU" | "ENCERROU" | null;
 export type AlertPreference = "FORTES" | "TODOS" | "CAPITULACAO";
-export type AlertKind = "COMPRA" | "COMPRA_FORTE" | "SAIDA_COMPRA" | "SAIDA_FORTE" | "CAPITULACAO";
+export type AlertKind =
+  | "COMPRA"
+  | "COMPRA_FORTE"
+  | "SAIDA_COMPRA"
+  | "SAIDA_FORTE"
+  | "CAPITULACAO"
+  | "BTC_COMPRA";
 export type SubscriberCommand =
   | "START"
   | "STOP"
@@ -80,7 +86,7 @@ export function alertKind(
 }
 
 export function shouldDeliverAlert(preference: AlertPreference, kind: AlertKind) {
-  if (kind === "CAPITULACAO") return true;
+  if (kind === "CAPITULACAO" || kind === "BTC_COMPRA") return true;
   if (preference === "CAPITULACAO") return false;
   if (preference === "TODOS") return true;
   return kind === "COMPRA_FORTE" || kind === "SAIDA_FORTE";

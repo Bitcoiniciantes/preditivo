@@ -221,7 +221,7 @@ export default function AiAnalysisCard({
           {error && <small className="aiError" role="alert">{retryAfter > 0 ? `Limite temporário da API atingido. Aguarde ${retryAfter}s.` : error}</small>}
         </div>
       )}
-      <p className="aiDisclaimer">Conteúdo educacional gerado por IA. Não constitui recomendação financeira.</p>
+      <p className="aiDisclaimer">Leitura quantitativa gerada por IA para analise de mercado.</p>
     </article>
   );
 }
