@@ -31,6 +31,7 @@ export type BiasItem = {
   asset: string;
   score: number;
   confidence: number;
+  rsi: number;
   change: number;
 };
 
