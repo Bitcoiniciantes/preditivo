@@ -73,14 +73,16 @@ export default function ConfluencePanel({
         </div>
       </> : <div className="nexusFlowUnavailable">{"Fluxo comprador/vendedor n\u00e3o fornecido pela fonte."}</div>}
       <div className="nexusMatrix">
-        {data.rows.map((row) => (
-          <div key={row.metric} className={[row.status, row.baseScore > 0 ? "buyer" : row.baseScore < 0 ? "seller" : "neutral"].join(" ")}>
-            <b>{row.metric}</b>
+        {data.rows.map((row) => {
+          const ringTone = row.alignment > 0 ? "#70efaa" : row.alignment < 0 ? "#ff7885" : "#c9a64b";
+          const ringDegrees = Math.min(100, Math.abs(row.alignment)) * 3.6;
+          return <div key={row.metric} className={[row.status, row.baseScore > 0 ? "buyer" : row.baseScore < 0 ? "seller" : "neutral"].join(" ")}>
+            <div className="nexusMetricHead"><b>{row.metric}</b><span className="nexusMiniRing" style={{ background: `conic-gradient(${ringTone} 0deg ${ringDegrees}deg, #47534d ${ringDegrees}deg 360deg)` }} aria-label={`Força ${signed(row.alignment)}`}><i>{row.alignment === 0 ? "=" : signed(row.alignment)}</i></span></div>
             <span>{row.status === "aligned" ? "CONFIRMA" : row.status === "conflict" ? "CONFLITA" : "NEUTRO"}</span>
             <strong>{row.alignment === 0 ? "EMPATE" : signed(row.alignment)}</strong>
             <small>{"NOTA BASE "}{signed(row.baseScore)}</small>
-          </div>
-        ))}
+          </div>;
+        })}
       </div>
       <p>{"Leitura atual de "}{asset}{" no per\u00edodo "}{period}{data.flow ? ". Cada m\u00e9trica \u00e9 confrontada com o RSI e o volume agressor real." : ". Leitura parcial: m\u00e9tricas e RSI ativos; fluxo agressor indispon\u00edvel."}{" O NEXUS \u00e9 contexto separado e n\u00e3o altera a nota principal."}</p>
     </article>
