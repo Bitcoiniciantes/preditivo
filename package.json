@@ -9,7 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node --test tests/rendered-html.test.mjs tests/analysis.test.mjs tests/bitcoin-buy.test.mjs tests/confluence.test.mjs tests/chart.test.mjs tests/live-price.test.mjs",
+    "test": "node --test tests/rendered-html.test.mjs tests/analysis.test.mjs tests/bitcoin-buy.test.mjs tests/confluence.test.mjs tests/chart.test.mjs tests/live-price.test.mjs tests/positions.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "audit:scores": "node scripts/audit-score-distribution.mjs",
     "build:pages": "next build"
