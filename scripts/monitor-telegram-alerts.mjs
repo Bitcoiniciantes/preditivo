@@ -29,7 +29,7 @@ const baseAssets = [
   { asset: "AVAX", period: "15M", source: "binance" },
   { asset: "PAXG", period: "15M", source: "binance" },
   { asset: "MSTR", period: "1H", source: "static", file: "mstr" },
-  { asset: "SPCX", period: "1H", source: "static", file: "spcx" },
+  { asset: "SPCX", period: "1H", source: "static", file: "spcx", availablePeriods: ["15M", "1H", "4H"] },
   { asset: "QBTS", period: "1H", source: "static", file: "qbts" },
   { asset: "BRENT", period: "1H", source: "static", file: "brent" },
   { asset: "PRATA", period: "1H", source: "static", file: "prata" },
@@ -37,7 +37,7 @@ const baseAssets = [
   { asset: "URÂNIO", marketAsset: "URANIO", period: "1H", source: "static", file: "uranio" },
 ];
 const assets = baseAssets.flatMap((config) =>
-  monitoredPeriods.map((period) => ({ ...config, period, primary: period === config.period })),
+  (config.availablePeriods ?? monitoredPeriods).map((period) => ({ ...config, period, primary: period === config.period })),
 );
 
 function finiteCandle(row) {
