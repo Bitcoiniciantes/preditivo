@@ -66,10 +66,11 @@ export default function ConfluencePanel({
       </div>
       <div className="nexusMatrix">
         {data.rows.map((row) => (
-          <div key={row.metric} className={[row.status, row.alignment > 0 ? "buyer" : row.alignment < 0 ? "seller" : "neutral"].join(" ")}>
+          <div key={row.metric} className={[row.status, row.baseScore > 0 ? "buyer" : row.baseScore < 0 ? "seller" : "neutral"].join(" ")}>
             <b>{row.metric}</b>
             <span>{row.status === "aligned" ? "CONFIRMA" : row.status === "conflict" ? "CONFLITA" : "NEUTRO"}</span>
-            <strong>{signed(row.alignment)}</strong>
+            <strong>{row.alignment === 0 ? "EMPATE" : signed(row.alignment)}</strong>
+            <small>{"NOTA BASE "}{signed(row.baseScore)}</small>
           </div>
         ))}
       </div>
