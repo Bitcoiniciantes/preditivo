@@ -26,6 +26,7 @@ export default function PositionPanel({ asset, currentPrice, assets }: { asset: 
   const [positions, setPositions] = useState<StoredPosition[]>([]);
   const [ready, setReady] = useState(false);
   const [positionAsset, setPositionAsset] = useState(asset);
+  const [formOpen, setFormOpen] = useState(false);
   const [side, setSide] = useState<PositionSide>("LONG");
   const [averagePrice, setAveragePrice] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -89,18 +90,19 @@ export default function PositionPanel({ asset, currentPrice, assets }: { asset: 
     const size = Number(quantity.replace(",", "."));
     if (!Number.isFinite(entry) || entry <= 0 || !Number.isFinite(size) || size <= 0) return;
     changePositions((current) => [...current, { id: positionAsset + "-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8), asset: positionAsset, side, averagePrice: entry, quantity: size }]);
-    setAveragePrice(""); setQuantity("");
+    setAveragePrice(""); setQuantity(""); setFormOpen(false);
   };
 
   return <article className="card positionPanel">
-    <div className="cardTitle positionTitle"><div><span>{"POSI\u00c7\u00d5ES EM ABERTO \u2022 TODOS OS ATIVOS"}</span><b>{"Controle de compra e venda"}</b></div><span className="positionQuote">{ready ? "SINCRONIZADO • " : "SINCRONIZANDO • "}{positions.length} POSIÇÃO(ÕES)</span></div>
-    <div className="positionForm">
+    <div className="cardTitle positionTitle"><div><span>{"POSI\u00c7\u00d5ES EM ABERTO \u2022 TODOS OS ATIVOS"}</span></div><span className="positionQuote">{positions.length}{" POSI\u00c7\u00c3O(\u00d5ES)"}</span></div>
+    <div className="positionActions"><button type="button" className="positionToggle" onClick={() => setFormOpen((open) => !open)} aria-expanded={formOpen}>{formOpen ? "CANCELAR" : "+ INCLUIR"}</button></div>
+    {formOpen && <div className="positionForm">
       <label><span>ATIVO</span><select value={positionAsset} onChange={(event) => setPositionAsset(event.target.value)}>{positionAssets.map((item) => <option key={item} value={item}>{displayAsset(item)}</option>)}</select></label>
       <label><span>C/V</span><select value={side} onChange={(event) => setSide(event.target.value as PositionSide)}><option value="LONG">C</option><option value="SHORT">V</option></select></label>
       <label><span>{"PRE\u00c7O M\u00c9DIO"}</span><input value={averagePrice} onChange={(event) => setAveragePrice(event.target.value)} inputMode="decimal" placeholder="0,00" aria-label="Pre\u00e7o m\u00e9dio" /></label>
       <label><span>QTDE</span><input value={quantity} onChange={(event) => setQuantity(event.target.value)} inputMode="decimal" placeholder="0,00" aria-label="Quantidade" /></label>
-      <button type="button" onClick={addPosition}>+ INCLUIR</button>
-    </div>
+      <button type="button" onClick={addPosition}>CONFIRMAR</button>
+    </div>}
     {positions.length ? <div className="positionList"><div className="positionHead"><span>ATIVO</span><span>C/V</span><span>ATUAL</span><span>{"M\u00c9DIO"}</span><span>QTDE</span><span>BRUTO</span></div>{positions.map((position) => {
       const currency = currencyFor(position.asset);
       const price = position.asset === asset && currentPrice ? currentPrice : prices[position.asset];
