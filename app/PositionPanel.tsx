@@ -35,8 +35,8 @@ export default function PositionPanel({ asset, assetLabel, currency, currentPric
   return <article className="card positionPanel">
     <div className="cardTitle positionTitle"><div><span>{"POSI\u00c7\u00d5ES EM ABERTO \u2022 "}{assetLabel}</span><b>{"Controle de compra e venda"}</b></div><span className="positionQuote">{currentPrice ? money(currentPrice) : "COTA\u00c7\u00c3O INDISPON\u00cdVEL"}</span></div>
     <div className="positionForm">
-      <label><span>POSI\u00c7\u00c3O</span><select value={side} onChange={(event) => setSide(event.target.value as PositionSide)}><option value="LONG">COMPRADO</option><option value="SHORT">VENDIDO</option></select></label>
-      <label><span>PRE\u00c7O M\u00c9DIO</span><input value={averagePrice} onChange={(event) => setAveragePrice(event.target.value)} inputMode="decimal" placeholder="0,00" aria-label="Pre\u00e7o m\u00e9dio" /></label>
+      <label><span>{"POSI\u00c7\u00c3O"}</span><select value={side} onChange={(event) => setSide(event.target.value as PositionSide)}><option value="LONG">COMPRADO</option><option value="SHORT">VENDIDO</option></select></label>
+      <label><span>{"PRE\u00c7O M\u00c9DIO"}</span><input value={averagePrice} onChange={(event) => setAveragePrice(event.target.value)} inputMode="decimal" placeholder="0,00" aria-label="Pre\u00e7o m\u00e9dio" /></label>
       <label><span>QUANTIDADE</span><input value={quantity} onChange={(event) => setQuantity(event.target.value)} inputMode="decimal" placeholder="0,00" aria-label="Quantidade" /></label>
       <button type="button" onClick={addPosition} disabled={!currentPrice}>+ INCLUIR</button>
     </div>
@@ -44,7 +44,7 @@ export default function PositionPanel({ asset, assetLabel, currency, currentPric
       const result = currentPrice ? calculatePosition({ ...position, currentPrice }) : null;
       const positive = (result?.grossPnl ?? 0) >= 0;
       const output = result ? (result.grossPnl >= 0 ? "+" : "") + money(result.grossPnl) + " (" + (result.grossPercent >= 0 ? "+" : "") + result.grossPercent.toFixed(2) + "%)" : "AGUARDANDO COTA\u00c7\u00c3O";
-      return <div className={"positionRow " + (position.side === "LONG" ? "long" : "short")} key={position.id}><div><span>{position.side === "LONG" ? "COMPRADO" : "VENDIDO"}</span><b>{assetLabel}</b></div><div><span>PRE\u00c7O M\u00c9DIO</span><b>{money(position.averagePrice)}</b></div><div><span>QUANTIDADE</span><b>{position.quantity.toLocaleString("pt-BR", { maximumFractionDigits: 8 })}</b></div><div className={positive ? "profit" : "loss"}><span>RESULTADO BRUTO</span><b>{output}</b></div><button type="button" onClick={() => setPositions((current) => current.filter((item) => item.id !== position.id))} aria-label={"Remover posi\u00e7\u00e3o de " + assetLabel}>\u00d7</button></div>;
+      return <div className={"positionRow " + (position.side === "LONG" ? "long" : "short")} key={position.id}><div><span>{position.side === "LONG" ? "COMPRADO" : "VENDIDO"}</span><b>{assetLabel}</b></div><div><span>{"PRE\u00c7O M\u00c9DIO"}</span><b>{money(position.averagePrice)}</b></div><div><span>QUANTIDADE</span><b>{position.quantity.toLocaleString("pt-BR", { maximumFractionDigits: 8 })}</b></div><div className={positive ? "profit" : "loss"}><span>RESULTADO BRUTO</span><b>{output}</b></div><button type="button" onClick={() => setPositions((current) => current.filter((item) => item.id !== position.id))} aria-label={"Remover posi\u00e7\u00e3o de " + assetLabel}>{"\u00d7"}</button></div>;
     })}</div> : <p className="positionEmpty">{"Nenhuma posi\u00e7\u00e3o registrada para "}{assetLabel}{". Os dados ficam salvos somente neste navegador."}</p>}
     <p className="positionNote">{"Resultado bruto pela cota\u00e7\u00e3o atual. Taxas, financiamento e custos da corretora n\u00e3o est\u00e3o inclu\u00eddos."}</p>
   </article>;
