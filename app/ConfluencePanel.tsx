@@ -53,8 +53,8 @@ export default function ConfluencePanel({
             <small className={flowTone}>Delta {data.flow.deltaPercent > 0 ? "+" : ""}{data.flow.deltaPercent.toFixed(1)}%</small>
           </> : <>
             <span>FLUXO AGRESSOR</span>
-            <b className="neutral">INDISPON\u00cdVEL</b>
-            <small>RSI e m\u00e9tricas continuam ativos</small>
+            <b className="neutral">{"INDISPON\u00cdVEL"}</b>
+            <small>{"RSI e m\u00e9tricas continuam ativos"}</small>
           </>}
         </div>
         <div>
@@ -71,7 +71,7 @@ export default function ConfluencePanel({
           <span>VENDA {(100 - data.flow.buyShare * 100).toFixed(1)}%</span>
           <span>COMPRA {(data.flow.buyShare * 100).toFixed(1)}%</span>
         </div>
-      </> : <div className="nexusFlowUnavailable">Fluxo comprador/vendedor n\u00e3o fornecido pela fonte.</div>}
+      </> : <div className="nexusFlowUnavailable">{"Fluxo comprador/vendedor n\u00e3o fornecido pela fonte."}</div>}
       <div className="nexusMatrix">
         {data.rows.map((row) => (
           <div key={row.metric} className={[row.status, row.baseScore > 0 ? "buyer" : row.baseScore < 0 ? "seller" : "neutral"].join(" ")}>
