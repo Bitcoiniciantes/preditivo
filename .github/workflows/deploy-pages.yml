@@ -26,6 +26,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm test
+      - run: npm run lint
       - run: node scripts/update-market-data.mjs
       - run: npm run build:pages
       - uses: actions/configure-pages@v5
