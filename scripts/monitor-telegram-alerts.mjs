@@ -216,7 +216,7 @@ function preferenceLabel(preference) {
 
 function welcomeMessage(preference = DEFAULT_PREFERENCE, movement4 = false) {
   return [
-    "✅ ALERTAS DO TERMÔMETRO ATIVADOS",
+    "TERM\u00d4METRO PREDITIVO",
     "",
     `Seu modo: ${preferenceLabel(preference)}.`,
     `Movimento de 4% do BTC: ${movement4 ? "ativado" : "desativado"}.`,
@@ -885,7 +885,7 @@ async function main() {
     delivery = await broadcast(
       state,
       [
-        "✅ BOT PARA AMIGOS ATIVADO",
+        "TERM\u00d4METRO PREDITIVO",
         "",
         `${successful} de ${assets.length} ativos verificados.`,
         "",
