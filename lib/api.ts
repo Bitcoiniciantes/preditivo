@@ -116,9 +116,10 @@ function parseStaticSnapshot(body: unknown): StaticSnapshot {
 }
 
 function staticBasePath() {
-  return typeof window !== "undefined" && window.location.pathname.startsWith("/termometro")
-    ? "/termometro"
-    : "";
+  if (typeof window === "undefined") return "";
+  if (window.location.pathname.startsWith("/preditivo")) return "/preditivo";
+  if (window.location.pathname.startsWith("/termometro")) return "/termometro";
+  return "";
 }
 
 async function fetchStaticSnapshot(

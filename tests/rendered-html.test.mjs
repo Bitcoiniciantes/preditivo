@@ -51,6 +51,7 @@ test("inclui ativos pré-cadastrados com fonte gratuita separada", async () => {
     readFile(new URL("../.github/workflows/deploy-pages.yml", import.meta.url), "utf8"),
   ]);
   assert.match(api, /fetchStaticAsset/);
+  assert.match(api, /pathname\.startsWith\("\/preditivo"\)[\s\S]*?"\/preditivo"/);
   assert.match(config, /PRATA/);
   assert.match(config, /COBRE/);
   assert.match(config, /URÂNIO/);
