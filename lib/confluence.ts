@@ -52,15 +52,16 @@ export function buildConfluence(
 ): ConfluenceReading | null {
   if (!analysis) return null;
   const flow = aggressorFlow(market, 5, now);
-  if (!flow) return null;
 
   const rsi = multiRsi?.general ?? analysis.extreme.rsi;
   const rsiDirection = direction(rsi - 50, 5);
-  const flowDirection = direction(flow.deltaPercent, 6);
+  const flowDirection = flow ? direction(flow.deltaPercent, 6) : 0;
   const scoringSignals = analysis.signals.filter((signal) => !signal.context);
   const rows = scoringSignals.map((signal) => {
     const metricDirection = direction(signal.score);
-    const votes = [metricDirection, rsiDirection, flowDirection];
+    const votes = flow
+      ? [metricDirection, rsiDirection, flowDirection]
+      : [metricDirection, rsiDirection];
     const alignment = Math.round(
       votes.reduce((sum, vote) => sum + vote, 0) / votes.length * 100,
     );
@@ -79,7 +80,7 @@ export function buildConfluence(
   });
 
   const score = Math.round(clamp(
-    analysis.score * 0.55 + (rsi - 50) * 0.8 + flow.deltaPercent * 0.65,
+    analysis.score * 0.55 + (rsi - 50) * 0.8 + (flow?.deltaPercent ?? 0) * 0.65,
     -100,
     100,
   ));
@@ -91,7 +92,7 @@ export function buildConfluence(
 
   return {
     score,
-    confidence: Math.round(45 + agreement * 45),
+    confidence: Math.round((flow ? 45 : 35) + agreement * 45),
     state: score >= 20 ? "BUY" : score <= -20 ? "SELL" : "NEUTRAL",
     rsi,
     flow,

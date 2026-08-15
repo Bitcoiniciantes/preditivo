@@ -98,7 +98,7 @@ export type ConfluenceReading = {
   confidence: number;
   state: "BUY" | "SELL" | "NEUTRAL";
   rsi: number;
-  flow: FlowReading;
+  flow: FlowReading | null;
   rows: ConfluenceRow[];
 };
 

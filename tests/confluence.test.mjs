@@ -55,3 +55,16 @@ test("cruza as cinco m�tricas da nota com RSI e fluxo", () => {
   assert.equal(nexus.state, "BUY");
   assert.ok(nexus.rows.every((row) => Number.isFinite(row.alignment)));
 });
+
+test("mantem o NEXUS parcial quando so o RSI esta disponivel", () => {
+  const market = marketWithFlow(undefined);
+  const analysis = analyze(market);
+  assert.ok(analysis);
+  const nexus = buildConfluence(market, analysis, {
+    rows: [], general: 47, previousGeneral: 45, bullCount: 2, bearCount: 4, signal: "BAIXA",
+  });
+  assert.ok(nexus);
+  assert.equal(nexus.flow, null);
+  assert.equal(nexus.rsi, 47);
+  assert.equal(nexus.rows.length, 5);
+});

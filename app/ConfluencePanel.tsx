@@ -31,7 +31,7 @@ export default function ConfluencePanel({
 
   const signed = (value: number) => (value > 0 ? "+" : "") + value;
   const tone = data.state === "BUY" ? "buy" : data.state === "SELL" ? "sell" : "neutral";
-  const flowTone = data.flow.deltaPercent >= 6 ? "buyer" : data.flow.deltaPercent <= -6 ? "seller" : "neutral";
+  const flowTone = !data.flow ? "neutral" : data.flow.deltaPercent >= 6 ? "buyer" : data.flow.deltaPercent <= -6 ? "seller" : "neutral";
   const rsiTone = data.rsi >= 55 ? "buyer" : data.rsi <= 45 ? "seller" : "neutral";
   const title = data.state === "BUY"
     ? "PRESS\u00c3O COMPRADORA"
@@ -47,9 +47,15 @@ export default function ConfluencePanel({
       </div>
       <div className="nexusPulse">
         <div>
-          <span>{"FLUXO AGRESSOR \u2022 "}{data.flow.window} CANDLES</span>
-          <b className={flowTone}>{(data.flow.buyShare * 100).toFixed(1)}% compra</b>
-          <small className={flowTone}>Delta {data.flow.deltaPercent > 0 ? "+" : ""}{data.flow.deltaPercent.toFixed(1)}%</small>
+          {data.flow ? <>
+            <span>{"FLUXO AGRESSOR \u2022 "}{data.flow.window} CANDLES</span>
+            <b className={flowTone}>{(data.flow.buyShare * 100).toFixed(1)}% compra</b>
+            <small className={flowTone}>Delta {data.flow.deltaPercent > 0 ? "+" : ""}{data.flow.deltaPercent.toFixed(1)}%</small>
+          </> : <>
+            <span>FLUXO AGRESSOR</span>
+            <b className="neutral">INDISPON\u00cdVEL</b>
+            <small>RSI e m\u00e9tricas continuam ativos</small>
+          </>}
         </div>
         <div>
           <span>RSI CRUZADO</span>
@@ -57,13 +63,15 @@ export default function ConfluencePanel({
           <small>{"Confian\u00e7a "}{data.confidence}%</small>
         </div>
       </div>
-      <div className="nexusFlow" aria-label={"Compra " + (data.flow.buyShare * 100).toFixed(1) + " por cento"}>
-        <i style={{ width: (data.flow.buyShare * 100) + "%" }} />
-      </div>
-      <div className="nexusLegend">
-        <span>VENDA {(100 - data.flow.buyShare * 100).toFixed(1)}%</span>
-        <span>COMPRA {(data.flow.buyShare * 100).toFixed(1)}%</span>
-      </div>
+      {data.flow ? <>
+        <div className="nexusFlow" aria-label={"Compra " + (data.flow.buyShare * 100).toFixed(1) + " por cento"}>
+          <i style={{ width: (data.flow.buyShare * 100) + "%" }} />
+        </div>
+        <div className="nexusLegend">
+          <span>VENDA {(100 - data.flow.buyShare * 100).toFixed(1)}%</span>
+          <span>COMPRA {(data.flow.buyShare * 100).toFixed(1)}%</span>
+        </div>
+      </> : <div className="nexusFlowUnavailable">Fluxo comprador/vendedor n\u00e3o fornecido pela fonte.</div>}
       <div className="nexusMatrix">
         {data.rows.map((row) => (
           <div key={row.metric} className={[row.status, row.baseScore > 0 ? "buyer" : row.baseScore < 0 ? "seller" : "neutral"].join(" ")}>
@@ -74,7 +82,7 @@ export default function ConfluencePanel({
           </div>
         ))}
       </div>
-      <p>{"Leitura atual de "}{asset}{" no per\u00edodo "}{period}{". Cada m\u00e9trica \u00e9 confrontada com o RSI e o volume agressor real. O NEXUS \u00e9 contexto separado e n\u00e3o altera a nota principal."}</p>
+      <p>{"Leitura atual de "}{asset}{" no per\u00edodo "}{period}{data.flow ? ". Cada m\u00e9trica \u00e9 confrontada com o RSI e o volume agressor real." : ". Leitura parcial: m\u00e9tricas e RSI ativos; fluxo agressor indispon\u00edvel."}{" O NEXUS \u00e9 contexto separado e n\u00e3o altera a nota principal."}</p>
     </article>
   );
 }
