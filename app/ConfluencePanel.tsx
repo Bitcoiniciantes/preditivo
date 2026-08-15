@@ -31,6 +31,8 @@ export default function ConfluencePanel({
 
   const signed = (value: number) => (value > 0 ? "+" : "") + value;
   const tone = data.state === "BUY" ? "buy" : data.state === "SELL" ? "sell" : "neutral";
+  const flowTone = data.flow.deltaPercent >= 6 ? "buyer" : data.flow.deltaPercent <= -6 ? "seller" : "neutral";
+  const rsiTone = data.rsi >= 55 ? "buyer" : data.rsi <= 45 ? "seller" : "neutral";
   const title = data.state === "BUY"
     ? "PRESS\u00c3O COMPRADORA"
     : data.state === "SELL"
@@ -46,12 +48,12 @@ export default function ConfluencePanel({
       <div className="nexusPulse">
         <div>
           <span>{"FLUXO AGRESSOR \u2022 "}{data.flow.window} CANDLES</span>
-          <b>{(data.flow.buyShare * 100).toFixed(1)}% compra</b>
-          <small>Delta {data.flow.deltaPercent > 0 ? "+" : ""}{data.flow.deltaPercent.toFixed(1)}%</small>
+          <b className={flowTone}>{(data.flow.buyShare * 100).toFixed(1)}% compra</b>
+          <small className={flowTone}>Delta {data.flow.deltaPercent > 0 ? "+" : ""}{data.flow.deltaPercent.toFixed(1)}%</small>
         </div>
         <div>
           <span>RSI CRUZADO</span>
-          <b>{data.rsi.toFixed(1)}</b>
+          <b className={rsiTone}>{data.rsi.toFixed(1)}</b>
           <small>{"Confian\u00e7a "}{data.confidence}%</small>
         </div>
       </div>
@@ -64,7 +66,7 @@ export default function ConfluencePanel({
       </div>
       <div className="nexusMatrix">
         {data.rows.map((row) => (
-          <div key={row.metric} className={row.status}>
+          <div key={row.metric} className={[row.status, row.alignment > 0 ? "buyer" : row.alignment < 0 ? "seller" : "neutral"].join(" ")}>
             <b>{row.metric}</b>
             <span>{row.status === "aligned" ? "CONFIRMA" : row.status === "conflict" ? "CONFLITA" : "NEUTRO"}</span>
             <strong>{signed(row.alignment)}</strong>
