@@ -15,6 +15,8 @@ import {
 
 type AnalysisSource = "local" | "groq" | "mimo" | "gemini" | "cache" | null;
 
+const NEWS_REFRESH_MS = 5 * 60_000;
+
 function formatNewsDate(value: string | null) {
   if (!value) return "";
   const date = new Date(value);
@@ -93,15 +95,20 @@ export default function AiAnalysisCard({
 
 
   useEffect(() => {
-    const controller = new AbortController();
-    setNewsLoading(true);
-    setNewsError(false);
-    setNews(null);
-    fetchAssetNews(payload.asset, controller.signal)
-      .then(result => { if (!controller.signal.aborted) setNews(result); })
-      .catch(() => { if (!controller.signal.aborted) setNewsError(true); })
-      .finally(() => { if (!controller.signal.aborted) setNewsLoading(false); });
-    return () => controller.abort();
+    let controller: AbortController | null = null;
+    const loadNews = () => {
+      controller?.abort();
+      controller = new AbortController();
+      setNewsLoading(true);
+      setNewsError(false);
+      fetchAssetNews(payload.asset, controller.signal)
+        .then(result => { if (!controller?.signal.aborted) setNews(result); })
+        .catch(() => { if (!controller?.signal.aborted) setNewsError(true); })
+        .finally(() => { if (!controller?.signal.aborted) setNewsLoading(false); });
+    };
+    loadNews();
+    const timer = window.setInterval(loadNews, NEWS_REFRESH_MS);
+    return () => { window.clearInterval(timer); controller?.abort(); };
   }, [payload.asset]);
 
   const generate = async (force = false) => {
