@@ -14,7 +14,7 @@ export default function ConfluencePanel({
   if (loading) {
     return (
       <article className="card nexus nexusEmpty">
-        <div className="cardTitle"><div><span>{"NEXUS \u2022 "}{asset}{" \u2022 "}{period}</span><b>{"Cruzando m\u00e9tricas, RSI e fluxo"}</b></div></div>
+        <div className="cardTitle"><div><span className="nexusIdentity">NEXUS • <strong>{asset} • {period}</strong></span><b>{"Cruzando m\u00e9tricas, RSI e fluxo"}</b></div></div>
         <p>{"Processando candles conclu\u00eddos."}</p>
       </article>
     );
@@ -23,7 +23,7 @@ export default function ConfluencePanel({
   if (!data) {
     return (
       <article className="card nexus nexusEmpty">
-        <div className="cardTitle"><div><span>{"NEXUS \u2022 "}{asset}{" \u2022 "}{period}</span><b>{"Fluxo agressor indispon\u00edvel"}</b></div></div>
+        <div className="cardTitle"><div><span className="nexusIdentity">NEXUS • <strong>{asset} • {period}</strong></span><b>{"Fluxo agressor indispon\u00edvel"}</b></div></div>
         <p>{"Este ativo n\u00e3o fornece a separa\u00e7\u00e3o entre compras e vendas a mercado. Nenhuma estimativa foi criada."}</p>
       </article>
     );
@@ -42,7 +42,7 @@ export default function ConfluencePanel({
   return (
     <article className={["card", "nexus", tone].join(" ")}>
       <div className="cardTitle">
-        <div><span>{"NEXUS \u2022 "}{asset}{" \u2022 "}{period}</span><b>{title}</b></div>
+        <div><span className="nexusIdentity">NEXUS • <strong>{asset} • {period}</strong></span><b>{title}</b></div>
         <span className="nexusScore">{signed(data.score)}</span>
       </div>
       <div className="nexusPulse">
