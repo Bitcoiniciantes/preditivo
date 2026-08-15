@@ -1,0 +1,1 @@
+A manutenção automática atualiza este arquivo duas vezes por mês para manter as agendas do GitHub ativas.
