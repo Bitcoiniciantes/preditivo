@@ -399,7 +399,7 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 .biasSide{min-height:18px;color:#b7c0bc;font-size:12px!important;letter-spacing:.1em;text-align:center}
 .biasItem.compra .biasSide{color:var(--lime)}.biasItem.venda .biasSide{color:var(--red)}.biasItem.neutro-alta .biasSide,.biasItem.neutro-baixa .biasSide{color:#c39a45}.biasSide em{display:inline-block;margin-left:4px;font:900 5mm/0.7 "Arial Black",Arial,sans-serif;text-shadow:.35px 0 currentColor,-.35px 0 currentColor;vertical-align:-1px}.biasSide em:empty{display:none}.biasItem.sem-dados .biasSide{color:#718079}
 .biasItem.selected .biasGauge{box-shadow:inset 0 0 0 1px #ffffff0c}.biasItem.selected .biasRank{color:var(--lime)!important}.biasItem.selected .biasSelect>b:after{display:none}
-.biasSelect>i{display:none}.biasRemove{top:5px;right:5px}
+.biasSelect>i{display:none}.biasRemove{top:8px;right:auto;left:8px}
 @media(max-width:650px){.workspaceMain .biasList{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
 @media(max-width:520px){.biasList{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.biasSelect{min-height:135px!important;padding:10px 4px!important}.biasGauge{width:102.6px;height:102.6px}.biasGauge:before{inset:9px}.biasGauge strong{font-size:29px}.biasGauge b{font-size:11.7px;margin-top:5px}.biasSide{font-size:10.5px!important}.biasRank{top:4px;left:5px;font-size:8px!important}}
 /* Seletor de período replicado junto ao gráfico; o NUPL permanece independente. */
