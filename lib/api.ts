@@ -6,7 +6,7 @@ import type { Candle, MarketData, MultiRsi, NuplReading, StaticSnapshot } from "
 
 const REQUEST_TIMEOUT_MS = 8_000;
 const RETRY_DELAYS_MS = [500, 1_500];
-const NUPL_URL = "https://bitcoiniciantes.github.io/estudebitcoin/dados/nupl.json";
+const NUPL_URL = "https://estudebitcoin.pages.dev/dados/nupl.json";
 const STOCK_WORKER_URL = "https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/candles";
 
 function abortableDelay(milliseconds: number, signal?: AbortSignal) {
@@ -299,3 +299,4 @@ export async function fetchMultiRsi(
     signal: signalText,
   };
 }
+

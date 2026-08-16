@@ -10,6 +10,17 @@ Painel técnico para leitura de criptoativos e ativos selecionados. O site públ
 - Atualiza fatos relevantes por meio do Worker `bitcoiniciantes-ia`; a tela renova as notícias a cada cinco minutos.
 - Envia alertas do Telegram conforme os sinais e preferências dos assinantes.
 
+## Publicação no Cloudflare Pages
+
+Para publicar este projeto no Cloudflare Pages:
+
+- Branch de produção: `main`
+- Framework preset: `Next.js (Static HTML Export)` ou `None`
+- Build command: `npm run build`
+- Build output directory: `out`
+- Root directory: `/`
+
+O `next.config.ts` já está configurado para exportação estática. No Cloudflare Pages, o site usa a raiz do domínio, sem o prefixo `/preditivo` usado no GitHub Pages.
 ## Publicação e atualização
 
 O workflow `.github/workflows/deploy-pages.yml` publica o site ao receber alterações na `main` e atualiza os dados de mercado em dias úteis, das 13h às 22h UTC, a cada 15 minutos.
