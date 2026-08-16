@@ -17,6 +17,8 @@ export const staticAssets: Record<string, { file: string; currency: string }> = 
   URANIO: { file: "uranio", currency: "USD" },
 };
 
+export const marketSymbols: Record<string, string> = { PRATA: "SI=F", COBRE: "HG=F", URANIO: "URNM" };
+
 const displayNames: Record<string, string> = {
   PRATA: "PRATA",
   COBRE: "COBRE",

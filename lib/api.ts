@@ -1,4 +1,4 @@
-import { displayAsset, intervals, rsiPeriods, staticAssets } from "./config";
+import { displayAsset, intervals, marketSymbols, rsiPeriods, staticAssets } from "./config";
 import { wilderRsi } from "./analysis";
 import { mapSettledWithConcurrency } from "./concurrency";
 import { latestNuplReading } from "./nupl";
@@ -163,7 +163,15 @@ export async function fetchMarket(
   period: string,
   signal?: AbortSignal,
 ): Promise<MarketData> {
-  if (staticAssets[asset]) return fetchStaticAsset(asset, period, signal);
+  if (staticAssets[asset]) {
+    const symbol = marketSymbols[asset] ?? asset;
+    try {
+      const live = await fetchLiveStockMarket(symbol, period, signal);
+      return { ...live, asset, pair: `${asset}/${staticAssets[asset].currency}` };
+    } catch {
+      return fetchStaticAsset(asset, period, signal);
+    }
+  }
   const symbol = `${asset}USDT`;
   const url =
     `https://data-api.binance.vision/api/v3/klines?symbol=${symbol}` +
@@ -236,10 +244,12 @@ export async function fetchMultiRsi(
     : null;
   const settled = await mapSettledWithConcurrency(rsiPeriods, 3, async (config) => {
     let candles: Candle[];
-    if (staticSnapshot) {
-      candles = staticSnapshot.periods[config.period] ?? [];
-    } else if (staticAssets[asset]) {
-      candles = (await fetchStaticAsset(asset, config.period, signal)).candles;
+    if (staticAssets[asset]) {
+      try {
+        candles = (await fetchLiveStockMarket(marketSymbols[asset] ?? asset, config.period, signal)).candles;
+      } catch {
+        candles = staticSnapshot?.periods[config.period] ?? (await fetchStaticAsset(asset, config.period, signal)).candles;
+      }
     } else {
       candles = await loadBinanceOrStockCandles(asset, config, signal);
     }
