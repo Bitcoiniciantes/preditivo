@@ -69,3 +69,5 @@ A correção deve ser enviada para a branch `main`; o GitHub Pages publica autom
 - SPCX ainda não tem histórico diário e semanal suficiente para cálculos de RSI de 55 candles; os alertas desse ativo usam 15 minutos, 1 hora e 4 horas.
 - O estado dos alertas do Telegram é salvo em cache do GitHub Actions. O histórico permanente em Firebase só será gravado após configurar o segredo `FIREBASE_SERVICE_ACCOUNT_JSON` no repositório.
 - Workflows agendados do GitHub podem ser desativados após 60 dias sem atividade no repositório. Um commit periódico ou a migração dessa agenda para outro serviço evita essa interrupção.
+
+Atualização de publicação Cloudflare Pages: deploy automático acionado pela branch main.
