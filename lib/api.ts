@@ -1,5 +1,5 @@
 import { displayAsset, intervals, rsiPeriods, staticAssets } from "./config";
-import { completedCandles, wilderRsi } from "./analysis";
+import { wilderRsi } from "./analysis";
 import { mapSettledWithConcurrency } from "./concurrency";
 import { latestNuplReading } from "./nupl";
 import type { Candle, MarketData, MultiRsi, NuplReading, StaticSnapshot } from "./types";
@@ -243,7 +243,9 @@ export async function fetchMultiRsi(
     } else {
       candles = await loadBinanceOrStockCandles(asset, config, signal);
     }
-    const reading = wilderRsi(completedCandles(candles, config.period).map((candle) => candle.close));
+    // O painel de RSI reflete o candle em formação, como o RSI padrão do TradingView.
+    // A nota principal continua usando candles encerrados em `analyze`.
+    const reading = wilderRsi(candles.map((candle) => candle.close));
     if (!reading) throw new Error("Histórico insuficiente");
     return { label: config.label, ...reading };
   });
