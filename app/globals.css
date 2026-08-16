@@ -448,11 +448,13 @@ footer{border-top:2px solid #344a40;background:#0d1512;box-shadow:inset 0 1px 0 
   .deskTop{box-shadow:none}
   .marketFreshness{display:none!important}
 }
-/* Telas de toque na vertical: período, RSI e busca em uma sequência única. */
-@media (hover:none) and (pointer:coarse) and (orientation:portrait){
-  .mobileTopPeriods{grid-template-columns:1fr;gap:8px;padding:12px 0}
-  .mobileTopPeriods>span,.mobileTopPeriods .periods,.mobileTopPeriods .periodScoreStrip{grid-column:1}
-  .mobileTopPeriods .periodScoreStrip{width:100%}
+
+/* Horizontal em telas de toque: período e notas formam um único bloco. */
+@media (hover:none) and (pointer:coarse) and (orientation:landscape) and (max-width:1099px){
+  .mobileTopPeriods{grid-template-columns:180px minmax(0,1fr);grid-template-rows:auto auto;gap:6px 12px;padding:10px 12px;border:1px solid var(--line);background:#0d1512}
+  .mobileTopPeriods>span{grid-column:1;grid-row:1}
+  .mobileTopPeriods .periods{grid-column:1;grid-row:2}
+  .mobileTopPeriods .periodScoreStrip{grid-column:2;grid-row:1/3;align-self:end;width:100%;margin:0}
   .desktopSearchRow{display:flex;flex-direction:column;align-items:stretch;gap:10px;margin-top:10px}
   .desktopSearchRow .rsiMirror{order:1;margin:0}
   .desktopSearchRow .assetSearch{order:2;margin:0}
