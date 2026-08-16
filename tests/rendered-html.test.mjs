@@ -17,11 +17,11 @@ test("expõe o painel e o motor transparente", async () => {
   assert.match(page, /desktopPeriodPrompt/);
   assert.match(page, /key=\{`\$\{ticker\}-\$\{period\}`\}/);
   assert.match(page, /setOpen\]=useState<number\|null>\(null\)/);
-  assert.match(page, /mobileChartPeriods/);
+  assert.doesNotMatch(page, /mobileChartPeriods/);
   assert.ok(page.indexOf('className="card chart"') < page.indexOf('className="card signals"'));
   assert.ok(page.indexOf('className="card signals"') < page.indexOf('className="analysisColumn analysisRight"'));
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  assert.match(styles, /\.analysisDesk \.mobileChartPeriods \{ order:5; \}/);
+  assert.doesNotMatch(styles, /mobileChartPeriods/);
   assert.match(styles, /main>header nav\{position:absolute;left:50%;top:50%;margin:0;transform:translate\(-50%,-50%\)\}/);
   assert.match(styles, /\.quickScale\{flex:1 1 360px;min-width:280px;max-width:520px/);
   assert.match(page, /EXTREMO TÉCNICO/);
