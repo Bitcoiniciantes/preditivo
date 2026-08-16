@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import PriceStructureChart from "./PriceStructureChart";
 import AiAnalysisCard from "./AiAnalysisCard";
 import NuplBar from "./NuplBar";
@@ -37,6 +37,7 @@ export function Termometro(){
  const [ranking,setRanking]=useState<BiasItem[]>([]);
  const [periodScoreState,setPeriodScoreState]=useState<{asset:string;scores:Record<string,number|null>}>({asset:"",scores:{}});
  const [clock,setClock]=useState(()=>Date.now());
+ const periodScrollY=useRef<number|null>(null);
  const [aiRunKey,setAiRunKey]=useState(0);
  const [liveQuote,setLiveQuote]=useState<{asset:string;price:number;updatedAt:number}|null>(null),[liveStatus,setLiveStatus]=useState<LivePriceStatus>("off");
  const [price24hReference,setPrice24hReference]=useState<{asset:string;price:number}|null>(null);
@@ -58,7 +59,8 @@ export function Termometro(){
  useEffect(()=>{const controller=new AbortController();mapSettledWithConcurrency(assets,3,(asset)=>loadMarket(asset,period,controller.signal)).then(results=>{if(controller.signal.aborted)return;const next=results.flatMap(result=>{if(result.status!=="fulfilled")return[];const reading=analyze(result.value);return reading?[{asset:result.value.asset,score:reading.score,confidence:reading.confidence,change:reading.change,rsi:reading.rsi}]:[]});setRanking(next.sort((a,b)=>b.score-a.score))});return()=>controller.abort()},[assets,period]);
  useEffect(()=>{const controller=new AbortController();setPeriodScoreState({asset:ticker,scores:{}});mapSettledWithConcurrency(periodOptions,3,(itemPeriod)=>loadMarket(ticker,itemPeriod,controller.signal)).then(results=>{if(controller.signal.aborted)return;setPeriodScoreState({asset:ticker,scores:Object.fromEntries(results.map((result,index)=>{if(result.status!=="fulfilled")return[periodOptions[index],null];const reading=analyze(result.value);return[periodOptions[index],reading?.score??null]}))})});return()=>controller.abort()},[ticker]);
  const notifyParentAiContext=(asset:string,nextPeriod:string)=>{if(typeof window!=="undefined"&&window.parent!==window)window.parent.postMessage({type:"termometro:ai-context-changed",asset,period:nextPeriod},"https://bitcoiniciantes.github.io")};
- const changePeriod=(nextPeriod:string)=>{if(nextPeriod===period){setPeriodFeedback("✓ "+nextPeriod+" já está selecionado");return}notifyParentAiContext(ticker,nextPeriod);const currentReading=analyze(market);if(currentReading)setPreviousReading({period,score:currentReading.score});setLoading(true);setMarketError("");setUsingCached(false);setPeriodFeedback("Atualizando termômetro para "+nextPeriod+"…");setPeriod(nextPeriod)};
+ const changePeriod=(nextPeriod:string)=>{if(nextPeriod===period){setPeriodFeedback("✓ "+nextPeriod+" já está selecionado");return}periodScrollY.current=window.scrollY;notifyParentAiContext(ticker,nextPeriod);const currentReading=analyze(market);if(currentReading)setPreviousReading({period,score:currentReading.score});setLoading(true);setMarketError("");setUsingCached(false);setPeriodFeedback("Atualizando termômetro para "+nextPeriod+"…");setPeriod(nextPeriod)};
+ useEffect(()=>{const savedY=periodScrollY.current;if(savedY===null)return;const frame=window.requestAnimationFrame(()=>{window.scrollTo({top:savedY,behavior:"auto"});periodScrollY.current=null});return()=>window.cancelAnimationFrame(frame)},[period]);
  useEffect(()=>{if(!periodFeedback)return;const timer=window.setTimeout(()=>setPeriodFeedback(""),3200);return()=>window.clearTimeout(timer)},[periodFeedback]);
  const selectAsset=(asset:string)=>{notifyParentAiContext(asset,"1D");setLoading(true);setMarketError("");setUsingCached(false);setPreviousReading(null);if(asset!==ticker)setMultiRsiLoading(true);setPeriod("1D");setTicker(asset)};
  const cleanAsset=(value:string)=>value.trim().normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9.-]/g,"");
