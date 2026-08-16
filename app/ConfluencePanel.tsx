@@ -51,6 +51,21 @@ export default function ConfluencePanel({
     : data.state === "SELL"
       ? "PRESS\u00c3O VENDEDORA"
       : "FOR\u00c7AS EM DISPUTA";
+  const alignedCount = data.rows.filter((row) => row.status === "aligned").length;
+  const action = data.state === "BUY"
+    ? {
+        title: "AGORA: VIÉS DE COMPRA CONFIRMADO",
+        detail: `${alignedCount} de 5 indicadores concordam. Aguarde o candle atual fechar sem perder o suporte antes de executar sua estratégia.`,
+      }
+    : data.state === "SELL"
+      ? {
+          title: "AGORA: NÃO COMPRE",
+          detail: `${alignedCount} de 5 indicadores confirmam pressão vendedora. Espere o fluxo comprador superar 50% e o RSI recuperar 45 antes de reavaliar.`,
+        }
+      : {
+          title: "AGORA: ESPERE",
+          detail: "Os sinais não formam uma direção única. Não há vantagem técnica suficiente para uma nova entrada neste momento.",
+        };
 
   return (
     <article className={["card", "nexus", tone].join(" ")}>
@@ -58,6 +73,7 @@ export default function ConfluencePanel({
         <div><span className="nexusIdentity">NEXUS • <strong>{asset} • {period}</strong></span><b>{title}</b></div>
         <span className="nexusScore">{signed(data.score)}</span>
       </div>
+      <div className="nexusAction" role="status"><b>{action.title}</b><p>{action.detail}</p></div>
       <div className="nexusPulse">
         <div>
           {data.flow ? <>
