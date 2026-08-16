@@ -448,3 +448,12 @@ footer{border-top:2px solid #344a40;background:#0d1512;box-shadow:inset 0 1px 0 
   .deskTop{box-shadow:none}
   .marketFreshness{display:none!important}
 }
+/* Telas de toque na vertical: período, RSI e busca em uma sequência única. */
+@media (hover:none) and (pointer:coarse) and (orientation:portrait){
+  .mobileTopPeriods{grid-template-columns:1fr;gap:8px;padding:12px 0}
+  .mobileTopPeriods>span,.mobileTopPeriods .periods,.mobileTopPeriods .periodScoreStrip{grid-column:1}
+  .mobileTopPeriods .periodScoreStrip{width:100%}
+  .desktopSearchRow{display:flex;flex-direction:column;align-items:stretch;gap:10px;margin-top:10px}
+  .desktopSearchRow .rsiMirror{order:1;margin:0}
+  .desktopSearchRow .assetSearch{order:2;margin:0}
+}
