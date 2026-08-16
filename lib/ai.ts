@@ -159,7 +159,7 @@ export class AiAnalysisError extends Error {
 
 export async function fetchAiAnalysis(payload: AiAnalysisRequest, signal?: AbortSignal): Promise<AiAnalysisResponse> {
   const endpoint =
-    typeof window !== "undefined" && window.location.hostname === "bitcoiniciantes.github.io"
+    typeof window !== "undefined" && (window.location.hostname === "bitcoiniciantes.github.io" || window.location.hostname.endsWith(".pages.dev"))
       ? `${WORKER_BASE_URL}/api/ai-analysis`
       : "/api/ai-analysis";
   const response = await abortableFetch(
@@ -211,7 +211,7 @@ export async function fetchAssetNews(asset: string, signal?: AbortSignal): Promi
   const cached = newsCache.get(asset);
   if (cached && cached.expiresAt > Date.now()) return cached.data;
   const base =
-    typeof window !== "undefined" && window.location.hostname === "bitcoiniciantes.github.io"
+    typeof window !== "undefined" && (window.location.hostname === "bitcoiniciantes.github.io" || window.location.hostname.endsWith(".pages.dev"))
       ? WORKER_BASE_URL
       : "";
   const response = await abortableFetch(
@@ -227,3 +227,4 @@ export async function fetchAssetNews(asset: string, signal?: AbortSignal): Promi
   newsCache.set(asset, { expiresAt: Date.now() + NEWS_CACHE_TTL_MS, data });
   return data;
 }
+
