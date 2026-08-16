@@ -1,4 +1,15 @@
+"use client";
+
+import { useState } from "react";
 import type { ConfluenceReading } from "../lib/types";
+
+const metricSummaries: Record<string, string> = {
+  "Tendência": "Compara MM20 e MM50 para indicar a direção predominante do preço.",
+  "Padrão": "Avalia compressão e estrutura recente do preço para identificar formações técnicas.",
+  "Momentum": "Usa RSI de 14 períodos, ADX e divergências confirmadas para medir a força do movimento.",
+  "Volume": "Compara o volume do último candle fechado com a média dos 20 anteriores.",
+  "Risco": "Usa o ATR de 14 períodos para medir a volatilidade e o risco do movimento.",
+};
 
 export default function ConfluencePanel({
   data,
@@ -11,6 +22,8 @@ export default function ConfluencePanel({
   asset: string;
   period: string;
 }) {
+  const [openMetric, setOpenMetric] = useState<string | null>(null);
+
   if (loading) {
     return (
       <article className="card nexus nexusEmpty">
@@ -81,6 +94,17 @@ export default function ConfluencePanel({
             <span>{row.status === "aligned" ? "CONFIRMA" : row.status === "conflict" ? "CONFLITA" : "NEUTRO"}</span>
             <strong>{row.alignment === 0 ? "EMPATE" : signed(row.alignment)}</strong>
             <small>{"NOTA BASE "}{signed(row.baseScore)}</small>
+            <button
+              type="button"
+              className="nexusInfoButton"
+              onClick={() => setOpenMetric((current) => current === row.metric ? null : row.metric)}
+              aria-expanded={openMetric === row.metric}
+              aria-label={`Explicar ${row.metric}`}
+              title={`Explicar ${row.metric}`}
+            >
+              i
+            </button>
+            {openMetric === row.metric && <div className="nexusInfoTip" role="status"><b>{row.metric}</b><p>{metricSummaries[row.metric] ?? "Indicador técnico do NEXUS."}</p></div>}
           </div>;
         })}
       </div>
