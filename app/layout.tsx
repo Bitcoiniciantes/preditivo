@@ -25,9 +25,9 @@ export default function RootLayout({children}:{children:React.ReactNode}){
      fetch("https://termometropreditivo.goatcounter.com/counter/TOTAL.json")
       .then(response => response.ok ? response.json() : null)
       .then(data => {
-       if (!data?.count) return;
-       target.textContent = " \u00b7 " + data.count + (data.count === "1" ? " Cerva" : " Cervas");
-       target.hidden = false;
+       const count = Number(data?.count);
+       if (!Number.isFinite(count)) return;
+       target.textContent = " · " + count + (count === 1 ? " acesso" : " acessos");
       })
       .catch(() => {});
     };
