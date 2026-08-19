@@ -16,22 +16,37 @@ export const metadata:Metadata={
 export default function RootLayout({children}:{children:React.ReactNode}){
  return <html lang="pt-BR"><body className={`${geistSans.variable} ${geistMono.variable}`}>
   {children}
-  <Script data-goatcounter="https://termometropreditivo.goatcounter.com/count" src="https://gc.zgo.at/count.js" strategy="afterInteractive" />
-  <Script id="goatcounter-total" strategy="afterInteractive">{`
+  <Script id="worker-counter" strategy="afterInteractive">{`
    (() => {
-    const renderTotal = () => {
-     const target = document.querySelector("[data-goatcounter-total]");
-     if (!target) return;
-     fetch("https://termometropreditivo.goatcounter.com/counter/TOTAL.json")
-      .then(response => response.ok ? response.json() : null)
+    var WORKER_URL = 'https://floral-truth-af64.bitcoiniciantes.workers.dev';
+    var SITE_NAME = 'preditivo';
+    var el = document.querySelector('[data-goatcounter-total]');
+    var today = new Date().toISOString().slice(0, 10);
+    var lastVisit = localStorage.getItem('btc_last_visit_' + SITE_NAME);
+    
+    if (lastVisit === today) {
+     fetch(WORKER_URL + '/total?site=' + SITE_NAME)
+      .then(r => r.json())
       .then(data => {
-       const count = Number(data?.count);
-       if (!Number.isFinite(count)) return;
-       target.textContent = " · " + count + (count === 1 ? " acesso" : " acessos");
+       if (el && data.count !== undefined) el.textContent = ' · ' + data.count.toLocaleString('pt-BR') + (data.count === 1 ? ' acesso' : ' acessos');
       })
       .catch(() => {});
-    };
-    window.setTimeout(renderTotal, 500);
+    } else {
+     localStorage.setItem('btc_last_visit_' + SITE_NAME, today);
+     fetch(WORKER_URL + '/count?site=' + SITE_NAME)
+      .then(r => r.json())
+      .then(data => {
+       if (el && data.count !== undefined) el.textContent = ' · ' + data.count.toLocaleString('pt-BR') + (data.count === 1 ? ' acesso' : ' acessos');
+      })
+      .catch(() => {
+       fetch(WORKER_URL + '/total?site=' + SITE_NAME)
+        .then(r => r.json())
+        .then(data => {
+         if (el && data.count !== undefined) el.textContent = ' · ' + data.count.toLocaleString('pt-BR') + (data.count === 1 ? ' acesso' : ' acessos');
+        })
+        .catch(() => {});
+      });
+    }
    })();
   `}</Script>
  </body></html>;
