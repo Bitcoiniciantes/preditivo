@@ -1,11 +1,13 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import PriceStructureChart from "./PriceStructureChart";
 import AiAnalysisCard from "./AiAnalysisCard";
 import NuplBar from "./NuplBar";
 import StockTickerBar from "./StockTickerBar";
 import ConfluencePanel from "./ConfluencePanel";
 import PositionPanel from "./PositionPanel";
+import MarketPanel, { type FlowData } from "./MarketPanel";
+import ConfluenceCard from "./ConfluenceCard";
 import { analyze, avg, scoreDistanceLabel, scoreLabel } from "../lib/analysis";
 import { buildConfluence } from "../lib/confluence";
 import { fetchBitcoinNupl, fetchLiveStockMarket, fetchMarket, fetchMultiRsi } from "../lib/api";
@@ -41,7 +43,9 @@ export function Termometro(){
  const periodScrollY=useRef<number|null>(null);
  const [aiRunKey,setAiRunKey]=useState(0);
  const [liveQuote,setLiveQuote]=useState<{asset:string;price:number;updatedAt:number}|null>(null),[liveStatus,setLiveStatus]=useState<LivePriceStatus>("off");
- const [price24hReference,setPrice24hReference]=useState<{asset:string;price:number}|null>(null);
+  const [price24hReference,setPrice24hReference]=useState<{asset:string;price:number}|null>(null);
+  const [flowData,setFlowData]=useState<FlowData|null>(null);
+  const handleFlowData=useCallback((d:FlowData)=>setFlowData(d),[]);
  useEffect(()=>{const timer=window.setInterval(()=>setClock(Date.now()),1000);return()=>window.clearInterval(timer)},[]);
  const liveEligible=!staticAssets[ticker]&&market?.asset===ticker;
  useEffect(()=>{setLiveQuote(null);if(!liveEligible){setLiveStatus("off");return}return subscribeLivePrice(ticker,{onStatus:setLiveStatus,onPrice:tick=>setLiveQuote({asset:ticker,price:tick.price,updatedAt:Date.now()})})},[ticker,liveEligible]);
@@ -153,6 +157,16 @@ export function Termometro(){
         signals: signals.map(({ title, summary, score: signalScore, group, context }) => ({ title, summary, score: signalScore, group, context })),
       }}
     />
+    <ConfluenceCard
+      techScore={score}
+      flowScore={flowData?.score ?? 0}
+      cvdWhale={flowData?.cvdWhale ?? 0}
+      fundingRate={flowData?.fundingRate}
+      openInterestExtreme={flowData ? Math.abs(flowData.oiDelta) > 0.005 : false}
+      techScoreTimestamp={Date.now()}
+      techTimeframeMinutes={period === "4H" ? 240 : 60}
+    />
+    <MarketPanel onFlowData={handleFlowData} />
     <article className="card levels"><Title kicker="PLANO TÉCNICO" title="Cenário condicional"/><div className={`planStatus ${planTone}`}><span>STATUS DO CENÁRIO</span><b>{planStatus}</b><p>{planMessage}</p></div>{showPlan?<><div className="level target"><span>ALVO PROJETADO</span><b>{fmt(target)}</b><small>{pct(target)}</small></div><div className="level entry"><span>ROMPIMENTO / ENTRADA CONDICIONAL</span><b>{fmt(entry)}</b><small>{entryDistance.toFixed(2)}% do preço atual</small></div><div className="level stop"><span>INVALIDAÇÃO / STOP APÓS ENTRADA</span><b>{fmt(stop)}</b><small>{pct(stop)}</small></div><div className="risk"><span>RISCO : RETORNO</span><b>{entry&&stop?"1 : 2,5":"—"}</b></div></>:<><div className="level currentLevel"><span>PREÇO ATUAL</span><b>{fmt(currentPrice)}</b><small>referência</small></div><div className={`level ${score<=-20?"stop":"entry"}`}><span>{score<=-20?"SUPORTE DE REFERÊNCIA":"RESISTÊNCIA DE REFERÊNCIA"}</span><b>{fmt(score<=-20?support:resistance)}</b><small>{score<=-20?pct(support):pct(resistance)}</small></div><div className="distanceNote"><span>{score<=-20?"DISTÂNCIA ATÉ O SUPORTE":"DISTÂNCIA ATÉ O ROMPIMENTO"}</span><b>{score<=-20?`${supportDistance.toFixed(2)}%`:`${entryDistance.toFixed(2)}%`}</b></div></>}<p className="disclaimer">Níveis usam candles concluídos, estrutura e ATR. Conteúdo educacional, não é recomendação.</p></article>
   </div>
 </section>

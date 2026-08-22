@@ -458,3 +458,80 @@ footer{border-top:2px solid #344a40;background:#0d1512;box-shadow:inset 0 1px 0 
   .desktopSearchRow .rsiMirror{order:1;margin:0}
   .desktopSearchRow .assetSearch{order:2;margin:0}
 }
+
+/* ── MarketPanel ── */
+.marketPanel{border-color:var(--cyan)}
+.marketPanel .cardTitle{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:10px;min-height:42px}
+.marketPanel .cardTitle>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.marketPanel .cardTitle>div>span{font-size:9px;color:var(--muted);letter-spacing:.12em;font-weight:600}
+.marketPanel .cardTitle>div>b{font-size:12px;color:var(--paper);margin:0}
+.marketHeaderRight{display:flex;align-items:center;gap:8px;flex-shrink:0;margin-top:6px}
+.marketStatus{font-size:10px;font-family:var(--font-geist-mono);color:var(--muted);letter-spacing:.5px}
+.marketEmpty{padding:20px;text-align:center;color:var(--muted);font-size:13px}
+.marketEmpty code{background:var(--line);padding:2px 6px;border-radius:3px;font-size:12px}
+.marketDot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.marketScore{font-family:var(--font-geist-mono);font-size:13px;font-weight:700;border:1px solid;padding:2px 8px;border-radius:4px;margin-top:4px}
+.marketRegime{font-family:var(--font-geist-mono);font-size:11px;font-weight:600;letter-spacing:.5px}
+.marketGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.marketCell{display:flex;flex-direction:column;gap:2px;padding:6px 0}
+.marketCell+.marketCell{border-left:1px solid var(--line);padding-left:8px}
+.marketLabel{font-size:9px;font-family:var(--font-geist-mono);color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
+.marketPriceCell{grid-column:1/3}
+.marketPrice{font-family:var(--font-geist-mono);font-size:22px;font-weight:700;color:var(--paper)}
+.marketValue{font-family:var(--font-geist-mono);font-size:14px;font-weight:600;color:var(--paper)}
+.marketDelta{font-family:var(--font-geist-mono);font-size:10px}
+.marketImbCell{grid-column:1/3}
+.marketImbBar{display:flex;align-items:center;gap:4px;margin-top:3px}
+.marketImbLabel{font-size:8px;font-family:var(--font-geist-mono);letter-spacing:.5px}
+.marketImbTrack{flex:1;height:4px;background:var(--line);border-radius:2px;position:relative;overflow:hidden}
+.marketImbFill{height:100%;border-radius:2px;transition:width .3s ease}
+.marketImbCenter{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--muted)}
+.marketExpand{width:100%;background:none;border:1px solid var(--line);color:var(--muted);font-family:var(--font-geist-mono);font-size:10px;padding:4px;border-radius:3px;cursor:pointer;letter-spacing:.5px;margin-top:6px;transition:border-color .2s}
+.marketExpand:hover{border-color:var(--cyan);color:var(--cyan)}
+.marketExpanded{margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+.marketExpandedGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.marketEvents{margin-top:8px}
+.marketEvent{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);font-family:var(--font-geist-mono);padding:2px 0}
+.marketEventDot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.marketQuality{display:flex;gap:10px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+.marketQItem{display:flex;align-items:center;gap:4px;font-size:10px;font-family:var(--font-geist-mono);color:var(--muted)}
+.marketQLabel{letter-spacing:.5px}
+.marketImpact{font-size:10px;font-family:var(--font-geist-sans);color:var(--cyan);font-style:italic;margin-top:2px;line-height:1.3;display:block}
+.marketToggle{font-family:var(--font-geist-mono);font-size:9px;padding:2px 8px;border-radius:3px;border:1px solid var(--line);background:none;color:var(--muted);cursor:pointer;letter-spacing:.5px;transition:all .2s}
+.marketToggle:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(46,232,194,.08)}
+
+/* ── ConfluenceCard ── */
+.confluenceCard{border-color:var(--muted);transition:border-color .3s,background .3s;overflow:visible}
+.confluenceCard .cardTitle{display:flex;justify-content:space-between;align-items:flex-start;min-height:42px;gap:8px}
+.confluenceCard .cardTitle>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.confluenceCard .cardTitle>div>span{font-size:9px;color:var(--muted);letter-spacing:.12em;font-weight:600}
+.confluenceCard .cardTitle>div>b{font-size:11px;color:var(--paper);margin:0}
+.confluenceHeaderRight{display:flex;align-items:flex-end;gap:6px;flex-shrink:0;flex-direction:column}
+.confluenceIcon{font-size:20px;line-height:1}
+.confluenceBody{display:flex;flex-direction:column;gap:8px;padding:0 2px}
+.confluenceScores{display:flex;align-items:center;gap:10px;justify-content:center}
+.confluenceScoreItem{display:flex;flex-direction:column;align-items:center;gap:2px}
+.confluenceScoreLabel{font-size:9px;font-family:var(--font-geist-mono);color:var(--muted);letter-spacing:.5px}
+.confluenceScoreValue{font-family:var(--font-geist-mono);font-size:16px;font-weight:700}
+.confluenceX{font-size:16px;color:var(--muted);font-weight:300}
+.confluenceBar{margin:6px 0 2px;padding:8px 0}
+.confluenceBarTrack{position:relative;height:8px;background:var(--line);border-radius:4px}
+.confluenceBarZone{position:absolute;top:0;height:100%;opacity:.15}
+.confluenceBarZoneSell{background:var(--red);border-radius:4px 0 0 4px}
+.confluenceBarZoneNeutral{background:var(--muted)}
+.confluenceBarZoneBuy{background:var(--lime);border-radius:0 4px 4px 0}
+.confluenceBarThreshold{position:absolute;top:-3px;width:2px;height:14px;background:var(--paper);opacity:.25;border-radius:1px}
+.confluenceBarZero{position:absolute;top:-1px;width:1px;height:10px;background:var(--muted);opacity:.3}
+.confluenceBarMarker{position:absolute;top:50%;width:14px;height:14px;border-radius:50%;display:grid;place-items:center;transform:translate(-50%,-50%);z-index:2;border:2px solid var(--ink)}
+.confluenceBarMarker span{font-size:7px;font-weight:900;color:var(--ink);font-family:var(--font-geist-mono);line-height:1}
+.confluenceBarLabels{display:flex;justify-content:space-between;font-size:8px;color:var(--muted);font-family:var(--font-geist-mono);margin-top:4px;opacity:.6;padding:0 2px}
+.confluenceDistance{font-size:9px;color:#f0ad4e;font-family:var(--font-geist-mono);text-align:center;font-weight:500;line-height:1.4}
+.confluenceDistance span{display:block}
+.confluenceTenseLabel{font-size:10px;color:#f0ad4e;font-family:var(--font-geist-mono);text-align:center;font-weight:600}
+.confluenceTenseWord{color:#f0ad4e !important;font-weight:900 !important}
+.confluenceDescription{font-size:12px;color:var(--paper);line-height:1.5;text-align:center;margin:0}
+.confluenceAction{display:block;text-align:center;font-size:10px;font-weight:900;letter-spacing:.1em;padding:6px 12px;border-radius:4px;font-family:var(--font-geist-mono);margin-top:2px;transition:all .3s}
+.confluenceActionPulse{animation:confluencePulse 1.5s ease-in-out infinite}
+@keyframes confluencePulse{0%,100%{opacity:1}50%{opacity:.6}}
+.confluenceFreshness{font-size:9px;color:var(--muted);font-family:var(--font-geist-mono);letter-spacing:.3px}
+.confluenceFreshnessDegraded{color:#f0ad4e;font-weight:600;animation:confluencePulse 2s ease-in-out infinite}
