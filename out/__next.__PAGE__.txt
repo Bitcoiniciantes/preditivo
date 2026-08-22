@@ -1,0 +1,56 @@
+1:"$Sreact.fragment"
+2:I[47257,["/_next/static/chunks/44oxwbh__ebkl.js"],"ClientPageRoot"]
+3:I[31713,["/_next/static/chunks/44oxwbh__ebkl.js","/_next/static/chunks/33bprlevs25qz.js"],"default"]
+6:I[97367,["/_next/static/chunks/44oxwbh__ebkl.js"],"OutletBoundary"]
+7:"$Sreact.suspense"
+b:I[97367,["/_next/static/chunks/44oxwbh__ebkl.js"],"ViewportBoundary"]
+c:I[97367,["/_next/static/chunks/44oxwbh__ebkl.js"],"MetadataBoundary"]
+d:I[27201,["/_next/static/chunks/44oxwbh__ebkl.js"],"IconMark"]
+f:I[39756,["/_next/static/chunks/44oxwbh__ebkl.js"],"default"]
+10:I[37457,["/_next/static/chunks/44oxwbh__ebkl.js"],"default"]
+11:I[79520,["/_next/static/chunks/44oxwbh__ebkl.js"],""]
+:HL["/_next/static/chunks/0ef4s0ak4-a9n.css","style"]
+a:X
+12:T52a,
+   (() => {
+    var WORKER_URL = 'https://floral-truth-af64.bitcoiniciantes.workers.dev';
+    var SITE_NAME = 'preditivo';
+    var el = document.querySelector('[data-goatcounter-total]');
+    var today = new Date().toISOString().slice(0, 10);
+    var lastVisit = localStorage.getItem('btc_last_visit_' + SITE_NAME);
+    
+    if (lastVisit === today) {
+     fetch(WORKER_URL + '/total?site=' + SITE_NAME)
+      .then(r => r.json())
+      .then(data => {
+       if (el && data.count !== undefined) el.textContent = ' · ' + data.count.toLocaleString('pt-BR') + (data.count === 1 ? ' acesso' : ' acessos');
+      })
+      .catch(() => {});
+    } else {
+     localStorage.setItem('btc_last_visit_' + SITE_NAME, today);
+     fetch(WORKER_URL + '/count?site=' + SITE_NAME)
+      .then(r => r.json())
+      .then(data => {
+       if (el && data.count !== undefined) el.textContent = ' · ' + data.count.toLocaleString('pt-BR') + (data.count === 1 ? ' acesso' : ' acessos');
+      })
+      .catch(() => {
+       fetch(WORKER_URL + '/total?site=' + SITE_NAME)
+        .then(r => r.json())
+        .then(data => {
+         if (el && data.count !== undefined) el.textContent = ' · ' + data.count.toLocaleString('pt-BR') + (data.count === 1 ? ' acesso' : ' acessos');
+        })
+        .catch(() => {});
+      });
+    }
+   })();
+  0:{"buildId":"bvOsi_ZgFgnSQoT5BhP35","data":[{"rsc":["$","$1","c",{"children":[["$","$L2",null,{"Component":"$3","serverProvidedParams":{"searchParams":{},"params":{},"promises":["$@4","$@5"]}}],[["$","script","script-0",{"src":"/_next/static/chunks/33bprlevs25qz.js","async":true}]],["$","$L6",null,{"children":["$","$7",null,{"name":"Next.MetadataOutlet","children":"$@8"}]}]]}],"isPartial":"$@9","staleTime":"$a","varyParams":null},{"rsc":["$","$1","h",{"children":[null,["$","$Lb",null,{"children":[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]}],["$","div",null,{"hidden":true,"children":["$","$Lc",null,{"children":["$","$7",null,{"name":"Next.Metadata","children":[["$","title","0",{"children":"Termômetro Preditivo Avançado"}],["$","meta","1",{"name":"description","content":"Leitura preditiva avancada de mercado com confluencia, RSI e fluxo."}],["$","link","2",{"rel":"icon","href":"./icon.svg"}],["$","$Ld","3",{}]]}]}]}],["$","meta",null,{"name":"next-size-adjust","content":""}]]}],"isPartial":"$@e","staleTime":"$a","varyParams":null},{"rsc":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/0ef4s0ak4-a9n.css","precedence":"next"}],["$","script","script-0",{"src":"/_next/static/chunks/44oxwbh__ebkl.js","async":true}]],["$","html",null,{"lang":"pt-BR","children":["$","body",null,{"className":"geist_a71539c9-module__T19VSG__variable geist_mono_8d43a2aa-module__8Li5zG__variable","children":[["$","$Lf",null,{"parallelRouterKey":"children","template":["$","$L10",null,{}],"notFound":[[["$","title",null,{"children":"404: This page could not be found."}],["$","div",null,{"style":{"fontFamily":"system-ui,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif,\"Apple Color Emoji\",\"Segoe UI Emoji\"","height":"100vh","textAlign":"center","display":"flex","flexDirection":"column","alignItems":"center","justifyContent":"center"},"children":["$","div",null,{"children":[["$","style",null,{"dangerouslySetInnerHTML":{"__html":"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}"}}],["$","h1",null,{"className":"next-error-h1","style":{"display":"inline-block","margin":"0 20px 0 0","padding":"0 23px 0 0","fontSize":24,"fontWeight":500,"verticalAlign":"top","lineHeight":"49px"},"children":404}],["$","div",null,{"style":{"display":"inline-block"},"children":["$","h2",null,{"style":{"fontSize":14,"fontWeight":400,"lineHeight":"49px","margin":0},"children":"This page could not be found."}]}]]}]}]],[]]}],["$","$L11",null,{"id":"worker-counter","strategy":"afterInteractive","children":"$12"}]]}]}]]}],"isPartial":"$@13","staleTime":"$a","varyParams":null}],"isUpgradeableISRFallback":false,"a":"$@14","rootVaryParams":null,"needsRuntimeRequest":"$@15"}
+4:{}
+5:"$0:data:0:rsc:props:children:0:props:serverProvidedParams:params"
+8:null
+a:300
+15:true
+a:C
+14:0
+e:"$undefined"
+13:"$undefined"
+9:"$undefined"
