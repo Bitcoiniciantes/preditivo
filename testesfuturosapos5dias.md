@@ -54,3 +54,36 @@ node scripts/metricas-calibracao.mjs
 4. divergências ≥60s
 
 Esses quatro números vão dizer se a Etapa 2 realmente melhorou o motor ou apenas mudou a aparência da taxa de acerto.
+
+---
+
+## Checkpoint intermediário — 24/08/2026 (22,7h de coleta com Factor 5)
+
+**Decisão: NÃO alterar nada. Aguardar os 5 dias completos antes de julgar a Etapa 2.**
+
+| Métrica | Baseline | Factor 5 (22,7h) | Δ |
+|---|---|---|---|
+| Mudanças de regime/h | 55,5 | 66,7 | 🔴 +11,2 |
+| Duração média | 65s | 54s | 🔴 −11s |
+| Reversões <10s | 35,4% | 32,8% | 🟢 −2,6pp |
+| Reversões <30s | 68,3% | 66,0% | 🟢 −2,3pp |
+| Divergências válidas ≥60s | 7,7% | 20,8% | 🟢 +13,1pp |
+| Divergências <60s | 95% | 85,3% | 🟢 |
+| Taxa válida divergência | 7,7% | 20,8% | 🟢 +13,1pp |
+| Absorção ("atingiu ±0,05%") | 73,4%* | 84,4%* | 🟢 (NÃO é preditiva) |
+
+\* Não tratar como taxa preditiva. Significa apenas "atingiu ±0,05%".
+
+### Leitura intermediária (não conclusiva — aguardar 5 dias)
+
+- **Divergência melhorou de verdade**: `valid_resolved ≥60s` saltou de 2 → 16 (8× mais acertos reais). Taxa válida 20,8% vs. 7,7% do baseline.
+- **Flapping ainda alto**: mudanças/h SUBIU (55,5 → 66,7) e duração média caiu (65s → 54s), embora as % de reversões <10s/<30s tenham melhorado marginalmente.
+- **Sinal de independência dos problemas** (como previsto): a divergência ganhou capacidade preditiva real enquanto o regime continua instável — reforça que a **Etapa 3 (histerese 3→5)** é o teste lógico seguinte, independentemente do destino do Factor 5.
+
+### Próximo passo (aguardar ~5 dias de coleta, depois rodar)
+
+```bash
+node scripts/metricas-calibracao.mjs
+```
+
+Comparar com esta tabela. Critério de decisão mantido do documento acima: se o Factor 5 **aumentar** mudanças/reversões no total, rejeitar e voltar ao baseline (2.0); se **reduzir**, mantê-lo; e avaliar a Etapa 3 (histerese) como teste separado para o flapping.
