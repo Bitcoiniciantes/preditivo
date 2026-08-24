@@ -65,7 +65,7 @@ function doConnect() {
     scheduleReconnect();
   });
 
-  ws.on('error', (err) => {
+  ws.on('error', (err: Error) => {
     console.error('[Binance WS] Error:', err.message);
     ws?.close();
   });

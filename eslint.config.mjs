@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // O serviço market-ingestion é um daemon Node separado, com lint próprio
+    // (npm run lint em services/market-ingestion) — fora do escopo do Next.
+    "services/**",
+    "dist/**",
   ]),
   {
     rules: {

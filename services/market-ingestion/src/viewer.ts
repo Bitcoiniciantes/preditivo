@@ -33,7 +33,7 @@ ws.on('message', (raw: Buffer) => {
   }
 });
 
-ws.on('error', (err) => {
+ws.on('error', (err: Error) => {
   console.error('Erro:', err.message);
 });
 

@@ -66,11 +66,18 @@ export function useMarketStream(url: string, enabled: boolean): {
     }, HEARTBEAT_MS);
   }, [clearHeartbeat]);
 
+  // `connect` e `scheduleReconnect` têm dependência circular (cada um chama o
+  // outro). Para o React Compiler preservar a memoização, quebramos o ciclo com
+  // refs que apontam para as implementações atuais, evitando referência cruzada
+  // direta entre os dois useCallback.
+  const connectRef = useRef<() => void>(() => {});
+  const scheduleReconnectRef = useRef<() => void>(() => {});
+
   const scheduleReconnect = useCallback(() => {
     clearReconnect();
     const delay = Math.min(BACKOFF_INITIAL * Math.pow(2, retries.current), BACKOFF_MAX);
     retries.current++;
-    reconnectTimer.current = setTimeout(connect, delay);
+    reconnectTimer.current = setTimeout(connectRef.current, delay);
   }, [clearReconnect]);
 
   const connect = useCallback(() => {
@@ -111,9 +118,16 @@ export function useMarketStream(url: string, enabled: boolean): {
       if (socket.current !== ws) return;
       clearHeartbeat();
       setStatus("disconnected");
-      if (!stopped.current) scheduleReconnect();
+      if (!stopped.current) scheduleReconnectRef.current();
     };
-  }, [url, resetHeartbeat, clearHeartbeat, scheduleReconnect]);
+  }, [url, resetHeartbeat, clearHeartbeat]);
+
+  // Mantém as refs sincronizadas fora do render (o React Compiler proíbe
+  // atribuir refs durante o render).
+  useEffect(() => {
+    connectRef.current = connect;
+    scheduleReconnectRef.current = scheduleReconnect;
+  }, [connect, scheduleReconnect]);
 
   useEffect(() => {
     if (!enabled) { setStatus("off"); return; }
