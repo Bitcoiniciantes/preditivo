@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { buildPriceGeometry } from "../lib/chart";
 import type { Candle } from "../lib/types";
 import { useGlobalAlerts } from "./GlobalAlertContext";
@@ -36,19 +36,20 @@ export default function PriceStructureChart({ asset, candles, currentPrice, curr
   const geometry = useMemo(() => buildPriceGeometry(candles, 48), [candles]);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
-  // Motor global de alertas (alerta2.md): o gráfico deixa de monitorar preço;
-  // ele só desenha candles/níveis e aciona o engine via contexto.
-  const { configs, toggleAlert, updateConfigLevels } = useGlobalAlerts();
-  const isAlertEnabled = configs[asset]?.enabled ?? false;
+  // Motor global de alertas (alerta2.md → ALERTA_PAINEL.md V4): o gráfico
+  // fornece os níveis; o crossover vive no motor. O clique no sino registra
+  // (opt-in) com os níveis atuais ou alterna o estado do alerta.
+  const { alertConfigs, registerAlert, toggleAlert } = useGlobalAlerts();
+  const isAlertEnabled = alertConfigs[asset]?.enabled ?? false;
+  const isRegistered = Boolean(alertConfigs[asset]);
 
-  // Mantém os níveis do gráfico sincronizados com o motor. Enquanto o alerta
-  // estiver ATIVO, updateConfigLevels NÃO sobrescreve os níveis congelados
-  // (ver congelamento no GlobalAlertContext).
-  useEffect(() => {
-    if (support > 0 && resistance > 0) {
-      updateConfigLevels(asset, support, resistance, "GRAPH");
+  const handleAlertToggle = () => {
+    if (!isRegistered) {
+      registerAlert({ symbol: asset, support, resistance, period });
+    } else {
+      toggleAlert(asset);
     }
-  }, [asset, support, resistance, updateConfigLevels]);
+  };
 
   if (!geometry) {
     return <div className="priceChart priceChartEmpty" aria-busy={loading}>
@@ -68,7 +69,7 @@ export default function PriceStructureChart({ asset, candles, currentPrice, curr
     <div className="chartHeaderControls">
       <button
         type="button"
-        onClick={() => toggleAlert(asset, support, resistance, "GRAPH")}
+        onClick={handleAlertToggle}
         className={`alertToggleBtn ${isAlertEnabled ? "active" : ""}`}
         aria-pressed={isAlertEnabled}
         title={isAlertEnabled ? "Desativar alertas de suporte e resistência" : "Ativar alertas de suporte e resistência"}

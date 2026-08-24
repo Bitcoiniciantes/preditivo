@@ -307,6 +307,47 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 @keyframes slideInRight{from{transform:translateX(400px);opacity:0}to{transform:translateX(0);opacity:1}}
 @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.02)}}
 @media(max-width:768px){.priceAlert{top:auto;bottom:20px;right:10px;left:10px;max-width:calc(100vw - 20px)}.chartHeaderControls{left:10px;bottom:6px}}
+/* ── AlertPanel (Fase 1 — gerenciamento de alertas) ── */
+/* Alinhado com o footer: ocupa a largura do main (que já aplica var(--pad-x)
+   em telas largas). Sem recuo lateral duplo — senão o painel fica mais estreito
+   que o site, sobrando espaço até a borda. Em telas menores (main sem recuo),
+   aplica um respiro lateral. */
+.alertPanelSection{padding:4px 0 20px;margin-top:-72px}
+.alertPanelSection .alertPanel{width:100%}
+@media(max-width:1099px){.alertPanelSection{padding:4px 5vw 20px;margin-top:-72px}}
+.alertPanel{overflow:hidden;border-color:#3a4942;min-width:0;background:#0d1512;box-shadow:0 10px 28px rgba(0,0,0,.45)}
+.alertPanelBody{padding:12px 14px 14px;display:flex;flex-direction:column;gap:10px}
+.alertPanelNotice{margin:0;padding:8px 10px;border-left:3px solid var(--cyan);background:#0a1612;color:#b5c0bb;font-size:9px;line-height:1.45}
+.alertPanelRegister{padding:9px 12px;border:1px solid #54b85a99;background:#54b85a18;color:var(--lime);font-size:9px;font-weight:900;letter-spacing:.06em;cursor:pointer;text-align:left}
+.alertPanelRegister:hover{background:#54b85a2e}
+.alertPanelEmpty{margin:0;color:var(--muted);font-size:10px;line-height:1.5}
+.alertPanelList{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;max-height:none;overflow:visible}
+@media(max-width:1400px){.alertPanelList{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:1100px){.alertPanelList{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:700px){.alertPanelList{grid-template-columns:1fr}}
+.alertPanelRow{border:1px solid var(--line);background:#0c1411;padding:9px 11px;display:flex;flex-direction:column;gap:7px;min-width:0}
+.alertPanelRow.enabled{border-color:#54b85a55}
+.alertPanelRowHead{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.alertPanelRowHead>b{font-size:12px;letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.alertPanelStatus{font-size:7px;font-weight:900;letter-spacing:.08em;padding:2px 6px;border-radius:3px;white-space:nowrap}
+.alertPanelStatus.on{color:var(--lime);background:#54b85a1a;border:1px solid #54b85a66}
+.alertPanelStatus.off{color:var(--muted);background:#1b2622;border:1px solid #46524d}
+.alertPanelLevels{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.alertPanelLevels span{font-family:var(--font-geist-mono),monospace;font-size:10px;color:var(--paper);white-space:nowrap}
+.alertPanelLevels span:nth-child(1){color:#7ad881}
+.alertPanelLevels span:nth-child(2){color:#ff8991}
+.alertPanelPeriod{padding:1px 5px;border:1px solid #46524d;color:var(--muted)!important;font-size:7px!important;letter-spacing:.06em}
+.alertPanelMeta{display:flex;flex-direction:column;gap:3px;font-size:8px;color:var(--muted);min-width:0}
+.alertPanelMeta span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.alertPanelTriggered{color:#f0d781;font-weight:800;letter-spacing:.05em}
+.alertPanelFrozen{color:#7fd4ff}
+.alertPanelEvent{color:#b5c0bb;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.alertPanelAck{padding:2px 8px;border:1px solid #54b85a88;background:#54b85a;color:#07100c;font-size:8px;font-weight:900;cursor:pointer;border-radius:3px}
+.alertPanelActions{display:flex;align-items:center;justify-content:flex-end;gap:6px;border-top:1px solid #ffffff0d;padding-top:6px}
+.alertPanelToggle{padding:5px 10px;border:1px solid #54b85a88;background:transparent;color:var(--lime);font-size:8px;font-weight:900;letter-spacing:.05em;cursor:pointer;border-radius:4px}
+.alertPanelToggle:hover{background:#54b85a1a}
+.alertPanelRemove{width:24px;height:24px;display:grid;place-items:center;padding:0;border:1px solid #46524d;background:transparent;color:var(--muted);font-size:13px;cursor:pointer;border-radius:4px}
+.alertPanelRemove:hover{border-color:var(--red);color:var(--red);background:#251214}
 .realPriceChart .chartAxis { z-index:2; }
 .chartDates {
   position:absolute;

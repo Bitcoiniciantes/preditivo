@@ -1,30 +1,70 @@
+# PLANEJAMENTO FASE 1 - FINAL CORRIGIDO (V4)
+
+**Data:** 24/08/2026  
+**Status:** Especificação fechada e pronta para implementação
+
+---
+
+## VISÃO GERAL DA ARQUITETURA
+
+A arquitetura define um fluxo estrito onde o painel atua apenas como consumidor e gerenciador de estados, isolando a lógica de mercado no motor global.
+
+```text
+                    PREÇO AO VIVO
+                         │
+                         ▼
+                   AlertEngine
+                         │
+                         ▼
+                    livePrices
+                         │
+                         ▼
+              ┌─────────────────────┐
+              │ GlobalAlertContext  │
+              │                     │
+              │ Configs             │
+              │ States              │
+              │ Crossover           │
+              │ Freeze              │
+              │ Events              │
+              └──────────┬──────────┘
+                         │
+              ┌──────────┴──────────┐
+              ▼                     ▼
+        AlertPanel              futuro
+        Fase 1                  Renderer
+                                  Fase 2
+```
+
+---
+
+## REGRAS DE NEGÓCIO E CORREÇÕES TÉCNICAS APLICADAS
+
+### 1. Concorrência e Motor de Eventos (useReducer 100% Determinístico)
+Todo o cálculo de estado e eventos é centralizado em um `useReducer` puramente determinístico. Nenhuma chamada a `Date.now()` ocorre dentro do reducer; o tempo é sempre injetado via `timestamp` pelas actions (`PRICE_UPDATE`, `REGISTER`, `ACKNOWLEDGE`). Isso garante execução atômica e segura em React concorrente.
+
+### 2. Fonte Única de Verdade para Congelamento
+O estado `frozen` foi removido. A propriedade persistida é apenas `frozenUntil` (`number | null`). O congelamento é avaliado dinamicamente comparando o `timestamp` injetado pelo loop do motor com `frozenUntil`.
+
+### 3. Gerenciamento e Hidratação de Estado (HYDRATE)
+A restauração do estado após um `reload` (F5) utiliza uma action `HYDRATE`. Essa action recebe um `PersistedAlertState` (refletindo exatamente o que está no localStorage) e reconstrói o objeto completo injetando `lastPrice: null` e `lastCrossover: "none"`. Isso garante a reconstrução segura do baseline sem sobrescrever dados históricos.
+
+### 4. Alternância com Reset Completo de Sessão (toggleAlert)
+O contexto disponibiliza `toggleAlert`. Quando um alerta inativo é reativado pelo painel, o reducer limpa completamente os estados da sessão anterior (`lastPrice`, `triggered`, `frozenUntil`, etc). O alerta volta limpo, e o primeiro tick atuará como o novo baseline.
+
+### 5. Responsabilidade do Cálculo de S/R Isolada
+**O AlertPanel NÃO calcula S/R.** Na Fase 1, o painel recebe níveis calculados exclusivamente pela interface do gráfico (Structure Engine). O fluxo segue: `Gráfico calcula S/R → registerAlert() → GlobalAlertContext monitora`.
+
+---
+
+## IMPLEMENTAÇÃO: GlobalAlertContext.tsx
+
+**Arquivo:** `app/GlobalAlertContext.tsx`
+
+```typescript
 "use client";
 
-// app/GlobalAlertContext.tsx
-// ============================================================================
-// MOTOR GLOBAL DE ALERTAS DE SUPORTE/RESISTÊNCIA — FASE 1 (ALERTA_PAINEL.md V4)
-// ============================================================================
-// Arquitetura:
-//   AlertEngine (feed multi-ativo) → livePrices → este contexto (useReducer
-//   100% determinístico) → AlertPanel (Fase 1) / Renderer (Fase 2).
-//
-// Regras V4 aplicadas:
-//   1. Nenhum Date.now() dentro do reducer — o tempo é sempre injetado pelas
-//      actions (PRICE_UPDATE, REGISTER, ACKNOWLEDGE) via `timestamp`.
-//   2. `frozen` foi removido. A autoridade única de congelamento é
-//      `frozenUntil: number | null`, avaliada comparando o timestamp injetado
-//      com frozenUntil.
-//   3. HYDRATE reconstrói lastPrice: null e lastCrossover: "none" — o primeiro
-//      preço após F5 vira baseline; lacunas de mercado enquanto o app estava
-//      fechado NÃO são interpretadas como crossover.
-//   4. TOGGLE (reativar) abre uma sessão de monitoramento totalmente limpa.
-//   5. REMOVE limpa configs, states e events do símbolo.
-//   6. lastPrice NÃO é persistido (fica fora do PersistedAlertState).
-//   7. O painel NÃO calcula S/R — recebe do Gráfico/Structure Engine via
-//      registerAlert(). Não possui motor próprio.
-// ============================================================================
-
-import { createContext, useContext, useEffect, useMemo, useReducer } from "react";
+import { createContext, useContext, useEffect, useReducer } from "react";
 
 // ============================================================================
 // TIPOS
@@ -48,10 +88,10 @@ export type AlertState = {
   triggeredType: "SUPPORT_HIT" | "RESISTANCE_HIT" | null;
   triggeredAt: number | null;
   acknowledgedAt: number | null;
-  frozenUntil: number | null;
+  frozenUntil: number | null; 
 };
 
-// Tipo exato do que vai para o LocalStorage (lastPrice/lastCrossover ficam fora)
+// Tipo exato do que vai para o LocalStorage
 export type PersistedAlertState = Omit<AlertState, "lastPrice" | "lastCrossover">;
 
 export type AlertEvent = {
@@ -91,21 +131,20 @@ type GlobalAlertContextValue = {
 // HELPERS
 // ============================================================================
 
-// Uso externo para componentes UI. O reducer usa avaliação direta para manter
-// a pureza; esta função recebe o timestamp explícito (consistência da API V4).
-export const isAlertFrozen = (state: AlertState, timestamp: number): boolean =>
-  state.frozenUntil !== null && timestamp < state.frozenUntil;
+// Uso externo para componentes UI (O reducer usa avaliação direta para pureza)
+export const isAlertFrozen = (state: AlertState): boolean =>
+  state.frozenUntil !== null && Date.now() < state.frozenUntil;
 
 // ============================================================================
-// REDUCER (Puro e 100% Determinístico — sem Date.now())
+// REDUCER (Puro e 100% Determinístico)
 // ============================================================================
 
 function alertReducer(state: State, action: Action): State {
   switch (action.type) {
     case "HYDRATE": {
       const hydratedStates: Record<string, AlertState> = {};
-
-      // Reconstrói o estado completo assegurando baseline nulo
+      
+      // Reconstrói o estado completo assegurando a nulidade do baseline (lastPrice e lastCrossover)
       for (const symbol in action.states) {
         const saved = action.states[symbol];
         hydratedStates[symbol] = {
@@ -130,7 +169,7 @@ function alertReducer(state: State, action: Action): State {
 
     case "PRICE_UPDATE": {
       const { livePrices, timestamp: now } = action;
-
+      
       let newEvents = [...state.events];
       const newStates = { ...state.states };
       let hasChanges = false;
@@ -160,7 +199,7 @@ function alertReducer(state: State, action: Action): State {
         const currentPrice = livePrices[symbol];
         if (currentPrice === undefined) continue;
 
-        // Baseline tick: primeiro preço capturado define a referência
+        // Baseline tick: Primeiro preço capturado define a referência
         if (currentState.lastPrice === null) {
           newStates[symbol] = { ...currentState, lastPrice: currentPrice };
           hasChanges = true;
@@ -185,13 +224,13 @@ function alertReducer(state: State, action: Action): State {
         const isFrozen = currentState.frozenUntil !== null && now < currentState.frozenUntil;
         if (isFrozen) {
           if (currentState.lastPrice !== currentPrice) {
-            newStates[symbol] = { ...currentState, lastPrice: currentPrice };
-            hasChanges = true;
+             newStates[symbol] = { ...currentState, lastPrice: currentPrice };
+             hasChanges = true;
           }
           continue;
         }
 
-        const previousPrice = currentState.lastPrice as number;
+        const previousPrice = currentState.lastPrice;
         const { support, resistance } = config;
 
         // CROSSOVER - SUPORTE
@@ -265,7 +304,7 @@ function alertReducer(state: State, action: Action): State {
     case "REGISTER": {
       const { config, timestamp } = action;
       const { symbol } = config;
-
+      
       return {
         ...state,
         configs: {
@@ -280,7 +319,7 @@ function alertReducer(state: State, action: Action): State {
           ...state.states,
           [symbol]: {
             symbol,
-            lastPrice: null, // permite que o primeiro tick defina a referência
+            lastPrice: null, // Permite que o primeiro tick defina a referência inicial
             lastCrossover: "none",
             triggered: false,
             triggeredLevel: null,
@@ -304,7 +343,7 @@ function alertReducer(state: State, action: Action): State {
         ...state,
         configs: newConfigs,
         states: newStates,
-        events: state.events.filter((e) => e.symbol !== symbol), // remove eventos atrelados
+        events: state.events.filter((e) => e.symbol !== symbol), // Remove eventos atrelados
       };
     }
 
@@ -316,7 +355,7 @@ function alertReducer(state: State, action: Action): State {
       const newEnabled = !config.enabled;
       const currentState = state.states[symbol];
 
-      // Se ativado novamente, inicia uma nova sessão de monitoramento limpa
+      // Se ativado novamente, inicia uma nova sessão de monitoramento totalmente limpa
       const updatedState = newEnabled
         ? {
             ...currentState,
@@ -382,21 +421,22 @@ export function GlobalAlertProvider({
     events: [],
   });
 
-  // Carregamento inicial (Hydration) — baseline reconstruído nulo
+  // Carregamento inicial (Hydration)
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       const savedConfigs = localStorage.getItem("termometro-alerts-config");
       const savedStates = localStorage.getItem("termometro-alerts-state");
 
+      // Sanitização básica opcional
       const parsedConfigs = savedConfigs ? JSON.parse(savedConfigs) : null;
       const parsedStates = savedStates ? JSON.parse(savedStates) : null;
 
       if (parsedConfigs || parsedStates) {
         dispatch({
           type: "HYDRATE",
-          configs: typeof parsedConfigs === "object" && parsedConfigs !== null ? parsedConfigs : {},
-          states: typeof parsedStates === "object" && parsedStates !== null ? parsedStates : {},
+          configs: typeof parsedConfigs === 'object' && parsedConfigs !== null ? parsedConfigs : {},
+          states: typeof parsedStates === 'object' && parsedStates !== null ? parsedStates : {},
         });
       }
     } catch (error) {
@@ -404,79 +444,72 @@ export function GlobalAlertProvider({
     }
   }, []);
 
-  // Dispatch livePrices puro para o motor (tempo injetado no dispatcher)
+  // Dispatch livePrices puro para o motor
   useEffect(() => {
-    dispatch({
-      type: "PRICE_UPDATE",
-      livePrices,
-      timestamp: Date.now(),
+    dispatch({ 
+      type: "PRICE_UPDATE", 
+      livePrices, 
+      timestamp: Date.now() 
     });
   }, [livePrices]);
 
-  // ── Persistência (corrigida) ──
-  // IMPORTANTE: NÃO usar `state.states` diretamente como dependência — ele
-  // muda a cada tick de preço (lastPrice é atualizado continuamente), o que
-  // reiniciaria o debounce a cada segundo e o save nunca dispararia (por isso
-  // os alertas sumiam no F5). Derivamos strings ESTÁVEIS: só mudam quando um
-  // campo PERSISTÍVEL muda (register/toggle/trigger/acknowledge/remove),
-  // nunca por causa de lastPrice/lastCrossover (que não são persistidos).
-  const persistedConfigsKey = JSON.stringify(state.configs);
-
-  const persistedStatesKey = useMemo(() => {
-    const stateToPersist: Record<string, PersistedAlertState> = {};
-    for (const symbol in state.states) {
-      const s = state.states[symbol];
-      stateToPersist[symbol] = {
-        symbol: s.symbol,
-        triggered: s.triggered,
-        triggeredLevel: s.triggeredLevel,
-        triggeredType: s.triggeredType,
-        triggeredAt: s.triggeredAt,
-        acknowledgedAt: s.acknowledgedAt,
-        frozenUntil: s.frozenUntil,
-      };
-    }
-    return JSON.stringify(stateToPersist);
-  }, [state.states]);
-
+  // Persistência com Debounce
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const timeout = setTimeout(() => {
       try {
-        localStorage.setItem("termometro-alerts-config", persistedConfigsKey);
-        localStorage.setItem("termometro-alerts-state", persistedStatesKey);
+        localStorage.setItem(
+          "termometro-alerts-config",
+          JSON.stringify(state.configs)
+        );
+
+        // Omitindo lastPrice e lastCrossover da persistência para poupar gravações inúteis
+        const stateToPersist: Record<string, PersistedAlertState> = {};
+        for (const symbol in state.states) {
+          const s = state.states[symbol];
+          stateToPersist[symbol] = {
+            symbol: s.symbol,
+            triggered: s.triggered,
+            triggeredLevel: s.triggeredLevel,
+            triggeredType: s.triggeredType,
+            triggeredAt: s.triggeredAt,
+            acknowledgedAt: s.acknowledgedAt,
+            frozenUntil: s.frozenUntil,
+          };
+        }
+        localStorage.setItem("termometro-alerts-state", JSON.stringify(stateToPersist));
       } catch (error) {
         console.error("Erro ao persistir alertas:", error);
       }
-    }, 300);
+    }, 1000);
 
     return () => clearTimeout(timeout);
-  }, [persistedConfigsKey, persistedStatesKey]);
+  }, [state.configs, state.states]);
 
-  // APIs Expostas (injeção de tempo feita no dispatcher)
-  const registerAlert = (config: Omit<AlertConfig, "createdAt" | "enabled">) =>
+  // APIs Expostas (Injeção de tempo feita no dispatcher)
+  const registerAlert = (config: Omit<AlertConfig, "createdAt" | "enabled">) => 
     dispatch({ type: "REGISTER", config, timestamp: Date.now() });
-
-  const removeAlert = (symbol: string) =>
+    
+  const removeAlert = (symbol: string) => 
     dispatch({ type: "REMOVE", symbol });
-
-  const toggleAlert = (symbol: string) =>
+    
+  const toggleAlert = (symbol: string) => 
     dispatch({ type: "TOGGLE", symbol });
-
-  const acknowledgeAlert = (symbol: string) =>
+    
+  const acknowledgeAlert = (symbol: string) => 
     dispatch({ type: "ACKNOWLEDGE", symbol, timestamp: Date.now() });
 
   return (
-    <GlobalAlertContext.Provider
-      value={{
-        alertConfigs: state.configs,
-        alertStates: state.states,
-        alertEvents: state.events,
-        registerAlert,
-        removeAlert,
-        toggleAlert,
-        acknowledgeAlert,
+    <GlobalAlertContext.Provider 
+      value={{ 
+        alertConfigs: state.configs, 
+        alertStates: state.states, 
+        alertEvents: state.events, 
+        registerAlert, 
+        removeAlert, 
+        toggleAlert, 
+        acknowledgeAlert 
       }}
     >
       {children}
@@ -489,3 +522,22 @@ export function useGlobalAlerts() {
   if (!context) throw new Error("useGlobalAlerts deve ser encapsulado por GlobalAlertProvider");
   return context;
 }
+```
+
+---
+
+## CHECKLIST DE IMPLEMENTAÇÃO FASE 1
+
+### Parte 1A: Motor Global (GlobalAlertContext)
+- [ ] 1. Criar `GlobalAlertContext.tsx` e implementar `useReducer` 100% puro e determinístico, sem injetar dados temporais por conta própria.
+- [ ] 2. Passar `timestamp` nas actions (`PRICE_UPDATE`, `REGISTER`, `ACKNOWLEDGE`) para isolar os side-effects no dispatcher.
+- [ ] 3. Criar action de `HYDRATE` com sanitização e injeção explícita de campos nulos faltantes (`lastPrice` e `lastCrossover`), garantindo tipagem consistente de leitura do localStorage.
+- [ ] 4. Atualizar a lógica da action `TOGGLE` para destruir completamente qualquer lixo de estado de monitoramento residual ao reativar um ativo (resetando para a estaca zero).
+- [ ] 5. Confirmar que a action `REMOVE` expele também os eventos atrelados do array `alertEvents`.
+
+### Parte 1B: Interface de Gerenciamento (AlertPanel)
+- [ ] 6. Criar componente isolado `AlertPanel.tsx`.
+- [ ] 7. Ler S/R proveniente apenas do Structure Engine/Gráfico, acionando a API `registerAlert`.
+- [ ] 8. Ancorar botões/switches de ativar/desativar na function `toggleAlert`.
+- [ ] 9. Fornecer botão de exclusão vinculado ao método `removeAlert`.
+- [ ] 10. Montar a lista (tabela ou card) limitando-se ao consumo de dados gerados no contexto.
