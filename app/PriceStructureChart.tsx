@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { buildPriceGeometry } from "../lib/chart";
 import type { Candle } from "../lib/types";
+import { useSupportResistanceAlert } from "./useSupportResistanceAlert";
+import { SupportResistanceAlert } from "./SupportResistanceAlert";
 
 type Props = {
   asset: string;
@@ -35,6 +37,17 @@ export default function PriceStructureChart({ asset, candles, currentPrice, curr
   const geometry = useMemo(() => buildPriceGeometry(candles, 48), [candles]);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
+  // Estado para opt-in de áudio (OBRIGATÓRIO — Autoplay precisa de gesto do usuário)
+  const [alertsEnabled, setAlertsEnabled] = useState(false);
+
+  const { alert, dismissAlert } = useSupportResistanceAlert({
+    currentPrice,
+    support,
+    resistance,
+    enabled: alertsEnabled && !loading && currentPrice > 0,
+    tolerancePercent: 0.1,
+  });
+
   if (!geometry) {
     return <div className="priceChart priceChartEmpty" aria-busy={loading}>
       <span>{loading ? "Carregando candles reais…" : "Histórico insuficiente para desenhar o gráfico"}</span>
@@ -50,6 +63,23 @@ export default function PriceStructureChart({ asset, candles, currentPrice, curr
   const level = (value: number) => `${geometry.scale(value)}%`;
 
   return <div className="priceChart realPriceChart">
+    <div className="chartHeaderControls">
+      <button
+        type="button"
+        onClick={() => setAlertsEnabled((v) => !v)}
+        className={`alertToggleBtn ${alertsEnabled ? "active" : ""}`}
+        aria-pressed={alertsEnabled}
+        title={alertsEnabled ? "Desativar alertas de suporte e resistência" : "Ativar alertas de suporte e resistência"}
+      >
+        {alertsEnabled ? "🔔 Alertas Ativos" : "🔕 Ativar Alertas"}
+      </button>
+    </div>
+    <SupportResistanceAlert
+      alert={alert}
+      asset={asset}
+      currency={currency}
+      onDismiss={dismissAlert}
+    />
     <div className="chartIdentity" aria-hidden="true"><b>{asset}</b><span>{period} · OHLC REAL</span></div>
     <div className={`chartOhlc ${selectedTone}`} aria-live="polite">
       <span>{formatDate(selected.time, period)}</span>

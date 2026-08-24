@@ -49,3 +49,6 @@ next-env.d.ts
 /services/market-ingestion/daemon-err.log
 /services/market-ingestion/data/
 /npx @deepseek-aidsh web/
+
+# editor
+/.vscode/

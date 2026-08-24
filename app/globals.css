@@ -288,6 +288,25 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 .supportLevel { border-color:rgba(84,184,90,.6); color:var(--lime); }
 .currentPriceLevel { border-color:#4aa8ff; border-top-style:dashed; z-index:2; }
 .currentPriceLevel span { left:auto; right:-82px; top:-12px; width:76px; font-size:10px; padding:3px 4px; border-radius:2px; background:rgba(45,141,222,.28); color:#e6f5ff; text-align:center; letter-spacing:0; text-transform:none; font-weight:900; }
+/* ── Alertas de Suporte e Resistência ── */
+.priceChart{position:relative}
+.chartHeaderControls{position:absolute;left:12px;bottom:8px;z-index:5;display:flex}
+.alertToggleBtn{padding:5px 10px;border-radius:6px;border:1px solid #3a4942;background:#0d1512;color:var(--muted);font-size:8px;font-weight:900;letter-spacing:.08em;cursor:pointer;transition:border-color .2s,color .2s,background .2s}
+.alertToggleBtn:hover{border-color:#56625d;color:var(--paper)}
+.alertToggleBtn.active{background:#54b85a1a;border-color:var(--lime);color:var(--lime)}
+.priceAlert{position:fixed;top:90px;right:20px;z-index:9999;display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:10px;background:#0f1a15;border:1px solid #2a3830;box-shadow:0 12px 32px rgba(0,0,0,.5);animation:slideInRight .3s ease-out,pulse .5s ease-in-out 3;border-left:4px solid}
+.supportAlert{border-left-color:var(--lime)}
+.resistanceAlert{border-left-color:var(--red)}
+.priceAlertIcon{font-size:30px;line-height:1}
+.priceAlertContent{display:flex;flex-direction:column;gap:3px}
+.priceAlertContent strong{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--paper)}
+.priceAlertContent span{font-size:11px;color:var(--muted)}
+.priceAlertPrice{font-size:16px!important;font-weight:800!important;color:var(--paper)!important}
+.priceAlertClose{margin-left:auto;background:transparent;border:0;font-size:22px;cursor:pointer;color:var(--muted);padding:0;width:24px;height:24px;display:flex;align-items:center;justify-content:center}
+.priceAlertClose:hover{color:var(--paper)}
+@keyframes slideInRight{from{transform:translateX(400px);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.02)}}
+@media(max-width:768px){.priceAlert{top:auto;bottom:20px;right:10px;left:10px;max-width:calc(100vw - 20px)}.chartHeaderControls{left:10px;bottom:6px}}
 .realPriceChart .chartAxis { z-index:2; }
 .chartDates {
   position:absolute;
