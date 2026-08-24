@@ -1,5 +1,12 @@
 // lib/cross-validation.ts
 // Motor de Confluência — cruza viés técnico (painel esquerdo) com viés de fluxo (painel direito)
+//
+// FONTE DE DADOS DESTE MOTOR (ConfluenceCard):
+//   - techScore: nota do `analyze` (lib/analysis.ts), calculada sobre candles do ativo;
+//   - flowScore/cvdWhale/fundingRate/oiDelta: snapshot do daemon `market-ingestion`
+//     recebido via WebSocket (ws://localhost:3001) e repassado pelo MarketPanel.
+// O ConfluencePanel/NEXUS usa OUTRO motor (lib/confluence.ts) com outra fonte
+// (takerBuyVolume dos candles) — não confundir, e não duplicar aqui.
 
 export type TechnicalBias = 'STRONG_BULL' | 'BULL' | 'NEUTRAL' | 'BEAR' | 'STRONG_BEAR';
 export type FlowBias = 'STRONG_BUY' | 'BUY' | 'NEUTRAL' | 'SELL' | 'STRONG_SELL';
@@ -28,7 +35,7 @@ export interface ConfluenceInput {
   fundingRate?: number;
   openInterestExtreme?: boolean;
   techScoreTimestamp: number;
-  techTimeframeMinutes: 60 | 240;
+  techTimeframeMinutes: number;
 }
 
 const FUNDING_RATE_EXTREME_THRESHOLD = 0.0005;
@@ -73,7 +80,7 @@ export class ConfluenceEngine {
     // DIVERGÊNCIA 1: Bull Trap (gráfico sobe, dinheiro sai)
     if (techScore > 20 && flowScore < -20 && cvdWhale < 0) {
       return {
-        scenario: 'ABSORÇÃO INSTITUCIONAL / BULL TRAP',
+        scenario: 'DIVERGÊNCIA TÉCNICO × FLUXO / BULL TRAP',
         actionableSignal: 'DANGER_BULL_TRAP',
         description:
           'Indicadores técnicos apontam alta, mas o fluxo agressor e as baleias estão vendendo pesadamente. Risco extremo de falso rompimento.',
@@ -84,7 +91,7 @@ export class ConfluenceEngine {
     // DIVERGÊNCIA 2: Bear Trap (gráfico cai, dinheiro entra)
     if (techScore < -20 && flowScore > 20 && cvdWhale > 0) {
       return {
-        scenario: 'ACUMULAÇÃO INSTITUCIONAL / BEAR TRAP',
+        scenario: 'DIVERGÊNCIA TÉCNICO × FLUXO / BEAR TRAP',
         actionableSignal: 'DANGER_BEAR_TRAP',
         description:
           'Preço em queda técnica, mas baleias estão absorvendo passivamente. Fundo iminente.',

@@ -1,7 +1,12 @@
 import { CONFIG } from '../config.js';
-import type { NormalizedTrade, CvdState, TradeBucket } from '../types/index.js';
+import type { NormalizedTrade, CvdState } from '../types/index.js';
 import { classifyTrade } from './classification.js';
 
+// ── Fonte de verdade do CVD (única) ──
+// O CVD e o fluxo de grandes players (whaleCvd) são acumulados aqui, em memória,
+// a partir de cada trade processado por processTradeForCvd(). O snapshot do painel
+// consome getCvdState(). Não existe segunda fonte: o antigo TradeAccumulator/computeCvdFromBuckets
+// nunca foi conectado ao snapshot e foi removido por manter whaleCvd fixo em 0.
 let totalCvd = 0;
 let whaleCvd = 0;
 let retailCvd = 0;
@@ -29,30 +34,6 @@ export function getCvdState(): CvdState {
     delta: totalCvd,
     buyVolume: 0,
     sellVolume: 0,
-  };
-}
-
-export function computeCvdFromBuckets(buckets: TradeBucket[]): CvdState {
-  let cvd = 0;
-  let whale = 0;
-  let retail = 0;
-  let buyVol = 0;
-  let sellVol = 0;
-
-  for (const b of buckets) {
-    const delta = b.buyVolume - b.sellVolume;
-    cvd += delta;
-    buyVol += b.buyVolume;
-    sellVol += b.sellVolume;
-  }
-
-  return {
-    totalCvd: cvd,
-    whaleCvd: whale,
-    retailCvd: retail,
-    delta: cvd,
-    buyVolume: buyVol,
-    sellVolume: sellVol,
   };
 }
 

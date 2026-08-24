@@ -18,6 +18,17 @@ import type { BiasItem, MarketData, MultiRsi, NuplReading, Signal } from "../lib
 
 const periodOptions = ["15M", "1H", "4H", "1D", "1S", "1M"];
 
+// Duração real de cada período, em minutos — usada pelo ConfluenceCard para o
+// controle de staleness do score técnico (não fixar 60 para todos os períodos).
+const TIMEFRAME_MINUTES: Record<string, number> = {
+  "15M": 15,
+  "1H": 60,
+  "4H": 240,
+  "1D": 1440,
+  "1S": 10080,
+  "1M": 43200,
+};
+
 const fallbackSignals:Signal[] = [
   {
     title:"Aguardando mercado",
@@ -45,7 +56,7 @@ export function Termometro(){
  const [liveQuote,setLiveQuote]=useState<{asset:string;price:number;updatedAt:number}|null>(null),[liveStatus,setLiveStatus]=useState<LivePriceStatus>("off");
   const [price24hReference,setPrice24hReference]=useState<{asset:string;price:number}|null>(null);
   const [flowData,setFlowData]=useState<FlowData|null>(null);
-  const handleFlowData=useCallback((d:FlowData)=>setFlowData(d),[]);
+  const handleFlowData=useCallback((d:FlowData|null)=>setFlowData(d),[]);
  useEffect(()=>{const timer=window.setInterval(()=>setClock(Date.now()),1000);return()=>window.clearInterval(timer)},[]);
  const liveEligible=!staticAssets[ticker]&&market?.asset===ticker;
  useEffect(()=>{setLiveQuote(null);if(!liveEligible){setLiveStatus("off");return}return subscribeLivePrice(ticker,{onStatus:setLiveStatus,onPrice:tick=>setLiveQuote({asset:ticker,price:tick.price,updatedAt:Date.now()})})},[ticker,liveEligible]);
@@ -136,6 +147,16 @@ export function Termometro(){
     <article className={`card thermo heroThermo thermoTone ${toneClass}`}><div className="mobilePeriods periodPrompt"><div className="periodGuide"><div><span>ESCOLHA O PERÍODO DA ANÁLISE</span><button type="button" onClick={()=>setShowPeriodHelp(value=>!value)} aria-expanded={showPeriodHelp} aria-label="Explicar períodos">i</button></div><small>O resultado muda conforme o período.</small>{showPeriodHelp&&<p>Períodos curtos reagem mais rápido e têm mais ruído. Períodos longos mostram tendências mais consistentes.</p>}</div><div className="periods">{availablePeriods.map(p=><button key={p} onClick={()=>changePeriod(p)} className={period===p?"active":""} aria-pressed={period===p} aria-label={`Consultar período ${p}`}>{p}</button>)}</div>{periodFeedback&&<div className={`periodFeedback ${periodFeedback.startsWith("✓")?"done":""}`} role="status" aria-live="polite">{periodFeedback}</div>}</div><Title kicker="TERMÔMETRO DO ATIVO" title={loading?`Carregando ${displayName}…`:`Leitura consolidada · ${displayName}`} extra={<button type="button" className="info" title="Regras fixas, sem IA" aria-label="Sobre as regras do Termômetro">i</button>}/><div className="scoreRing" style={{"--score":`${(score+100)*1.8}deg`} as React.CSSProperties}><div><b>{score>0?"+":""}{score}</b><span>DE 100</span><strong className="heroAsset">{ticker==="BTC"&&<i aria-hidden="true">₿</i>}{displayAsset(ticker)}</strong></div></div><span className={`heroRsi ${selectedRsiTone}`}>RSI = <b>{selectedRsi ? Math.round(selectedRsi.value) : "—"}</b></span><h3>{label}</h3><p>{scoreExplanation}</p><div className="scale"><div className="scaleTrack"><i style={{left:`${(score+100)/2}%`}}/></div><div><span>-100<br/>Venda</span><span>0<br/>Neutro</span><span>+100<br/>Compra</span></div></div><div className="confidence"><span>Concordância dos sinais</span><b>{confidence}%</b><div><i style={{width:`${confidence}%`}}/></div></div></article>
     {extreme&&<article className={`card extremeCard ${extreme.tone}`}><Title kicker="EXTREMO TÉCNICO" title={extreme.status} extra={<span className="extremePeriod">{period}</span>}/><div className="extremeBody"><p>{extreme.summary}</p><div className="extremeMetrics"><span><small>RSI WILDER</small><b>{extreme.rsi.toFixed(1)}</b></span><span><small>FORÇA ADX</small><b>{extreme.adx.toFixed(1)}</b></span><span><small>DISTÂNCIA</small><b>{extreme.atrDistance.toFixed(1)} ATR</b></span></div><div className="extremeContext"><span>{extreme.adx>=25?'TENDÊNCIA FORTE':'TENDÊNCIA FRACA'}</span><span>{extreme.divergence==='bullish'?'DIVERGÊNCIA DE ALTA':extreme.divergence==='bearish'?'DIVERGÊNCIA DE BAIXA':'SEM DIVERGÊNCIA'}</span></div><small className="extremeDetail">{extreme.detail}</small></div></article>}
     <RsiGeneralPanel asset={displayName} data={multiRsi} loading={multiRsiLoading}/>
+    <ConfluenceCard
+      techScore={score}
+      flowScore={flowData?.score ?? null}
+      cvdWhale={flowData?.cvdWhale ?? null}
+      fundingRate={flowData?.fundingRate}
+      openInterestExtreme={flowData ? Math.abs(flowData.oiDelta) > 0.005 : false}
+      techScoreTimestamp={market?.updatedAt ?? 0}
+      techTimeframeMinutes={TIMEFRAME_MINUTES[period] ?? 60}
+    />
+    <MarketPanel onFlowData={handleFlowData} />
     <AiAnalysisCard
       key={`${ticker}-${period}`}
       autoRunKey={aiRunKey}
@@ -157,16 +178,6 @@ export function Termometro(){
         signals: signals.map(({ title, summary, score: signalScore, group, context }) => ({ title, summary, score: signalScore, group, context })),
       }}
     />
-    <ConfluenceCard
-      techScore={score}
-      flowScore={flowData?.score ?? 0}
-      cvdWhale={flowData?.cvdWhale ?? 0}
-      fundingRate={flowData?.fundingRate}
-      openInterestExtreme={flowData ? Math.abs(flowData.oiDelta) > 0.005 : false}
-      techScoreTimestamp={Date.now()}
-      techTimeframeMinutes={period === "4H" ? 240 : 60}
-    />
-    <MarketPanel onFlowData={handleFlowData} />
     <article className="card levels"><Title kicker="PLANO TÉCNICO" title="Cenário condicional"/><div className={`planStatus ${planTone}`}><span>STATUS DO CENÁRIO</span><b>{planStatus}</b><p>{planMessage}</p></div>{showPlan?<><div className="level target"><span>ALVO PROJETADO</span><b>{fmt(target)}</b><small>{pct(target)}</small></div><div className="level entry"><span>ROMPIMENTO / ENTRADA CONDICIONAL</span><b>{fmt(entry)}</b><small>{entryDistance.toFixed(2)}% do preço atual</small></div><div className="level stop"><span>INVALIDAÇÃO / STOP APÓS ENTRADA</span><b>{fmt(stop)}</b><small>{pct(stop)}</small></div><div className="risk"><span>RISCO : RETORNO</span><b>{entry&&stop?"1 : 2,5":"—"}</b></div></>:<><div className="level currentLevel"><span>PREÇO ATUAL</span><b>{fmt(currentPrice)}</b><small>referência</small></div><div className={`level ${score<=-20?"stop":"entry"}`}><span>{score<=-20?"SUPORTE DE REFERÊNCIA":"RESISTÊNCIA DE REFERÊNCIA"}</span><b>{fmt(score<=-20?support:resistance)}</b><small>{score<=-20?pct(support):pct(resistance)}</small></div><div className="distanceNote"><span>{score<=-20?"DISTÂNCIA ATÉ O SUPORTE":"DISTÂNCIA ATÉ O ROMPIMENTO"}</span><b>{score<=-20?`${supportDistance.toFixed(2)}%`:`${entryDistance.toFixed(2)}%`}</b></div></>}<p className="disclaimer">Níveis usam candles concluídos, estrutura e ATR. Conteúdo educacional, não é recomendação.</p></article>
   </div>
 </section>

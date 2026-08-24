@@ -112,7 +112,7 @@ export interface DerivativesState {
 
 // ── Features ──
 
-export type Regime = 'TRENDING_UP' | 'TRENDING_DOWN' | 'RANGING' | 'HIGH_VOLATILITY' | 'LOW_VOLATILITY';
+export type Regime = 'BULL_TREND' | 'BEAR_TREND' | 'RANGE' | 'TRENDING_UP' | 'TRENDING_DOWN' | 'HIGH_VOLATILITY' | 'LOW_VOLATILITY';
 
 export interface FeatureState {
   regime: Regime;
@@ -133,6 +133,14 @@ export interface MarketSnapshot {
   funding: number;
   funding_class: string;
   regime: string;
+  regime_volatility: number;
+  regime_confidence: number;
+  flow_regime: string;
+  flow_strength: number;
+  divergence: string;
+  absorption_state: string;
+  absorption_level: string;
+  absorption_intensity: number;
   score: number;
   score_quality: number;
   events: MarketEvent[];

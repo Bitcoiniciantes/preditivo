@@ -8,12 +8,12 @@ export function updateRegime(price: number): Regime {
   priceHistory.push(price);
   const prices = priceHistory.getAll();
 
-  if (prices.length < 10) return 'RANGING';
+  if (prices.length < 10) return 'RANGE';
 
   const recent = prices.slice(-10);
   const older = prices.slice(-20, -10);
 
-  if (older.length === 0) return 'RANGING';
+  if (older.length === 0) return 'RANGE';
 
   const recentHigh = Math.max(...recent);
   const recentLow = Math.min(...recent);
@@ -32,7 +32,7 @@ export function updateRegime(price: number): Regime {
   if (trendUp) return 'TRENDING_UP';
   if (trendDown) return 'TRENDING_DOWN';
 
-  return 'RANGING';
+  return 'RANGE';
 }
 
 export function reset(): void {

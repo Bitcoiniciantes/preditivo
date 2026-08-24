@@ -27,9 +27,9 @@ export function computeScore(input: ScoreInput): ScoreResult {
   let riskScore = 0;
 
   // Trend (0 to +/-24)
-  if (regime === 'TRENDING_UP') trendScore = 20;
-  else if (regime === 'TRENDING_DOWN') trendScore = -20;
-  else if (regime === 'RANGING') trendScore = 0;
+  if (regime === 'TRENDING_UP' || regime === 'BULL_TREND') trendScore = 20;
+  else if (regime === 'TRENDING_DOWN' || regime === 'BEAR_TREND') trendScore = -20;
+  else if (regime === 'RANGE') trendScore = 0;
   else if (regime === 'HIGH_VOLATILITY') trendScore = priceChange > 0 ? 10 : -10;
   else trendScore = 0;
 

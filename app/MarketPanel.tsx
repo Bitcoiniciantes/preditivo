@@ -2,7 +2,8 @@
 import { useState, useMemo, useEffect } from "react";
 import { useMarketStream } from "../lib/useMarketStream";
 
-const WS_URL = "ws://localhost:3001";
+
+const WS_URL = process.env.NEXT_PUBLIC_MARKET_WS_URL || "ws://localhost:3001";
 
 function StatusDot({ status }: { status: string }) {
   const color = status === "LIVE" ? "var(--lime)" : status === "STALE" ? "#f0ad4e" : "var(--red)";
@@ -20,6 +21,9 @@ function ScoreBadge({ score }: { score: number }) {
 
 function RegimeBadge({ regime, leigo }: { regime: string; leigo: boolean }) {
   const map: Record<string, { tech: string; simple: string; color: string }> = {
+    BULL_TREND: { tech: "TENDENCIA ALTA", simple: "Mercado subindo", color: "var(--lime)" },
+    BEAR_TREND: { tech: "TENDENCIA BAIXA", simple: "Mercado caindo", color: "var(--red)" },
+    RANGE: { tech: "LATERAL", simple: "Mercado parado", color: "#f0ad4e" },
     TRENDING_UP: { tech: "TENDENCIA ALTA", simple: "Mercado subindo", color: "var(--lime)" },
     TRENDING_DOWN: { tech: "TENDENCIA BAIXA", simple: "Mercado caindo", color: "var(--red)" },
     RANGING: { tech: "LATERAL", simple: "Mercado parado", color: "#f0ad4e" },
@@ -114,21 +118,26 @@ export type FlowData = {
   oiDelta: number;
 };
 
-export default function MarketPanel({ onFlowData }: { onFlowData?: (data: FlowData) => void }) {
+export default function MarketPanel({ onFlowData }: { onFlowData?: (data: FlowData | null) => void }) {
   const { data, status } = useMarketStream(WS_URL, true);
   const [expanded, setExpanded] = useState(false);
   const [leigo, setLeigo] = useState(true);
 
-  // Expor dados do fluxo para o motor de confluência
+  // Expor dados do fluxo para o motor de confluência.
+  // IMPORTANTE: sem dados (daemon local offline / conectando), emitir null — nunca 0.
+  // O ConfluenceCard precisa distinguir "fluxo indisponível" de "fluxo neutro".
   useEffect(() => {
-    if (data && onFlowData) {
-      onFlowData({
-        score: data.score,
-        cvdWhale: data.cvd_whale,
-        fundingRate: data.funding,
-        oiDelta: data.oi_delta,
-      });
+    if (!onFlowData) return;
+    if (!data) {
+      onFlowData(null);
+      return;
     }
+    onFlowData({
+      score: data.score,
+      cvdWhale: data.cvd_whale,
+      fundingRate: data.funding,
+      oiDelta: data.oi_delta,
+    });
   }, [data, onFlowData]);
 
   const impactPhrases = useMemo(() => {
@@ -176,6 +185,41 @@ export default function MarketPanel({ onFlowData }: { onFlowData?: (data: FlowDa
         </div>
       </div>
 
+      <div style={{ display: 'block', margin: '8px 14px 10px', padding: '10px 12px', border: '1px solid #3a4a42', borderLeft: '3px solid var(--cyan)', borderRadius: '6px', background: '#0a1612' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+          <span style={{ fontSize: '9px', color: 'var(--muted)', letterSpacing: '.12em', fontWeight: 600 }}>ALERTA ESTRUTURAL</span>
+          {(data?.regime_confidence ?? 0) > 0 && (
+            <span style={{ fontSize: '11px', fontFamily: 'var(--font-geist-mono)', fontWeight: 700, color: (data?.regime_confidence ?? 0) > 60 ? 'var(--lime)' : 'var(--muted)' }}>
+              {data?.regime_confidence}%
+            </span>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <span style={{ fontSize: '8px', color: 'var(--muted)', letterSpacing: '.1em', fontWeight: 600 }}>REGIME</span>
+            <span style={{ fontSize: '11px', fontFamily: 'var(--font-geist-mono)', fontWeight: 700, color: (data?.regime ?? 'RANGE') === 'BULL_TREND' ? 'var(--lime)' : (data?.regime ?? 'RANGE') === 'BEAR_TREND' ? 'var(--red)' : 'var(--muted)' }}>
+              {(data?.regime ?? 'RANGE') === 'BULL_TREND' ? 'TENDENCIA ALTA' : (data?.regime ?? 'RANGE') === 'BEAR_TREND' ? 'TENDENCIA BAIXA' : 'LATERAL'}
+            </span>
+          </div>
+          {(data?.divergence ?? 'NONE') !== 'NONE' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', background: 'rgba(84,184,90,.12)', padding: '4px 8px', borderRadius: '4px', border: '1px solid rgba(84,184,90,.3)' }}>
+              <span style={{ fontSize: '8px', color: 'var(--muted)', letterSpacing: '.1em', fontWeight: 600 }}>⚡ SINAL</span>
+              <span style={{ fontSize: '11px', fontFamily: 'var(--font-geist-mono)', fontWeight: 700, color: (data?.divergence ?? 'NONE') === 'DIVERGENCE_BULL' ? 'var(--lime)' : 'var(--red)' }}>
+                FLUXO ANTECEDE PREÇO
+              </span>
+            </div>
+          )}
+          {(data?.absorption_state ?? 'NONE') !== 'NONE' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', background: (data?.absorption_state ?? '') === 'BULL_ABSORPTION' ? 'rgba(84,184,90,.12)' : 'rgba(220,53,69,.12)', padding: '4px 8px', borderRadius: '4px', border: `1px solid ${(data?.absorption_state ?? '') === 'BULL_ABSORPTION' ? 'rgba(84,184,90,.3)' : 'rgba(220,53,69,.3)'}` }}>
+              <span style={{ fontSize: '8px', color: 'var(--muted)', letterSpacing: '.1em', fontWeight: 600 }}>🔄 ABSORÇÃO</span>
+              <span style={{ fontSize: '11px', fontFamily: 'var(--font-geist-mono)', fontWeight: 700, color: (data?.absorption_state ?? '') === 'BULL_ABSORPTION' ? 'var(--lime)' : 'var(--red)' }}>
+                {(data?.absorption_state ?? '') === 'BULL_ABSORPTION' ? 'ABSORÇÃO COMPRA' : 'ABSORÇÃO VENDA'} ({((data?.absorption_intensity ?? 0) * 100).toFixed(0)}%)
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="marketGrid">
         {/* Preço */}
         <div className="marketCell marketPriceCell">
@@ -191,7 +235,7 @@ export default function MarketPanel({ onFlowData }: { onFlowData?: (data: FlowDa
 
         {/* Imbalance */}
         <div className="marketCell marketImbCell">
-          <span className="marketLabel">{leigo ? "QUEM ESTÁ DOMINANDO" : "ORDER BOOK IMBALANCE"}</span>
+          <span className="marketLabel">{leigo ? "LIQUIDEZ NO BOOK" : "ORDER BOOK IMBALANCE"}</span>
           <span className="marketValue" style={{ color: (data?.imb ?? 0) > 0 ? "var(--lime)" : (data?.imb ?? 0) < 0 ? "var(--red)" : "var(--muted)" }}>
             {((data?.imb ?? 0) * 100).toFixed(1)}%
           </span>

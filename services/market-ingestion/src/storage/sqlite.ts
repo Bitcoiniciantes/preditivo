@@ -10,6 +10,7 @@ export class SQLiteStorage {
   private db: InstanceType<typeof DatabaseSync>;
   private insertSnapshotStmt!: ReturnType<InstanceType<typeof DatabaseSync>['prepare']>;
   private insertEventStmt!: ReturnType<InstanceType<typeof DatabaseSync>['prepare']>;
+  private insertRegimeEventStmt!: ReturnType<InstanceType<typeof DatabaseSync>['prepare']>;
 
   constructor() {
     const dataDir = process.env.NODE_ENV === 'production' ? '/data' : path.join(__dirname, '../../data');
@@ -65,6 +66,22 @@ export class SQLiteStorage {
 
     this.db.exec(`CREATE INDEX IF NOT EXISTS idx_snapshots_time ON snapshots(timestamp);`);
     this.db.exec(`CREATE INDEX IF NOT EXISTS idx_events_time ON events(timestamp);`);
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS regime_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp INTEGER NOT NULL,
+        event_type TEXT NOT NULL,
+        from_state TEXT,
+        to_state TEXT NOT NULL,
+        price REAL,
+        confidence REAL,
+        extra TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    this.db.exec(`CREATE INDEX IF NOT EXISTS idx_regime_events_time ON regime_events(timestamp);`);
+    this.db.exec(`CREATE INDEX IF NOT EXISTS idx_regime_events_type ON regime_events(event_type);`);
   }
 
   private prepareStatements(): void {
@@ -79,6 +96,12 @@ export class SQLiteStorage {
       INSERT INTO events (
         timestamp, symbol, event_type, magnitude, direction, details
       ) VALUES (?, ?, ?, ?, ?, ?)
+    `);
+
+    this.insertRegimeEventStmt = this.db.prepare(`
+      INSERT INTO regime_events (
+        timestamp, event_type, from_state, to_state, price, confidence, extra
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
   }
 
@@ -138,6 +161,30 @@ export class SQLiteStorage {
 
   public close(): void {
     this.db.close();
+  }
+
+  public saveRegimeEvent(data: {
+    timestamp: number;
+    eventType: string;
+    fromState?: string;
+    toState: string;
+    price: number;
+    confidence?: number;
+    extra?: string;
+  }): void {
+    try {
+      this.insertRegimeEventStmt.run(
+        data.timestamp,
+        data.eventType,
+        data.fromState || null,
+        data.toState,
+        data.price,
+        data.confidence || 0,
+        data.extra || null,
+      );
+    } catch (error) {
+      console.error('[DB] Erro ao salvar regime event:', error);
+    }
   }
 }
 

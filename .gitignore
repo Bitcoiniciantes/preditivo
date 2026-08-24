@@ -42,3 +42,10 @@ next-env.d.ts
 /outputs/
 /work/
 /.alert-state/
+
+# daemon market-ingestion — logs e lixo local (não versionar)
+/services/market-ingestion/*.log
+/services/market-ingestion/daemon.err
+/services/market-ingestion/daemon-err.log
+/services/market-ingestion/data/
+/npx @deepseek-aidsh web/

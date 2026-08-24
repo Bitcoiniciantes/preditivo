@@ -158,10 +158,7 @@ export class AiAnalysisError extends Error {
 }
 
 export async function fetchAiAnalysis(payload: AiAnalysisRequest, signal?: AbortSignal): Promise<AiAnalysisResponse> {
-  const endpoint =
-    typeof window !== "undefined" && (window.location.hostname === "bitcoiniciantes.github.io" || window.location.hostname.endsWith(".pages.dev"))
-      ? `${WORKER_BASE_URL}/api/ai-analysis`
-      : "/api/ai-analysis";
+  const endpoint = `${WORKER_BASE_URL}/api/ai-analysis`;
   const response = await abortableFetch(
     endpoint,
     {
@@ -210,10 +207,7 @@ const newsCache = new Map<string, { expiresAt: number; data: AssetNewsResponse }
 export async function fetchAssetNews(asset: string, signal?: AbortSignal): Promise<AssetNewsResponse> {
   const cached = newsCache.get(asset);
   if (cached && cached.expiresAt > Date.now()) return cached.data;
-  const base =
-    typeof window !== "undefined" && (window.location.hostname === "bitcoiniciantes.github.io" || window.location.hostname.endsWith(".pages.dev"))
-      ? WORKER_BASE_URL
-      : "";
+  const base = WORKER_BASE_URL;
   const response = await abortableFetch(
     base + "/api/asset-news?asset=" + encodeURIComponent(asset),
     { signal },

@@ -10,7 +10,7 @@ export const CONFIG = {
   },
 
   intervals: {
-    broadcastMs: 250,
+    broadcastMs: 1000,
     snapshotPersistMs: 60_000,
     oiPollMs: 5_000,
     fundingPollMs: 10_000,
