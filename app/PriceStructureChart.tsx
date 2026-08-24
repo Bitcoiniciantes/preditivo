@@ -1,10 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { buildPriceGeometry } from "../lib/chart";
 import type { Candle } from "../lib/types";
-import { useSupportResistanceAlert } from "./useSupportResistanceAlert";
-import { SupportResistanceAlert } from "./SupportResistanceAlert";
+import { useGlobalAlerts } from "./GlobalAlertContext";
 
 type Props = {
   asset: string;
@@ -37,16 +36,19 @@ export default function PriceStructureChart({ asset, candles, currentPrice, curr
   const geometry = useMemo(() => buildPriceGeometry(candles, 48), [candles]);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
-  // Estado para opt-in de áudio (OBRIGATÓRIO — Autoplay precisa de gesto do usuário)
-  const [alertsEnabled, setAlertsEnabled] = useState(false);
+  // Motor global de alertas (alerta2.md): o gráfico deixa de monitorar preço;
+  // ele só desenha candles/níveis e aciona o engine via contexto.
+  const { configs, toggleAlert, updateConfigLevels } = useGlobalAlerts();
+  const isAlertEnabled = configs[asset]?.enabled ?? false;
 
-  const { alert, dismissAlert } = useSupportResistanceAlert({
-    currentPrice,
-    support,
-    resistance,
-    enabled: alertsEnabled && !loading && currentPrice > 0,
-    tolerancePercent: 0.1,
-  });
+  // Mantém os níveis do gráfico sincronizados com o motor. Enquanto o alerta
+  // estiver ATIVO, updateConfigLevels NÃO sobrescreve os níveis congelados
+  // (ver congelamento no GlobalAlertContext).
+  useEffect(() => {
+    if (support > 0 && resistance > 0) {
+      updateConfigLevels(asset, support, resistance, "GRAPH");
+    }
+  }, [asset, support, resistance, updateConfigLevels]);
 
   if (!geometry) {
     return <div className="priceChart priceChartEmpty" aria-busy={loading}>
@@ -66,20 +68,14 @@ export default function PriceStructureChart({ asset, candles, currentPrice, curr
     <div className="chartHeaderControls">
       <button
         type="button"
-        onClick={() => setAlertsEnabled((v) => !v)}
-        className={`alertToggleBtn ${alertsEnabled ? "active" : ""}`}
-        aria-pressed={alertsEnabled}
-        title={alertsEnabled ? "Desativar alertas de suporte e resistência" : "Ativar alertas de suporte e resistência"}
+        onClick={() => toggleAlert(asset, support, resistance, "GRAPH")}
+        className={`alertToggleBtn ${isAlertEnabled ? "active" : ""}`}
+        aria-pressed={isAlertEnabled}
+        title={isAlertEnabled ? "Desativar alertas de suporte e resistência" : "Ativar alertas de suporte e resistência"}
       >
-        {alertsEnabled ? "🔔 Alertas Ativos" : "🔕 Ativar Alertas"}
+        {isAlertEnabled ? "🔔 Alertas Ativos" : "🔕 Ativar Alertas"}
       </button>
     </div>
-    <SupportResistanceAlert
-      alert={alert}
-      asset={asset}
-      currency={currency}
-      onDismiss={dismissAlert}
-    />
     <div className="chartIdentity" aria-hidden="true"><b>{asset}</b><span>{period} · OHLC REAL</span></div>
     <div className={`chartOhlc ${selectedTone}`} aria-live="polite">
       <span>{formatDate(selected.time, period)}</span>

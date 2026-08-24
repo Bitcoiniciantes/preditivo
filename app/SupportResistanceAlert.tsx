@@ -1,29 +1,34 @@
 "use client";
 
 import { useEffect } from "react";
-import type { AlertState } from "./useSupportResistanceAlert";
 
 export function SupportResistanceAlert({
-  alert,
   asset,
+  type,
+  price,
+  timestamp,
   currency,
+  isVisible,
   onDismiss,
 }: {
-  alert: AlertState | null;
   asset: string;
+  type: "SUPPORT" | "RESISTANCE";
+  price: number;
+  timestamp: number;
   currency: string;
+  isVisible: boolean;
   onDismiss: () => void;
 }) {
   useEffect(() => {
-    if (!alert?.isVisible) return;
+    if (!isVisible) return;
     // Auto-dismiss após 10 segundos
     const timer = setTimeout(onDismiss, 10000);
     return () => clearTimeout(timer);
-  }, [alert?.timestamp, alert?.isVisible, onDismiss]);
+  }, [timestamp, isVisible, onDismiss]);
 
-  if (!alert?.isVisible) return null;
+  if (!isVisible) return null;
 
-  const isSupport = alert.type === "SUPPORT";
+  const isSupport = type === "SUPPORT";
 
   return (
     <div
@@ -36,7 +41,7 @@ export function SupportResistanceAlert({
         <strong>{isSupport ? "SUPORTE ATINGIDO" : "RESISTÊNCIA ATINGIDA"}</strong>
         <span>{asset}</span>
         <span className="priceAlertPrice">
-          {currency} {alert.price.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          {currency} {price.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </span>
       </div>
       <button

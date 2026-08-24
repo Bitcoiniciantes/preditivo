@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import "./nexus.css";
+import { AlertEngine } from "./AlertEngine";
 
 const geistSans=Geist({variable:"--font-geist-sans",subsets:["latin"]});
 const geistMono=Geist_Mono({variable:"--font-geist-mono",subsets:["latin"]});
@@ -15,7 +16,7 @@ export const metadata:Metadata={
 
 export default function RootLayout({children}:{children:React.ReactNode}){
  return <html lang="pt-BR"><body className={`${geistSans.variable} ${geistMono.variable}`}>
-  {children}
+  <AlertEngine>{children}</AlertEngine>
   <Script id="worker-counter" strategy="afterInteractive">{`
    (() => {
     var WORKER_URL = 'https://floral-truth-af64.bitcoiniciantes.workers.dev';
