@@ -24,7 +24,7 @@
 //      registerAlert(). Não possui motor próprio.
 // ============================================================================
 
-import { createContext, useContext, useEffect, useMemo, useReducer } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from "react";
 
 // ============================================================================
 // TIPOS
@@ -369,6 +369,56 @@ function alertReducer(state: State, action: Action): State {
 
 const GlobalAlertContext = createContext<GlobalAlertContextValue | null>(null);
 
+// ── Sincronização remota (mesmo padrão do PositionPanel) ──
+// Espelha os alertas entre dispositivos (mobile ↔ notebook) via Worker.
+// - GET:  lê { configs, states, updatedAt } da conta "alerts"
+// - POST: grava { configs, states } e recebe updatedAt de volta
+// - updatedAt resolve conflitos: só aplica remoto se for mais novo
+// - push acontece SOMENTE em ação do usuário (flag userActionRef) — o HYDRATE
+//   vindo de um pull remoto NÃO gera push de volta (evita loop de eco)
+const ALERTS_SYNC_URL =
+  "https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/public-positions?account=alerts";
+
+function cleanRemoteConfigs(value: unknown): Record<string, AlertConfig> {
+  if (!value || typeof value !== "object") return {};
+  const out: Record<string, AlertConfig> = {};
+  for (const [symbol, raw] of Object.entries(value as Record<string, unknown>)) {
+    const c = raw as Partial<AlertConfig> | undefined;
+    if (
+      c && typeof c === "object" &&
+      typeof c.symbol === "string" &&
+      Number.isFinite(c.support) && (c.support as number) > 0 &&
+      Number.isFinite(c.resistance) && (c.resistance as number) > 0 &&
+      typeof c.period === "string" &&
+      Number.isFinite(c.createdAt) &&
+      typeof c.enabled === "boolean"
+    ) {
+      out[symbol] = { symbol: c.symbol, support: c.support as number, resistance: c.resistance as number, period: c.period, createdAt: c.createdAt as number, enabled: c.enabled };
+    }
+  }
+  return out;
+}
+
+function cleanRemoteStates(value: unknown): Record<string, PersistedAlertState> {
+  if (!value || typeof value !== "object") return {};
+  const out: Record<string, PersistedAlertState> = {};
+  for (const [symbol, raw] of Object.entries(value as Record<string, unknown>)) {
+    const s = raw as Partial<PersistedAlertState> | undefined;
+    if (s && typeof s === "object" && typeof s.symbol === "string") {
+      out[symbol] = {
+        symbol: s.symbol,
+        triggered: Boolean(s.triggered),
+        triggeredLevel: Number.isFinite(s.triggeredLevel as number) ? (s.triggeredLevel as number) : null,
+        triggeredType: s.triggeredType === "SUPPORT_HIT" || s.triggeredType === "RESISTANCE_HIT" ? s.triggeredType : null,
+        triggeredAt: Number.isFinite(s.triggeredAt as number) ? (s.triggeredAt as number) : null,
+        acknowledgedAt: Number.isFinite(s.acknowledgedAt as number) ? (s.acknowledgedAt as number) : null,
+        frozenUntil: Number.isFinite(s.frozenUntil as number) ? (s.frozenUntil as number) : null,
+      };
+    }
+  }
+  return out;
+}
+
 export function GlobalAlertProvider({
   children,
   livePrices,
@@ -382,44 +432,10 @@ export function GlobalAlertProvider({
     events: [],
   });
 
-  // Carregamento inicial (Hydration) — baseline reconstruído nulo
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const savedConfigs = localStorage.getItem("termometro-alerts-config");
-      const savedStates = localStorage.getItem("termometro-alerts-state");
-
-      const parsedConfigs = savedConfigs ? JSON.parse(savedConfigs) : null;
-      const parsedStates = savedStates ? JSON.parse(savedStates) : null;
-
-      if (parsedConfigs || parsedStates) {
-        dispatch({
-          type: "HYDRATE",
-          configs: typeof parsedConfigs === "object" && parsedConfigs !== null ? parsedConfigs : {},
-          states: typeof parsedStates === "object" && parsedStates !== null ? parsedStates : {},
-        });
-      }
-    } catch (error) {
-      console.error("Erro ao carregar alertas:", error);
-    }
-  }, []);
-
-  // Dispatch livePrices puro para o motor (tempo injetado no dispatcher)
-  useEffect(() => {
-    dispatch({
-      type: "PRICE_UPDATE",
-      livePrices,
-      timestamp: Date.now(),
-    });
-  }, [livePrices]);
-
-  // ── Persistência (corrigida) ──
-  // IMPORTANTE: NÃO usar `state.states` diretamente como dependência — ele
-  // muda a cada tick de preço (lastPrice é atualizado continuamente), o que
-  // reiniciaria o debounce a cada segundo e o save nunca dispararia (por isso
-  // os alertas sumiam no F5). Derivamos strings ESTÁVEIS: só mudam quando um
-  // campo PERSISTÍVEL muda (register/toggle/trigger/acknowledge/remove),
-  // nunca por causa de lastPrice/lastCrossover (que não são persistidos).
+  // ── Chaves estáveis de persistência ──
+  // Só mudam quando um campo PERSISTÍVEL muda (register/toggle/trigger/
+  // acknowledge/remove) — nunca por causa de lastPrice/lastCrossover, que
+  // são atualizados a cada tick e NÃO são persistidos.
   const persistedConfigsKey = JSON.stringify(state.configs);
 
   const persistedStatesKey = useMemo(() => {
@@ -439,6 +455,142 @@ export function GlobalAlertProvider({
     return JSON.stringify(stateToPersist);
   }, [state.states]);
 
+  // ── Sincronização remota (espelho mobile ↔ notebook) ──
+  // updatedAt do Worker é a autoridade de conflito: só aplica remoto se for
+  // mais novo que o último visto. userActionRef marca mudanças feitas pelo
+  // usuário neste dispositivo — o push remoto só ocorre nesses casos (evita
+  // loop de eco quando um pull remoto re-hidrata o estado local).
+  const remoteUpdatedAtRef = useRef(0);
+  const userActionRef = useRef(false);
+
+  const pullRemote = useCallback(async (): Promise<boolean> => {
+    try {
+      const response = await fetch(ALERTS_SYNC_URL, { cache: "no-store" });
+      if (!response.ok) return false;
+      const data: unknown = await response.json();
+      const remote = data && typeof data === "object" ? data as { configs?: unknown; states?: unknown; updatedAt?: unknown } : {};
+      const updatedAt = Number(remote.updatedAt) || 0;
+      if (updatedAt && updatedAt > remoteUpdatedAtRef.current) {
+        remoteUpdatedAtRef.current = updatedAt;
+        const nextConfigs = cleanRemoteConfigs(remote.configs);
+        const nextStates = cleanRemoteStates(remote.states);
+        dispatch({ type: "HYDRATE", configs: nextConfigs, states: nextStates });
+        return true;
+      }
+      return Boolean(updatedAt);
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const pushRemote = useCallback(async (): Promise<void> => {
+    try {
+      const response = await fetch(ALERTS_SYNC_URL, {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          configs: state.configs,
+          states: Object.fromEntries(
+            Object.entries(state.states).map(([symbol, s]) => [
+              symbol,
+              {
+                symbol: s.symbol,
+                triggered: s.triggered,
+                triggeredLevel: s.triggeredLevel,
+                triggeredType: s.triggeredType,
+                triggeredAt: s.triggeredAt,
+                acknowledgedAt: s.acknowledgedAt,
+                frozenUntil: s.frozenUntil,
+              },
+            ]),
+          ),
+        }),
+      });
+      if (!response.ok) return;
+      const data: unknown = await response.json();
+      const updatedAt = Number(data && typeof data === "object" ? (data as { updatedAt?: unknown }).updatedAt : 0) || 0;
+      if (updatedAt) remoteUpdatedAtRef.current = updatedAt;
+    } catch {
+      // offline — mantém local; próximo pull convergirá
+    }
+  }, [state.configs, state.states]);
+
+  // Polling: espelha mudanças feitas em outro dispositivo a cada 5s e ao
+  // voltar para a aba (mesmo comportamento do PositionPanel).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const timer = window.setInterval(() => { void pullRemote(); }, 5000);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void pullRemote();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [pullRemote]);
+
+  // Push remoto: apenas quando o USUÁRIO altera (register/toggle/remove/ack).
+  // Dispara quando as chaves persistíveis mudam e a origem foi ação do usuário.
+  useEffect(() => {
+    if (!userActionRef.current) return;
+    userActionRef.current = false;
+    void pushRemote();
+  }, [persistedConfigsKey, persistedStatesKey, pushRemote]);
+
+  // Carregamento inicial (Hydration) — baseline reconstruído nulo.
+  // Depois da hidratação local, puxa o espelho remoto (mobile ↔ notebook).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let active = true;
+    const start = async () => {
+      try {
+        const savedConfigs = localStorage.getItem("termometro-alerts-config");
+        const savedStates = localStorage.getItem("termometro-alerts-state");
+
+        const parsedConfigs = savedConfigs ? JSON.parse(savedConfigs) : null;
+        const parsedStates = savedStates ? JSON.parse(savedStates) : null;
+
+        if (parsedConfigs || parsedStates) {
+          dispatch({
+            type: "HYDRATE",
+            configs: typeof parsedConfigs === "object" && parsedConfigs !== null ? parsedConfigs : {},
+            states: typeof parsedStates === "object" && parsedStates !== null ? parsedStates : {},
+          });
+        }
+
+        // Espelho remoto: se o Worker tiver estado mais novo (updatedAt), aplica.
+        const foundRemote = await pullRemote();
+        if (!active) return;
+        if (!foundRemote) {
+          // Primeiro uso no Worker (ou Worker vazio): envia o estado local.
+          await pushRemote();
+        }
+      } catch (error) {
+        console.error("Erro ao carregar alertas:", error);
+      }
+    };
+    void start();
+    return () => { active = false; };
+  }, []);
+
+  // Dispatch livePrices puro para o motor (tempo injetado no dispatcher)
+  useEffect(() => {
+    dispatch({
+      type: "PRICE_UPDATE",
+      livePrices,
+      timestamp: Date.now(),
+    });
+  }, [livePrices]);
+
+  // ── Persistência (corrigida) ──
+  // IMPORTANTE: NÃO usar `state.states` diretamente como dependência — ele
+  // muda a cada tick de preço (lastPrice é atualizado continuamente), o que
+  // reiniciaria o debounce a cada segundo e o save nunca dispararia (por isso
+  // os alertas sumiam no F5). Derivamos strings ESTÁVEIS: só mudam quando um
+  // campo PERSISTÍVEL muda (register/toggle/trigger/acknowledge/remove),
+  // nunca por causa de lastPrice/lastCrossover (que não são persistidos).
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -454,18 +606,27 @@ export function GlobalAlertProvider({
     return () => clearTimeout(timeout);
   }, [persistedConfigsKey, persistedStatesKey]);
 
-  // APIs Expostas (injeção de tempo feita no dispatcher)
-  const registerAlert = (config: Omit<AlertConfig, "createdAt" | "enabled">) =>
+  // APIs Expostas (injeção de tempo feita no dispatcher).
+  // Todas marcam userActionRef — o push remoto só ocorre em ação do usuário.
+  const registerAlert = (config: Omit<AlertConfig, "createdAt" | "enabled">) => {
+    userActionRef.current = true;
     dispatch({ type: "REGISTER", config, timestamp: Date.now() });
+  };
 
-  const removeAlert = (symbol: string) =>
+  const removeAlert = (symbol: string) => {
+    userActionRef.current = true;
     dispatch({ type: "REMOVE", symbol });
+  };
 
-  const toggleAlert = (symbol: string) =>
+  const toggleAlert = (symbol: string) => {
+    userActionRef.current = true;
     dispatch({ type: "TOGGLE", symbol });
+  };
 
-  const acknowledgeAlert = (symbol: string) =>
+  const acknowledgeAlert = (symbol: string) => {
+    userActionRef.current = true;
     dispatch({ type: "ACKNOWLEDGE", symbol, timestamp: Date.now() });
+  };
 
   return (
     <GlobalAlertContext.Provider
