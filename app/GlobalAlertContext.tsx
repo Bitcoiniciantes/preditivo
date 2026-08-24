@@ -520,7 +520,7 @@ export function GlobalAlertProvider({
   // voltar para a aba (mesmo comportamento do PositionPanel).
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const timer = window.setInterval(() => { void pullRemote(); }, 5000);
+    const timer = window.setInterval(() => { void pullRemote(); }, 2000);
     const onVisibility = () => {
       if (document.visibilityState === "visible") void pullRemote();
     };
@@ -601,7 +601,7 @@ export function GlobalAlertProvider({
       } catch (error) {
         console.error("Erro ao persistir alertas:", error);
       }
-    }, 300);
+    }, 100);
 
     return () => clearTimeout(timeout);
   }, [persistedConfigsKey, persistedStatesKey]);
