@@ -25,6 +25,7 @@
 // ============================================================================
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from "react";
+import { playAlertSound, prepareAlertAudio } from "../lib/alert-audio";
 
 // ============================================================================
 // TIPOS
@@ -72,6 +73,7 @@ type State = {
 type Action =
   | { type: "PRICE_UPDATE"; livePrices: Record<string, number>; timestamp: number }
   | { type: "REGISTER"; config: Omit<AlertConfig, "createdAt" | "enabled">; timestamp: number }
+  | { type: "UPDATE_LEVELS"; symbol: string; support: number; resistance: number; period: string }
   | { type: "REMOVE"; symbol: string }
   | { type: "TOGGLE"; symbol: string }
   | { type: "ACKNOWLEDGE"; symbol: string; timestamp: number }
@@ -82,6 +84,7 @@ type GlobalAlertContextValue = {
   alertStates: Record<string, AlertState>;
   alertEvents: AlertEvent[];
   registerAlert: (config: Omit<AlertConfig, "createdAt" | "enabled">) => void;
+  updateLevels: (symbol: string, support: number, resistance: number, period: string) => void;
   removeAlert: (symbol: string) => void;
   toggleAlert: (symbol: string) => void;
   acknowledgeAlert: (symbol: string) => void;
@@ -260,6 +263,32 @@ function alertReducer(state: State, action: Action): State {
       return hasChanges
         ? { ...state, states: newStates, events: newEvents }
         : state;
+    }
+
+    // Sincroniza S/R vindos do gráfico. Se o alerta NÃO existe, cria
+    // desabilitado. Se está ATIVO, congelar (não sobrescrever o nível capturado
+    // na ativação). Só atualiza quando desativado (o usuário reativa depois).
+    case "UPDATE_LEVELS": {
+      const { symbol, support, resistance, period } = action;
+      const existing = state.configs[symbol];
+      if (!existing) {
+        return {
+          ...state,
+          configs: {
+            ...state.configs,
+            [symbol]: { symbol, support, resistance, period, createdAt: 0, enabled: false },
+          },
+        };
+      }
+      if (existing.enabled) return state; // congelado
+      if (existing.support === support && existing.resistance === resistance) return state;
+      return {
+        ...state,
+        configs: {
+          ...state.configs,
+          [symbol]: { ...existing, support, resistance, period },
+        },
+      };
     }
 
     case "REGISTER": {
@@ -539,6 +568,13 @@ export function GlobalAlertProvider({
     void pushRemote();
   }, [persistedConfigsKey, persistedStatesKey, pushRemote]);
 
+  // Som quando um crossover gera um novo evento (fora do reducer — puro).
+  const eventsKey = JSON.stringify(state.events.map((e) => `${e.symbol}:${e.type}:${e.timestamp}`));
+  useEffect(() => {
+    if (state.events.length === 0) return;
+    playAlertSound();
+  }, [eventsKey]);
+
   // Carregamento inicial (Hydration) — baseline reconstruído nulo.
   // Depois da hidratação local, puxa o espelho remoto (mobile ↔ notebook).
   useEffect(() => {
@@ -609,8 +645,13 @@ export function GlobalAlertProvider({
   // APIs Expostas (injeção de tempo feita no dispatcher).
   // Todas marcam userActionRef — o push remoto só ocorre em ação do usuário.
   const registerAlert = (config: Omit<AlertConfig, "createdAt" | "enabled">) => {
+    prepareAlertAudio();
     userActionRef.current = true;
     dispatch({ type: "REGISTER", config, timestamp: Date.now() });
+  };
+
+  const updateLevels = (symbol: string, support: number, resistance: number, period: string) => {
+    dispatch({ type: "UPDATE_LEVELS", symbol, support, resistance, period });
   };
 
   const removeAlert = (symbol: string) => {
@@ -619,6 +660,7 @@ export function GlobalAlertProvider({
   };
 
   const toggleAlert = (symbol: string) => {
+    prepareAlertAudio();
     userActionRef.current = true;
     dispatch({ type: "TOGGLE", symbol });
   };
@@ -635,6 +677,7 @@ export function GlobalAlertProvider({
         alertStates: state.states,
         alertEvents: state.events,
         registerAlert,
+        updateLevels,
         removeAlert,
         toggleAlert,
         acknowledgeAlert,

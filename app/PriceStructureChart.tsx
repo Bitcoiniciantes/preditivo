@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { buildPriceGeometry } from "../lib/chart";
 import type { Candle } from "../lib/types";
 import { useGlobalAlerts } from "./GlobalAlertContext";
@@ -36,19 +36,21 @@ export default function PriceStructureChart({ asset, candles, currentPrice, curr
   const geometry = useMemo(() => buildPriceGeometry(candles, 48), [candles]);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
-  // Motor global de alertas (alerta2.md → ALERTA_PAINEL.md V4): o gráfico
-  // fornece os níveis; o crossover vive no motor. O clique no sino registra
-  // (opt-in) com os níveis atuais ou alterna o estado do alerta.
-  const { alertConfigs, registerAlert, toggleAlert } = useGlobalAlerts();
+  // Motor global de alertas: o GRÁFICO é a fonte dos níveis. Envia S/R ao
+  // motor via updateLevels (que congela enquanto o alerta estiver ativo).
+  // O clique no sino apenas alterna o estado (toggleAlert).
+  const { alertConfigs, updateLevels, toggleAlert } = useGlobalAlerts();
   const isAlertEnabled = alertConfigs[asset]?.enabled ?? false;
-  const isRegistered = Boolean(alertConfigs[asset]);
+
+  // Sincroniza os níveis calculados do gráfico com o motor.
+  useEffect(() => {
+    if (support > 0 && resistance > 0) {
+      updateLevels(asset, support, resistance, period);
+    }
+  }, [asset, support, resistance, period, updateLevels]);
 
   const handleAlertToggle = () => {
-    if (!isRegistered) {
-      registerAlert({ symbol: asset, support, resistance, period });
-    } else {
-      toggleAlert(asset);
-    }
+    toggleAlert(asset);
   };
 
   if (!geometry) {
