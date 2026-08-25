@@ -2,9 +2,16 @@ import { DatabaseSync } from 'node:sqlite';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { CONFIG } from '../config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// ── Versão do schema (Fase 0, item 6 — PROJETO_COMPORTAMENTO_PREDITIVO_15Mv3 §44) ──
+//   v1 = schema original (events sem coluna price)
+//   v2 = events.price REAL adicionada + saveEvent() ligado ao fluxo de whale events
+// Registro via PRAGMA user_version (mecanismo canônico do SQLite; auditável em sqlite_master).
+const SCHEMA_VERSION = 2;
 
 export class SQLiteStorage {
   private db: InstanceType<typeof DatabaseSync>;
@@ -12,14 +19,16 @@ export class SQLiteStorage {
   private insertEventStmt!: ReturnType<InstanceType<typeof DatabaseSync>['prepare']>;
   private insertRegimeEventStmt!: ReturnType<InstanceType<typeof DatabaseSync>['prepare']>;
 
-  constructor() {
-    const dataDir = process.env.NODE_ENV === 'production' ? '/data' : path.join(__dirname, '../../data');
+  constructor(dbPathOverride?: string) {
+    const dataDir = dbPathOverride
+      ? path.dirname(dbPathOverride)
+      : process.env.NODE_ENV === 'production' ? '/data' : path.join(__dirname, '../../data');
 
-    if (!fs.existsSync(dataDir)) {
+    if (!dbPathOverride && !fs.existsSync(dataDir)) {
       fs.mkdirSync(dataDir, { recursive: true });
     }
 
-    const dbPath = path.join(dataDir, 'market.db');
+    const dbPath = dbPathOverride || path.join(dataDir, 'market.db');
     console.log(`[DB] Conectando ao SQLite em: ${dbPath}`);
 
     this.db = new DatabaseSync(dbPath);
@@ -29,6 +38,7 @@ export class SQLiteStorage {
     this.db.exec('PRAGMA temp_store = MEMORY');
 
     this.initSchema();
+    this.migrateSchema();
     this.prepareStatements();
   }
 
@@ -58,6 +68,7 @@ export class SQLiteStorage {
         symbol TEXT NOT NULL,
         event_type TEXT,
         magnitude REAL,
+        price REAL,
         direction TEXT,
         details TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -84,6 +95,34 @@ export class SQLiteStorage {
     this.db.exec(`CREATE INDEX IF NOT EXISTS idx_regime_events_type ON regime_events(event_type);`);
   }
 
+  /**
+   * Migração v2 — idempotente:
+   *  - adiciona `events.price` somente se a coluna não existir (DBs anteriores à v2);
+   *  - eventos antigos permanecem como estão: price NULL, sem preço histórico inventado;
+   *  - registra o schema_version via PRAGMA user_version (somente upgrade, nunca downgrade).
+   */
+  private migrateSchema(): void {
+    const cols = this.db.prepare('PRAGMA table_info(events)').all() as { name: string }[];
+    if (!cols.some((c) => c.name === 'price')) {
+      this.db.exec('ALTER TABLE events ADD COLUMN price REAL');
+      console.log('[DB] Migração v2: coluna events.price adicionada (eventos antigos mantêm price NULL — sem preço histórico inventado).');
+    }
+
+    const row = this.db.prepare('PRAGMA user_version').get() as { user_version: number };
+    const currentVersion = row?.user_version ?? 0;
+    if (currentVersion < SCHEMA_VERSION) {
+      this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
+      console.log(`[DB] schema_version registrado: ${currentVersion} → ${SCHEMA_VERSION}`);
+    } else {
+      console.log(`[DB] schema_version: ${currentVersion}`);
+    }
+  }
+
+  public getSchemaVersion(): number {
+    const row = this.db.prepare('PRAGMA user_version').get() as { user_version: number };
+    return row?.user_version ?? 0;
+  }
+
   private prepareStatements(): void {
     this.insertSnapshotStmt = this.db.prepare(`
       INSERT INTO snapshots (
@@ -94,8 +133,8 @@ export class SQLiteStorage {
 
     this.insertEventStmt = this.db.prepare(`
       INSERT INTO events (
-        timestamp, symbol, event_type, magnitude, direction, details
-      ) VALUES (?, ?, ?, ?, ?, ?)
+        timestamp, symbol, event_type, magnitude, price, direction, details
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
 
     this.insertRegimeEventStmt = this.db.prepare(`
@@ -143,14 +182,16 @@ export class SQLiteStorage {
     eventType: string;
     magnitude?: number;
     direction: string;
+    price?: number;
     details?: string;
   }): void {
     try {
       this.insertEventStmt.run(
         data.timestamp,
-        data.symbol || 'BTCUSDT',
+        data.symbol || CONFIG.symbol,
         data.eventType,
-        data.magnitude || 0,
+        data.magnitude ?? 0,
+        data.price ?? null,
         data.direction,
         data.details || ''
       );

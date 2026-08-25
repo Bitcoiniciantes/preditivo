@@ -184,6 +184,7 @@ export interface EventRow {
   symbol: string;
   event_type: string;
   magnitude: number;
+  price: number | null;
   direction: string;
   details: string;
   created_at: string;

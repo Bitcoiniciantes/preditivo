@@ -81,12 +81,29 @@ function pushTradeEvent(trade: NormalizedTrade): void {
   const size = classifyTrade(trade);
   if (size !== 'large') return;
 
+  const type = trade.side === 'BUY' ? 'whale_buy' : 'whale_sell';
+  const direction = trade.side === 'BUY' ? 'bullish' : 'bearish';
   const magnitude = trade.price * trade.quantity;
-  events.push({
-    type: trade.side === 'BUY' ? 'whale_buy' : 'whale_sell',
-    magnitude,
-    direction: trade.side === 'BUY' ? 'bullish' : 'bearish',
+
+  events.push({ type, magnitude, direction, timestamp: trade.eventTime });
+
+  // Fase 0 item 5 — persistência do whale event (mesma classificação usada no broadcast).
+  // timestamp = trade.eventTime (instante exato do trade, não o horário da persistência);
+  // price = trade.price (preço no instante exato do evento — estrutural, não opcional);
+  // details = dados adicionais disponíveis em formato estruturado (JSON).
+  dbStorage.saveEvent({
     timestamp: trade.eventTime,
+    symbol: CONFIG.symbol,
+    eventType: type,
+    magnitude,
+    direction,
+    price: trade.price,
+    details: JSON.stringify({
+      exchange: trade.exchange,
+      quantity: trade.quantity,
+      side: trade.side,
+      isBuyerMaker: trade.isBuyerMaker,
+    }),
   });
 
   // Limita o tamanho do payload por ciclo; o array é zerado após cada broadcast.
