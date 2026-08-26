@@ -1,6 +1,7 @@
 // tests/trade-aggregator.test.mjs
-// P0-01 — agregador client-side de execuções (substituto do @aggTrade, que não existe
-// no futures). Roda contra o build: `npm run build` (tsc) antes.
+// P0-01 — agregador client-side de execuções (provisório; o @aggTrade nativo existe no
+// futures via endpoint /market — auditoria §20 — e está em avaliação como substituição).
+// Roda contra o build: `npm run build` (tsc) antes.
 //   node tests/trade-aggregator.test.mjs
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';

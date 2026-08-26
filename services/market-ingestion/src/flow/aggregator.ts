@@ -2,12 +2,12 @@ import type { NormalizedTrade } from '../types/index.js';
 
 // Agregador client-side de execuções (P0-01 da auditoria do observatório, 26/08).
 //
-// Contexto verificado: o futures da Binance (fstream.binance.com) NÃO possui stream
-// `@aggTrade` (entrega 0 mensagens; o spot possui). O `@trade` entrega execuções
-// individuais com id `t`. Para evitar contar fills da mesma ordem como eventos
-// separados, agregamos execuções com a MESMA direção agressora dentro de uma janela
-// de ~100ms — semântica equivalente à do @aggTrade do spot (agregação por ordem taker
-// na janela de ~100ms).
+// Contexto: o `@aggTrade` EXISTE no futures da Binance, mas é entregue apenas pelo endpoint
+// `/market/ws`/`/market/stream` (verificado em 26/08 — auditoria §20). Enquanto o daemon usa o
+// endpoint `/stream` (sem /market), o `@trade` entrega execuções individuais com id `t` e
+// agregamos execuções com a MESMA direção agressora em janela de ~100ms — aproximação do
+// `@aggTrade` nativo. Solução PROVISÓRIA: a troca para o stream nativo está em avaliação
+// (comparação nativo vs agregador antes de remover este módulo).
 //
 // Regras:
 //  - janela começa na primeira execução do grupo e dura AGG_WINDOW_MS;

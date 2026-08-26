@@ -820,12 +820,12 @@ Autorização do arquiteto: `AUTORIZAÇÃO DE IMPLEMENTAÇÃO — OBSERVATÓRIO`
 
 ## 19.1 P0-01 — Whale Events (implementado)
 
-**Investigação de `@aggTrade` (verificado ao vivo em 26/08):**
-- `fstream.binance.com` (`btcusdt@aggTrade`): **0 mensagens** em 8s/15s — o futures **NÃO possui** stream `@aggTrade`;
+**Investigação de `@aggTrade` (26/08, etapa 1):**
+- `fstream.binance.com` (`btcusdt@aggTrade` no endpoint `/ws`): **0 mensagens** — VERIFICADO em §20 que a causa é **roteamento de endpoint**, não inexistência do stream;
 - spot `stream.binance.com` (`btcusdt@aggTrade`): 88 msgs/8s — funciona no spot;
-- futures `@trade`: 143 msgs/8s — execuções individuais com id `t` (formato `{e:'trade', t, p, q, X, m, st}`).
+- futures `@trade` (endpoint `/stream`): 143 msgs/8s — execuções individuais com id `t` (formato `{e:'trade', t, p, q, X, m, st}`).
 
-**Correção aplicada (futures não tem aggTrade → agregação client-side):**
+**Correção aplicada na etapa 1 (decisão de não mudar a arquitetura sem esta verificação — §20 reabre o ponto):**
 1. **Stream**: mantido `@trade` (execuções com id `t`).
 2. **IDs preservados**: `NormalizedTrade.id` = `t` (futures) ou `a` (spot, robustez); persistido em `events.trade_id` (schema v3) + índice único parcial (`idx_events_trade_id`, dedupe de replay).
 3. **Agregação**: `flow/aggregator.ts` — agrupa execuções da mesma direção agressora em janela de ~100ms (semântica do `@aggTrade` do spot); VWAP, quantidade somada, `executions`/`firstId` preservados nos details.
@@ -855,3 +855,57 @@ Autorização do arquiteto: `AUTORIZAÇÃO DE IMPLEMENTAÇÃO — OBSERVATÓRIO`
 ## 19.4 Não mexido (conforme decisão do arquiteto)
 
 OI (cálculo validado), CVD (validado), gaps (coleta real), FLOW (lógica validada), scripts congelados da Fase 1 (`fase1-experimento-minimo.mjs`, `fase1-amostra-diagnostico.mjs`), Absorption (não promovido), churn/hysteresis (segunda fase).
+
+---
+
+# 20. REABERTURA P0-01 — VERIFICAÇÃO DO @aggTrade NATIVO (26/08 ~13:0xZ)
+
+> Teste isolado, independente do daemon. Nenhuma alteração de implementação, schema, banco ou
+> histórico. Objetivo: determinar a causa real do silêncio do `@aggTrade`, não trocar código.
+
+## 20.1 URL WebSocket atualmente utilizada pelo daemon
+
+`CONFIG.wsUrl = 'wss://fstream.binance.com/stream'` + `?streams=btcusdt@trade/btcusdt@depth20@100ms/btcusdt@bookTicker`
+→ **`wss://fstream.binance.com/stream?streams=btcusdt@trade/btcusdt@depth20@100ms/btcusdt@bookTicker`** (endpoint **sem** `/market`).
+
+## 20.2 Testes (15s cada, sondas independentes)
+
+| Sonda | Endpoint | Stream | Mensagens | Taxa |
+|---|---|---|---|---|
+| A | `/stream?streams=@trade/@depth20@100ms/@bookTicker` (atual do daemon) | trade+depth+bookTicker | **6.592** | 439,5/s |
+| B | `/ws/btcusdt@aggTrade` (atual, raw) | aggTrade | **0** | 0/s |
+| C | **`/market/ws/btcusdt@aggTrade`** | aggTrade | **446** | 29,7/s |
+| D | `/market/stream?streams=btcusdt@aggTrade` | aggTrade | **180** | 12,0/s |
+| E | `/ws/btcusdt@markPrice` (atual, raw) | markPrice | **0** | 0/s |
+| F | **`/market/ws/btcusdt@markPrice`** | markPrice | **4** | 0,3/s (1/3s) |
+
+**Primeiro payload nativo (sonda C):** `e=aggTrade E=1787747812303 a=3428435854 p=78351.00 q=0.772 f=8020857938 l=8020857942 T=1787747812150 m=true`
+— campos `a` (id do agregado), `p`, `q`, `f`/`l` (range de trade ids: 5 execuções agregadas), `T`, `m` presentes.
+
+**Intervalos entre mensagens (sonda C):** 171, 157, 151, 116, 129 ms (~100-170ms — janela de agregação do próprio exchange).
+
+## 20.3 DIAGNÓSTICO OBJETIVO
+
+**CAUSA:** o endpoint WebSocket do daemon (`wss://fstream.binance.com/stream?...`) não roteia os streams
+**Market** `@aggTrade` e `@markPrice`. O USD-M Futures possui endpoint dedicado
+`wss://fstream.binance.com/market/ws/<stream>` e `wss://fstream.binance.com/market/stream?streams=...`,
+que é quem entrega esses streams. Não é inexistência do `@aggTrade` no futures — é roteamento de URL.
+
+**EVIDÊNCIA:** sonda B (endpoint atual, raw) = **0 msgs** vs sonda C (`/market/ws`) = **446 msgs** para o
+mesmo stream `btcusdt@aggTrade`; sonda E (atual) = 0 vs sonda F (`/market/ws`) = 4 msgs para `@markPrice`;
+sonda A mostra que `@trade`/`@depth`/`@bookTicker` funcionam no endpoint atual (não são afetados).
+
+**IMPACTO:**
+- A conclusão anterior "futures não possui `@aggTrade`" é **FALSA** (corrigida neste documento e no código);
+- a agregação client-side (~100ms, `flow/aggregator.ts`) foi introduzida como substituta de algo que
+  existe nativamente — permanece válida como solução provisória, mas não é a solução definitiva;
+- o daemon também perderia `@markPrice` se algum dia usasse esse stream (hoje o funding vem de REST
+  `premiumIndex`, então sem impacto operacional);
+- whale events / CVD WHALE atuais (semântica v2) foram gerados com `@trade` + agregação client-side.
+
+**RECOMENDAÇÃO (não implementada — aguardando decisão do arquiteto):**
+1. Trocar o endpoint do daemon para `wss://fstream.binance.com/market/stream?streams=btcusdt@aggTrade/btcusdt@depth20@100ms/btcusdt@bookTicker` (verificar primeiro se `depth`/`bookTicker` também entregam em `/market` — sonda rápida);
+2. Usar o `@aggTrade` **nativo** como fonte dos whale events (id = `a`; `f`/`l` preservados; `T`, `m`);
+3. **Comparar** o evento nativo vs a agregação client-side atual em janela simultânea (quantidade, lado, notional, VWAP) **antes de remover** o agregador;
+4. Manter `trade_id` e as persistências do schema v3 (id nativo `a` na coluna `trade_id`);
+5. Registrar a mudança de semântica do dataset whale (v2 → v3) no DECISOES antes de trocar.

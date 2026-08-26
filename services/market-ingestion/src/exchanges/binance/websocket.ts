@@ -78,8 +78,9 @@ function handleEvent(msg: Record<string, unknown>) {
   switch (event) {
     case 'trade':
     case 'aggTrade': {
-      // Futures usa @trade (execuções com id 't'); @aggTrade não existe no futures
-      // (verificado 26/08) — mantido por robustez caso o config aponte para o spot.
+      // O endpoint atual (/stream) entrega @trade (execuções com id 't'). O @aggTrade
+      // existe no futures, mas só é entregue pelo endpoint /market (auditoria §20);
+      // caso o config aponte para ele, o parser lê o id 'a'. Mantido por robustez.
       const trade = parseAggTrade(msg);
       if (trade) handler.onTrade(trade);
       break;

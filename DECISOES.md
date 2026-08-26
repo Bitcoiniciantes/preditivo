@@ -120,9 +120,11 @@ Interpretação (regra): significância isolada no treino **não é evidência**
 
 - **Status: EXECUTADO em 26/08 (autorização do arquiteto — P0-01 do observatório).** Decisão aplicada:
   threshold **absoluto US$ 100.000** (`CONFIG.flow.whaleNotionalUsd`) + agregação client-side ~100ms
-  (substituto do `@aggTrade`, que **não existe no futures** — verificado ao vivo) + ids preservados
-  (`events.trade_id`, schema v3, índice único parcial) + testes (52/52). Histórico antigo **intocado**
-  (sem reprocessamento; `trade_id NULL` permanece). Detalhes no relatório `AUDITORIA...md` §19.
+  + ids preservados (`events.trade_id`, schema v3, índice único parcial) + testes (52/52). Histórico
+  antigo **intocado** (sem reprocessamento; `trade_id NULL` permanece). **NOTA (26/08, §20 da auditoria):
+  o `@aggTrade` existe no futures — o silêncio era roteamento de endpoint (faltava `/market`). A
+  agregação client-side permanece provisória; a troca para o `@aggTrade` nativo está em avaliação
+  (comparação nativo vs agregador antes de remover código).**
   Consequência: whale events e CVD WHALE passam a refletir **trades agregados ≥ $100k** (semântica v2);
   o dataset whale da Fase 1 (seção separada) distingue v1 (histórico) de v2 (novo).
 - **Achado original (26/08):** `classifyTrade` definia `large`/whale como

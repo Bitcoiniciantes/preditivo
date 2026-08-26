@@ -4,10 +4,10 @@ export const CONFIG = {
   restUrl: 'https://fapi.binance.com',
 
   streams: {
-    // `@trade` do futures entrega EXECUÇÕES individuais com id `t`. Verificado em 26/08:
-    // o futures NÃO possui stream `@aggTrade` (fstream.binance.com entrega 0 mensagens;
-    // o spot possui). A agregação é feita client-side (flow/aggregator.ts, janela ~100ms
-    // por lado agressor) como substituto — P0-01 da auditoria.
+    // `@trade` do futures entrega EXECUÇÕES individuais com id `t`. O `@aggTrade` EXISTE no
+    // futures, mas é entregue apenas pelo endpoint `/market/ws`/`/market/stream` (verificado
+    // em 26/08, auditoria §20). Enquanto o daemon usa o endpoint `/stream` (sem /market),
+    // usamos `@trade` + agregação client-side (flow/aggregator.ts) como solução provisória.
     trade: 'btcusdt@trade',
     depth: 'btcusdt@depth20@100ms',
     bookTicker: 'btcusdt@bookTicker',
