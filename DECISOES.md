@@ -92,12 +92,18 @@ Veredito: **NENHUMA evidência fora da amostra** (5m/15m/30m). Sobreviventes Bon
 
 **Tabela de estabilidade (rodadas comparáveis):**
 
-| Feature/sinal | R1 (25/08 23:36Z) | R2 (26/08 00:41Z) | R3 (26/08 00:48Z) | Estável? |
-|---|---|---|---|---|
-| `absorption_*` (5m) — Bonferroni no treino | sim | não | sim | **INSTÁVEL** (presente/ausente/presente) → não promovido |
-| OOS: evidência fora da amostra (todos os H) | nenhuma | nenhuma | nenhuma | **ESTÁVEL** (negativo consistente) |
-| OOS N (5m / 15m / 30m) | 82 / 27 / 13 | 82 / 27 / 13 | 83 / 27 / 13 | crescendo lentamente (5m) |
-| Gate por classe (OOS) | NÃO | NÃO | NÃO | estável (bloqueado) |
+| Feature/sinal | R1 (25/08 23:36Z) | R2 (26/08 00:41Z) | R3 (26/08 00:48Z) | R4 (26/08 11:53Z) | Estável? |
+|---|---|---|---|---|---|
+| `absorption_*` (5m) — Bonferroni no treino | sim | não | sim | não | **INSTÁVEL** (sim/não/sim/não) → não promovido |
+| OOS: evidência fora da amostra (todos os H) | nenhuma | nenhuma | nenhuma | nenhuma | **ESTÁVEL** (negativo consistente) |
+| OOS N (5m / 15m / 30m) | 82 / 27 / 13 | 82 / 27 / 13 | 83 / 27 / 13 | **121 / 40 / 19** | crescendo (5m passou de 90) |
+| OOS 5m UP/RANGE/DOWN | — | — | 29/27/27 | **33/53/35** | 5m: gate por classe **ATENDIDO** |
+| Gate por classe (OOS) | NÃO | NÃO | NÃO | **5m SIM · 15m/30m NÃO** | 5m transicionou |
+
+**R4 (26/08 11:53Z, 36,0h efetivas):** 5m 419=292+121+6 · 15m 136=94+40+2 · 30m 64=44+19+1; OOS 5m = 121
+(UP 33 / RANGE 53 / DOWN 35) → **gate de classe ATINGIDO para 5m**; relatório: NENHUMA evidência OOS →
+painel exibirá `VALIDAÇÃO EXECUTADA · OOS: NENHUMA EVIDÊNCIA · PREDIÇÃO: BLOQUEADA` (probabilidades
+permanecem bloqueadas). Nenhum parâmetro do experimento alterado.
 
 Interpretação (regra): significância isolada no treino **não é evidência** — `TRAIN SIGNIFICANT + OOS NON-SIGNIFICANT = NÃO PROMOVER`. O comportamento oscilante de `absorption_*` entre rodadas é registrado como **evidência de instabilidade** do sinal in-sample, reforçando o gate de replicação OOS.
 
