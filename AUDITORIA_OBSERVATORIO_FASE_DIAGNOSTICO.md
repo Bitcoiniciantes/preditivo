@@ -909,3 +909,58 @@ sonda A mostra que `@trade`/`@depth`/`@bookTicker` funcionam no endpoint atual (
 3. **Comparar** o evento nativo vs a agregação client-side atual em janela simultânea (quantidade, lado, notional, VWAP) **antes de remover** o agregador;
 4. Manter `trade_id` e as persistências do schema v3 (id nativo `a` na coluna `trade_id`);
 5. Registrar a mudança de semântica do dataset whale (v2 → v3) no DECISOES antes de trocar.
+
+---
+
+# 21. MIGRAÇÃO P0-01 — FONTE NATIVA @aggTrade (EXECUTADA, 26/08 ~12:58Z)
+
+Autorização do arquiteto (ordem: sonda → comparação simultânea → decisão → migrar → DECISOES →
+remover agregador se redundante → testes + validação ao vivo). OI, CVD geral, absorption,
+hysteresis/churn/dwell e demais itens do backlog **não foram tocados**.
+
+## 21.1 Sonda /market/stream (aggTrade + depth20 + bookTicker)
+
+| Stream em `/market` | Mensagens (15s) | Resultado |
+|---|---|---|
+| `@aggTrade` | 125 (8,3/s) | ✅ entrega |
+| `@depth20@100ms` | 0 | ❌ NÃO entrega |
+| `@bookTicker` | 0 | ❌ NÃO entrega |
+
+depth/bookTicker só entregam no endpoint base (`/stream`). → **duas conexões WS** (decisão arquitetural).
+
+## 21.2 Comparação simultânea (60s): `@trade`+agregador(client 100ms) vs `@aggTrade` nativo
+
+| Métrica | Nativo | Client | Ratio |
+|---|---|---|---|
+| quantidade BTC | 31,168 | 31,241 | 100% |
+| notional total | $2,44M | $2,45M | 100% |
+| VWAP | 78.325,48 | 78.325,56 | 100% |
+| compras/vendas (notional) | 1,56M / 0,88M | 1,56M / 0,88M | 100% |
+| eventos (todos) | 878 | 226 | 26% (client mais grosseiro) |
+| LARGE ≥ $100k (n) | 6 | 7 | 117% |
+| LARGE notional | $902k | $1,13M | ~125% |
+
+Alinhamento LARGE: **6/6 nativos casados com par client** (|Δt|≤400ms, mesma direção); ratio notional
+p50 = 113% (0 sem par).
+
+**Decisão:** resultados **consistentes** → migrar para `@aggTrade` nativo; agregador client-side
+**removido** (comparação demonstrou redundância — o nativo é a agregação autoritativa por ordem taker).
+
+## 21.3 Migração aplicada
+
+- `config.ts`: `marketWsUrl = wss://fstream.binance.com/market/ws` + `streams.aggTrade`; depth/bookTicker
+  permanecem no endpoint base.
+- `websocket.ts`: **duas conexões** (base depth+bookTicker; `/market/ws/btcusdt@aggTrade`), reconexão
+  independente; status do painel reflete a base.
+- `parser.ts`: `@aggTrade` nativo → `id = a`, `firstId = f`, `lastId = l`, `executions = l-f+1`.
+- `index.ts`: processa o agregado nativo direto (removido o `TradeAggregator`); details incluem
+  `executions`/`firstId`/`lastId`.
+- **Removidos**: `flow/aggregator.ts` e `tests/trade-aggregator.test.mjs`.
+- Schema v3 e `events.trade_id` **preservados** (trade_id = `a`); histórico antigo intocado.
+
+## 21.4 Testes e validação ao vivo
+
+- Serviço: typecheck + build + **40/40 testes** (persistência v3 22 + classificação/parser 18).
+- Ao vivo (daemon recarregado): schema v3 íntegro; eventos novos com `trade_id = a` e range `f..l`
+  (ex.: 12:58:43 — 7 execs, f/l preenchidos); CVD fluindo (-42k → -1,02M em 30s); whale nativos ~23/min.
+- App: typecheck limpo (sem alteração de painel nesta etapa).

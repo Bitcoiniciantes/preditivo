@@ -119,14 +119,21 @@ Interpretação (regra): significância isolada no treino **não é evidência**
 ## P1 — Recalibração do threshold "whale" (classificação · CVD WHALE · whale events)
 
 - **Status: EXECUTADO em 26/08 (autorização do arquiteto — P0-01 do observatório).** Decisão aplicada:
-  threshold **absoluto US$ 100.000** (`CONFIG.flow.whaleNotionalUsd`) + agregação client-side ~100ms
-  + ids preservados (`events.trade_id`, schema v3, índice único parcial) + testes (52/52). Histórico
-  antigo **intocado** (sem reprocessamento; `trade_id NULL` permanece). **NOTA (26/08, §20 da auditoria):
-  o `@aggTrade` existe no futures — o silêncio era roteamento de endpoint (faltava `/market`). A
-  agregação client-side permanece provisória; a troca para o `@aggTrade` nativo está em avaliação
-  (comparação nativo vs agregador antes de remover código).**
-  Consequência: whale events e CVD WHALE passam a refletir **trades agregados ≥ $100k** (semântica v2);
-  o dataset whale da Fase 1 (seção separada) distingue v1 (histórico) de v2 (novo).
+  threshold **absoluto US$ 100.000** (`CONFIG.flow.whaleNotionalUsd`) + **fonte migrada para o
+  `@aggTrade` nativo** (endpoint `/market/ws`, auditoria §20/§21) + ids preservados (`events.trade_id` =
+  `a`, com `f`/`l` e nº de execuções nos details; schema v3, índice único parcial) + testes (40/40).
+  Histórico antigo **intocado** (sem reprocessamento; `trade_id NULL` permanece).
+
+  **Semântica do dataset whale (v1 → v2 → v3) — para a seção separada da Fase 1:**
+  | Fase | Fonte | Threshold | Período |
+  |---|---|---|---|
+  | v1 | `@trade` execuções | relativo (3× média) | 25/08 23:07Z → 26/08 ~12:05Z |
+  | v2 | `@trade` + agregação client-side ~100ms | $100k | 26/08 ~12:05Z → ~12:58Z |
+  | v3 | **`@aggTrade` nativo** (agregação por ordem taker) | $100k | 26/08 ~12:58Z → atual |
+
+  A agregação client-side (~100ms) foi **removida** após a comparação (60s) demonstrar redundância:
+  VWAP/quantidade/notional/lado 100% idênticos ao nativo; eventos LARGE nativos 6/6 casados com par
+  client (ratio notional p50 = 113%); o nativo é a agregação autoritativa (mais fina, 878 vs 226 eventos).
 - **Achado original (26/08):** `classifyTrade` definia `large`/whale como
   trade > **3× a média móvel dos últimos ~500 trades** (`services/market-ingestion/src/flow/classification.ts`),
   com janela com vazamento (`rollingSum -= rollingAvg` subtrai a média atual, não o valor que sai —
@@ -134,7 +141,7 @@ Interpretação (regra): significância isolada no treino **não é evidência**
 - **Números (SQLite, 26.224 eventos / 132 min — antes da correção):** ticket médio compra **$25,8k** /
   venda **$26,3k** (~**0,33 BTC**); mediana **$16,4k**; 11% ≥ $50k; 2,4% ≥ $100k; 7 ≥ $1M; máx 128,7 BTC.
   Em termos absolutos para BTC, **não era "grande"** → o rótulo "whale" superestimava.
-- **Impacto:** whale events (seção separada da Fase 1) e **CVD WHALE** herdam o novo threshold.
+- **Impacto:** whale events (seção separada da Fase 1) e **CVD WHALE** herdam o novo threshold; o daemon
+  agora usa **duas conexões WS** (base `/stream` p/ depth+bookTicker; `/market/ws` p/ aggTrade).
 - `whalePercentile: 90` no config era **código morto** — removido na correção.
-- **Efeito colateral:** o observatório mostra "$0.0M" para eventos < $50k (consequência da formatação
-  sobre o threshold atual) — ajustar junto se recalibrar.
+- **Efeito colateral:** formatação `$0.0M` corrigida (fmtUsd adaptativo) em P2-01.

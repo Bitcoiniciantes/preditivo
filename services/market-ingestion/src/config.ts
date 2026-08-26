@@ -1,14 +1,16 @@
 export const CONFIG = {
   symbol: 'BTCUSDT',
+  // Endpoint base: depth e bookTicker (verificado: NÃO entregam em /market).
   wsUrl: 'wss://fstream.binance.com/stream',
+  // Endpoint Market: @aggTrade, @markPrice, @ticker, @kline (verificado 26/08, auditoria §20/§21).
+  // NOTA: depth e bookTicker NÃO entregam em /market — por isso duas conexões.
+  marketWsUrl: 'wss://fstream.binance.com/market/ws',
   restUrl: 'https://fapi.binance.com',
 
   streams: {
-    // `@trade` do futures entrega EXECUÇÕES individuais com id `t`. O `@aggTrade` EXISTE no
-    // futures, mas é entregue apenas pelo endpoint `/market/ws`/`/market/stream` (verificado
-    // em 26/08, auditoria §20). Enquanto o daemon usa o endpoint `/stream` (sem /market),
-    // usamos `@trade` + agregação client-side (flow/aggregator.ts) como solução provisória.
-    trade: 'btcusdt@trade',
+    // @aggTrade nativo (agregação por ordem taker, id `a`, range f..l) — fonte autoritativa
+    // dos whale events desde a migração v2→v3 (P0-01). Entregue em /market/ws.
+    aggTrade: 'btcusdt@aggTrade',
     depth: 'btcusdt@depth20@100ms',
     bookTicker: 'btcusdt@bookTicker',
   },

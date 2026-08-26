@@ -4,7 +4,6 @@ import { OrderBookManager } from './orderbook/manager.js';
 import { ImbalanceTracker } from './orderbook/imbalance.js';
 import { processTradeForCvd, getCvdState, resetCvd } from './flow/cvd.js';
 import { classifyTrade } from './flow/classification.js';
-import { TradeAggregator } from './flow/aggregator.js';
 import { pollOi, getOiState } from './derivatives/oi.js';
 import { pollFunding, getFundingState } from './derivatives/funding.js';
 import { RegimeDetector } from './engine/regime.js';
@@ -49,9 +48,6 @@ const imbalanceTracker = new ImbalanceTracker();
 const regimeDetector = new RegimeDetector();
 const flowRegimeDetector = new FlowRegimeDetector();
 const absorptionDetector = new AbsorptionDetector();
-// Agregador client-side (P0-01): o futures não tem @aggTrade; agrupamos execuções da
-// mesma direção agressora em janela de ~100ms antes de classificar/persistir.
-const tradeAggregator = new TradeAggregator();
 const events: MarketEvent[] = [];
 
 // ── Init ──
@@ -94,11 +90,10 @@ function pushTradeEvent(trade: NormalizedTrade): void {
 
   events.push({ type, magnitude, direction, timestamp: trade.eventTime });
 
-  // Fase 0 item 5 — persistência do whale event (mesma classificação usada no broadcast).
-  // timestamp = trade.eventTime (instante exato do trade, não o horário da persistência);
-  // price = trade.price (VWAP do agregado — preço no instante exato do evento);
-  // tradeId = id da última execução do agregado (P0-01 — dedupe via índice único);
-  // details = dados adicionais disponíveis em formato estruturado (JSON).
+  // Fase 0 item 5 — persistência do whale event (fonte: @aggTrade nativo, semântica v3).
+  // timestamp = trade.eventTime (instante do agregado, não da persistência);
+  // price = trade.price (preço do agregado nativo);
+  // tradeId = id `a` do aggTrade (dedupe via índice único); f/l e nº de execuções nos details.
   dbStorage.saveEvent({
     timestamp: trade.eventTime,
     symbol: CONFIG.symbol,
@@ -114,6 +109,7 @@ function pushTradeEvent(trade: NormalizedTrade): void {
       isBuyerMaker: trade.isBuyerMaker,
       ...(trade.executions ? { executions: trade.executions } : {}),
       ...(trade.firstId ? { firstId: trade.firstId } : {}),
+      ...(trade.lastId ? { lastId: trade.lastId } : {}),
     }),
   });
 
@@ -124,14 +120,8 @@ function pushTradeEvent(trade: NormalizedTrade): void {
 function handleTrade(trade: NormalizedTrade): void {
   currentPrice = trade.price;
   orderbook.setCurrentPrice(currentPrice);
-
-  // Agrega execuções da mesma direção agressora (~100ms) e processa os agregados
-  // (CVD + eventos whale). CVD é aditivo — o total não muda com a agregação.
-  const aggregates = tradeAggregator.push(trade);
-  for (const agg of aggregates) {
-    processTradeForCvd(agg);
-    pushTradeEvent(agg);
-  }
+  processTradeForCvd(trade);
+  pushTradeEvent(trade);
 }
 
 function handleDepth(depth: { lastUpdateId: number; timestamp: number; bids: [number, number][]; asks: [number, number][] }): void {
@@ -155,7 +145,6 @@ function handleStatusChange(status: 'connecting' | 'live' | 'reconnecting' | 'di
     orderbook.reset();
     imbalanceTracker.clear();
     resetCvd();
-    tradeAggregator.reset(); // descarta grupo incompleto (pertencia à sessão anterior)
     events.length = 0;
     lastAbsorptionState = 'NONE';
     absorptionTriggerPrice = 0;

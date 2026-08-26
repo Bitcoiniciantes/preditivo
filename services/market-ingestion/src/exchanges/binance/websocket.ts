@@ -12,27 +12,33 @@ export type BinanceStreamHandler = {
 };
 
 let ws: WebSocket | null = null;
+let marketWs: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let marketReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let retries = 0;
+let marketRetries = 0;
 let handler: BinanceStreamHandler;
 
+// Duas conexões (verificado 26/08, auditoria §20/§21):
+//   - base `/stream`: depth20 + bookTicker (NÃO entregam em /market);
+//   - `/market/ws`: @aggTrade (só entregue em /market).
 export function connectBinance(h: BinanceStreamHandler): () => void {
   handler = h;
   doConnect();
+  doConnectMarket();
 
   return () => {
     if (reconnectTimer) clearTimeout(reconnectTimer);
-    if (ws) {
-      ws.removeAllListeners();
-      ws.close();
-    }
+    if (marketReconnectTimer) clearTimeout(marketReconnectTimer);
+    if (ws) { ws.removeAllListeners(); ws.close(); }
+    if (marketWs) { marketWs.removeAllListeners(); marketWs.close(); }
     ws = null;
+    marketWs = null;
   };
 }
 
 function doConnect() {
   const streams = [
-    CONFIG.streams.trade,
     CONFIG.streams.depth,
     CONFIG.streams.bookTicker,
   ].join('/');
@@ -46,13 +52,12 @@ function doConnect() {
   ws.on('open', () => {
     retries = 0;
     handler.onStatusChange('live');
-    console.log('[Binance WS] Connected');
+    console.log('[Binance WS] Base conectado (depth + bookTicker)');
   });
 
   ws.on('message', (raw: Buffer) => {
     try {
       const msg = JSON.parse(raw.toString());
-      // Binance Futures streams wrap data in {stream, data}
       const data = (msg.data as Record<string, unknown>) || msg;
       handleEvent(data);
     } catch {
@@ -66,8 +71,41 @@ function doConnect() {
   });
 
   ws.on('error', (err: Error) => {
-    console.error('[Binance WS] Error:', err.message);
+    console.error('[Binance WS] Base error:', err.message);
     ws?.close();
+  });
+}
+
+// Conexão Market: @aggTrade nativo (só entregue em /market/ws). Não aciona onStatusChange
+// (o status do painel reflete a conexão base); se cair, só os whale events param até reconectar.
+function doConnectMarket() {
+  const url = `${CONFIG.marketWsUrl}/${CONFIG.streams.aggTrade}`;
+  console.log(`[Binance WS] Market conectando: ${url}`);
+
+  marketWs = new WebSocket(url);
+
+  marketWs.on('open', () => {
+    marketRetries = 0;
+    console.log('[Binance WS] Market (aggTrade) conectado');
+  });
+
+  marketWs.on('message', (raw: Buffer) => {
+    try {
+      const msg = JSON.parse(raw.toString());
+      handleEvent((msg.data as Record<string, unknown>) || msg);
+    } catch {
+      // silently drop malformed messages
+    }
+  });
+
+  marketWs.on('close', () => {
+    console.warn('[Binance WS] Market (aggTrade) desconectado — whale events pausados até reconectar');
+    scheduleReconnectMarket();
+  });
+
+  marketWs.on('error', (err: Error) => {
+    console.error('[Binance WS] Market error:', err.message);
+    marketWs?.close();
   });
 }
 
@@ -76,11 +114,8 @@ function handleEvent(msg: Record<string, unknown>) {
   if (!event) return;
 
   switch (event) {
-    case 'trade':
-    case 'aggTrade': {
-      // O endpoint atual (/stream) entrega @trade (execuções com id 't'). O @aggTrade
-      // existe no futures, mas só é entregue pelo endpoint /market (auditoria §20);
-      // caso o config aponte para ele, o parser lê o id 'a'. Mantido por robustez.
+    case 'aggTrade':
+    case 'trade': {
       const trade = parseAggTrade(msg);
       if (trade) handler.onTrade(trade);
       break;
@@ -101,6 +136,13 @@ function handleEvent(msg: Record<string, unknown>) {
 function scheduleReconnect() {
   const delay = backoffDelay(retries, CONFIG.backoff);
   retries++;
-  console.log(`[Binance WS] Reconnecting in ${delay}ms (attempt ${retries})`);
+  console.log(`[Binance WS] Reconnecting base in ${delay}ms (attempt ${retries})`);
   reconnectTimer = setTimeout(doConnect, delay);
+}
+
+function scheduleReconnectMarket() {
+  const delay = backoffDelay(marketRetries, CONFIG.backoff);
+  marketRetries++;
+  console.log(`[Binance WS] Reconnecting market in ${delay}ms (attempt ${marketRetries})`);
+  marketReconnectTimer = setTimeout(doConnectMarket, delay);
 }
