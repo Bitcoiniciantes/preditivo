@@ -10,6 +10,7 @@ export type Fase1HorizonVerdict = {
   obs: number | null; // N elegível (janela íntegra + outcome)
   train: number | null;
   test: number | null; // OOS (pós purging + embargo)
+  oosClasses: { up: number | null; range: number | null; down: number | null }; // distribuição do OOS (§2)
   evidence: string; // "nenhuma" ou lista de features com evidência fora da amostra
 };
 
@@ -35,6 +36,7 @@ export function readFase1Verdict(): Fase1Verdict | null {
         obs: null,
         train: null,
         test: null,
+        oosClasses: { up: null, range: null, down: null },
         evidence: evMatches[i]?.[1]?.trim() ?? "?",
       };
     });
@@ -48,6 +50,18 @@ export function readFase1Verdict(): Fase1Verdict | null {
       h.train = Number(m[3]);
       h.test = Number(m[4]);
     }
+
+    // Tabela §2 (linha do Teste): "| Teste | 83 | 29 (34.9%) | 27 (32.5%) | 27 (32.5%) |"
+    // → distribuição UP/RANGE/DOWN do OOS (gate por classe).
+    const oosRe = /^\| Teste \| (\d+) \| (\d+) .*\| (\d+) .*\| (\d+) .*\|$/gm;
+    const testRows = [...md.matchAll(oosRe)];
+    const hBlocks2 = [...md.matchAll(horizonRe)];
+    hBlocks2.forEach((h, i) => {
+      const row = testRows[i];
+      const hh = horizons[h[1]];
+      if (!hh || !row) return;
+      hh.oosClasses = { up: Number(row[2]), range: Number(row[3]), down: Number(row[4]) };
+    });
 
     return {
       generatedAt: md.match(/^Gerado em: (.+)$/m)?.[1]?.trim() ?? null,

@@ -50,14 +50,29 @@ export function PredictiveStatusCard() {
   // N do relatório congelado (autoritativo); fallback para a estimativa por volume.
   const obsOf = (h: number) => verdict?.horizons[String(h)]?.obs ?? estN(h);
   const oosOf = (h: number) => verdict?.horizons[String(h)]?.test ?? estN(h);
+  const oosClassesOf = (h: number) => verdict?.horizons[String(h)]?.oosClasses;
   const reportPass = (h: number) =>
     !!verdict?.horizons[String(h)]?.evidence &&
     verdict.horizons[String(h)].evidence !== "nenhuma" &&
     !verdict.horizons[String(h)].evidence.startsWith("?");
 
-  // O gate por classe é medido NO OOS.
-  const gateOosMet = (h: number) => oosOf(h) >= REQUIRED_TOTAL;
-  const anyGateMet = HORIZONS.some(gateOosMet);
+  // Gate de liberação (DECISOES.md): OOS total ≥ 90 E UP ≥ 30 E RANGE ≥ 30 E DOWN ≥ 30
+  // (distribuição por classe do OOS, vinda do relatório). Sem relatório, só o total
+  // estimado é avaliável — marcado como "não avaliado por classe".
+  const gateOosMet = (h: number): { ok: boolean; why: string } => {
+    const total = oosOf(h);
+    if (total < REQUIRED_TOTAL) return { ok: false, why: `OOS total ${total} < ${REQUIRED_TOTAL}` };
+    const c = oosClassesOf(h);
+    if (!c || c.up === null || c.range === null || c.down === null) {
+      return { ok: false, why: "sem distribuição por classe no relatório" };
+    }
+    if (c.up < REQUIRED_PER_CLASS) return { ok: false, why: `UP ${c.up} < ${REQUIRED_PER_CLASS}` };
+    if (c.range < REQUIRED_PER_CLASS) return { ok: false, why: `RANGE ${c.range} < ${REQUIRED_PER_CLASS}` };
+    if (c.down < REQUIRED_PER_CLASS) return { ok: false, why: `DOWN ${c.down} < ${REQUIRED_PER_CLASS}` };
+    return { ok: true, why: "OOS por classe atendido" };
+  };
+
+  const anyGateMet = HORIZONS.some((h) => gateOosMet(h).ok);
   const anyPass = HORIZONS.some(reportPass);
   const signalReady = PREDICTIVE_GATE && anyPass && anyGateMet;
 
@@ -73,12 +88,12 @@ export function PredictiveStatusCard() {
     ? { label: "PREDICTIVE SIGNAL", tone: "pass" }
     : anyGateMet
       ? { label: "VALIDAÇÃO EXECUTADA · OOS: NENHUMA EVIDÊNCIA · PREDIÇÃO: BLOQUEADA", tone: "valid" }
-      : { label: "VALIDAÇÃO NÃO EXECUTÁVEL · AMOSTRA INSUFICIENTE (OOS < 90)", tone: "inconcl" };
+      : { label: "VALIDAÇÃO NÃO EXECUTÁVEL · AMOSTRA INSUFICIENTE (OOS < 90 ou classe < 30)", tone: "inconcl" };
 
   const sampleLabel = db
     ? anyGateMet
-      ? `OOS com N total ≥ ${REQUIRED_TOTAL} (⇒ ≈${REQUIRED_PER_CLASS} por classe) em ao menos um horizonte — gate de classe no OOS atendido`
-      : `OOS < ${REQUIRED_TOTAL} em todos os horizontes ⇒ gate de classe no OOS NÃO atendido (insuficiente para exibir probabilidades)`
+      ? `OOS com gate por classe atendido (total ≥ ${REQUIRED_TOTAL} e UP/RANGE/DOWN ≥ ${REQUIRED_PER_CLASS}) em ao menos um horizonte`
+      : `gate de classe no OOS NÃO atendido em todos os horizontes (OOS < ${REQUIRED_TOTAL} ou alguma classe < ${REQUIRED_PER_CLASS}) — insuficiente para exibir probabilidades`
     : "—";
 
   return (
@@ -128,14 +143,18 @@ export function PredictiveStatusCard() {
           {HORIZONS.map((h) => {
             const obsN = obsOf(h);
             const oosN = oosOf(h);
+            const c = oosClassesOf(h);
             const gate = gateOosMet(h);
             const pass = reportPass(h);
             const fromReport = !!verdict;
             const evLabel = pass ? "EVIDÊNCIA" : "SEM EVIDÊNCIA";
+            const classesTxt = c && c.up !== null
+              ? ` (UP ${c.up} · RANGE ${c.range} · DOWN ${c.down})`
+              : "";
             const text = fromReport
-              ? `N=${obsN} · OOS=${oosN} · ${evLabel} · gate OOS (≥30/classe): ${gate ? "atendido" : `não atendido (OOS<${REQUIRED_TOTAL})`}`
+              ? `N=${obsN} · OOS=${oosN}${classesTxt} · ${evLabel} · gate OOS por classe: ${gate.ok ? "atendido" : `não atendido (${gate.why})`}`
               : `N≈${obsN} · OOS≈${oosN} · sem relatório commitado · gate: não avaliado`;
-            const tone = pass && gate ? "pass" : gate ? "valid" : "inconcl";
+            const tone = pass && gate.ok ? "pass" : gate.ok ? "valid" : "inconcl";
             return (
               <div className="predictiveRow" key={h}>
                 <span className="predictiveH">{h}m</span>
@@ -144,16 +163,16 @@ export function PredictiveStatusCard() {
             );
           })}
           <p className="predictiveRule">
-            Gate N ≥ {REQUIRED_PER_CLASS} por classe aplicado ao conjunto onde a probabilidade é exibida:
-            para liberar probabilidades preditivas, o <b>TESTE/OOS</b> precisa de N total ≥ {REQUIRED_TOTAL}
-            (≈{REQUIRED_PER_CLASS} por classe com tercis do treino). N total ≥ {REQUIRED_TOTAL} no conjunto
-            inteiro <b>não</b> é suficiente — a distribuição do OOS é o critério (DECISOES.md). Os N exibidos
-            vêm do relatório congelado commitado; entre reexecuções, o fluxo completo está em FASE1_AMOSTRA_DIAGNOSTICO.md.
+            Gate de liberação (DECISOES.md): a probabilidade preditiva só é liberada quando o <b>OOS</b> satisfizer
+            simultaneamente OOS total ≥ {REQUIRED_TOTAL}, UP ≥ {REQUIRED_PER_CLASS}, RANGE ≥ {REQUIRED_PER_CLASS},
+            DOWN ≥ {REQUIRED_PER_CLASS}, o teste OOS passar os critérios do experimento e houver aprovação revisada.
+            N total do histórico <b>não</b> libera previsão. A distribuição por classe vem do relatório congelado
+            (FASE1_EXPERIMENTO_MINIMO.md §2); entre reexecuções, o fluxo completo está em FASE1_AMOSTRA_DIAGNOSTICO.md.
           </p>
         </div>
 
         <div className="predictiveLock">
-          <div><span>PROBABILIDADES</span><b>BLOQUEADAS</b><em>{anyGateMet ? "gate de classe no OOS atendido — aguardando relatório" : "OOS < 90 ⇒ < 30 por classe"}</em></div>
+          <div><span>PROBABILIDADES</span><b>BLOQUEADAS</b><em>{anyGateMet ? "gate de classe no OOS atendido — aguardando relatório/revisão" : "gate de classe no OOS não atendido (OOS < 90 ou classe < 30)"}</em></div>
           <div><span>MODELO</span><b>CONGELADO</b><em>sem alterações</em></div>
           <div><span>EXPERIMENTO</span><b>CONGELADO</b><em>scripts/fase1-experimento-minimo.mjs</em></div>
           <div><span>COLETA</span><b>ATIVA</b><em>{db ? `${fmtH(db.uptimeH)} efetivas · ${db.whaleEvents.toLocaleString("pt-BR")} whale events` : "daemon offline"}</em></div>

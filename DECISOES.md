@@ -41,13 +41,18 @@ Alterar a hipótese agora (após resultado inconclusivo) introduziria flexibilid
 
 ### Adendo 2026-08-26 (gate por conjunto + fluxo de amostra — definições inequívocas)
 
-**1. Gate N ≥ 30 por classe — conjunto onde se aplica (definição):**
+**1. Gate de liberação — definição formal (aprovada em 2026-08-26):**
 
-O gate N ≥ 30 por classe aplica-se ao conjunto **onde a probabilidade é exibida**:
+A probabilidade preditiva somente poderá ser liberada quando o **OOS** satisfizer **simultaneamente**:
 
-- Para liberar probabilidades preditivas (UP/RANGE/DOWN), o **TESTE/OOS** deve satisfazer N ≥ 30 por classe (N total ≥ 90 com tercis do treino, 3 classes ~balanceadas), porque é no OOS que se demonstra generalização.
-- O treino também deve satisfazer N ≥ 30 por classe para exibir probabilidades de treino (não são exibidas hoje).
-- Consequência: **N total ≥ 90 no conjunto inteiro NÃO é suficiente** — 91 observações poderiam ser 20/51/20 por classe (PASS no total, FAIL por classe). A distribuição por classe do OOS é o critério de liberação.
+- OOS total ≥ 90;
+- UP OOS ≥ 30;
+- RANGE OOS ≥ 30;
+- DOWN OOS ≥ 30;
+- o teste OOS passar os critérios estatísticos definidos no experimento congelado;
+- revisão/aprovação registrada neste documento.
+
+**N total do histórico não libera previsão.** A distribuição por classe do OOS é o critério (91 observações poderiam ser 20/51/20 por classe: PASS no total, FAIL por classe). O treino também deve satisfazer N ≥ 30 por classe para exibir probabilidades de treino (não são exibidas hoje). Enquanto qualquer condição falhar: `PREDICTIVE SIGNAL = LOCKED · PROBABILIDADES = BLOQUEADAS`.
 
 **2. Fluxo de amostra — definições (auditoria: `scripts/fase1-amostra-diagnostico.mjs`; o experimento congelado permanece intocado):**
 
@@ -71,4 +76,29 @@ Verificações aritméticas OK (elegível = treino + OOS + excluídos; bruto = s
 
 **3. Reexecução (26/08 ~00:41Z):** veredito **mantido — NENHUMA evidência fora da amostra** (5m 203/82 · 15m 63/27 · 30m 28/13). `nº absorption_* 15m`, que havia sobrevivido Bonferroni no treino na rodada anterior, **não sobreviveu nesta rodada** — instabilidade do sinal in-sample, confirmando a decisão de não promovê-lo sem replicação OOS.
 
-**4. Estados do painel (vocabulário corrigido):** `VALIDAÇÃO EXECUTADA · OOS: NENHUMA EVIDÊNCIA · PREDIÇÃO: BLOQUEADA` (OOS ≥ 90, sem replicação) vs `VALIDAÇÃO NÃO EXECUTÁVEL · AMOSTRA INSUFICIENTE (OOS < 90)` (caso atual) — nunca mais "INCONCLUSIVA/amostra insuficiente" como rótulo único.
+**4. Estados do painel (vocabulário corrigido):** `VALIDAÇÃO EXECUTADA · OOS: NENHUMA EVIDÊNCIA · PREDIÇÃO: BLOQUEADA` (OOS total ≥ 90 e classes ≥ 30, sem replicação) vs `VALIDAÇÃO NÃO EXECUTÁVEL · AMOSTRA INSUFICIENTE (OOS < 90 ou classe < 30)` (caso atual) — nunca mais "INCONCLUSIVA/amostra insuficiente" como rótulo único.
+
+### Adendo 2026-08-26 — Rodada R3 (~00:48Z) e histórico de estabilidade
+
+**Execução (scripts congelados, apenas execução — nenhum parâmetro alterado):**
+
+| H | N bruto | N elegível | treino | OOS | excluídos split | OOS UP/RANGE/DOWN | gate por classe |
+|---|---:|---:|---:|---:|---:|---:|---|
+| 5m | 1600 | 292 | 203 | 83 | 6 | 29 / 27 / 27 | NÃO (total 83 < 90) |
+| 15m | 1600 | 92 | 63 | 27 | 2 | 9 / 15 / 3 | NÃO (total 27 < 90) |
+| 30m | 1600 | 42 | 28 | 13 | 1 | 5 / 6 / 2 | NÃO (total 13 < 90) |
+
+Veredito: **NENHUMA evidência fora da amostra** (5m/15m/30m). Sobreviventes Bonferroni no treino: `nº absorption_* 15m` (5m) — **somente treino, sem replicação OOS → NÃO PROMOVER**.
+
+**Tabela de estabilidade (rodadas comparáveis):**
+
+| Feature/sinal | R1 (25/08 23:36Z) | R2 (26/08 00:41Z) | R3 (26/08 00:48Z) | Estável? |
+|---|---|---|---|---|
+| `absorption_*` (5m) — Bonferroni no treino | sim | não | sim | **INSTÁVEL** (presente/ausente/presente) → não promovido |
+| OOS: evidência fora da amostra (todos os H) | nenhuma | nenhuma | nenhuma | **ESTÁVEL** (negativo consistente) |
+| OOS N (5m / 15m / 30m) | 82 / 27 / 13 | 82 / 27 / 13 | 83 / 27 / 13 | crescendo lentamente (5m) |
+| Gate por classe (OOS) | NÃO | NÃO | NÃO | estável (bloqueado) |
+
+Interpretação (regra): significância isolada no treino **não é evidência** — `TRAIN SIGNIFICANT + OOS NON-SIGNIFICANT = NÃO PROMOVER`. O comportamento oscilante de `absorption_*` entre rodadas é registrado como **evidência de instabilidade** do sinal in-sample, reforçando o gate de replicação OOS.
+
+**Estado:** MODELO LOCKED · FEATURES LOCKED · THRESHOLDS LOCKED · EXPERIMENTO LOCKED · COLETA ATIVA · OOS ACUMULANDO · PREDICTIVE SIGNAL LOCKED. Próxima execução: `node scripts/fase1-amostra-diagnostico.mjs` + `node scripts/fase1-experimento-minimo.mjs`, sem alterar nenhum parâmetro.

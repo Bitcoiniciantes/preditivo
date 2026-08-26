@@ -1,14 +1,14 @@
 # FASE 1 — DIAGNÓSTICO DO FLUXO DE AMOSTRA (gerado por scripts/fase1-amostra-diagnostico.mjs)
 
-Gerado em: 2026-08-26T00:41:59.023Z
+Gerado em: 2026-08-26T00:48:31.548Z
 
 Fluxo: **N bruto** (snapshots) → excluídos por **stride** → **candidatos** → excluídos por **janela** (gap/curta) → excluídos por **outcome** (segmento/sem snapshot/tolerância) → **N elegível** → excluídos pelo **split** (purging/embargo) → **treino + OOS**.
 
 | Horizonte | N bruto | stride | candidatos | janela gap | janela curta | outcome segmento | outcome sem snap | outcome tol. | **N elegível** | treino | **OOS** | excluídos split |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 5 min | 1595 | 1105 | 490 | 54 | 127 | 17 | 1 | 0 | **291** | 203 | **82** | 6 |
-| 15 min | 1595 | 1223 | 372 | 54 | 127 | 98 | 1 | 0 | **92** | 63 | **27** | 2 |
-| 30 min | 1595 | 1163 | 432 | 54 | 127 | 193 | 16 | 0 | **42** | 28 | **13** | 1 |
+| 5 min | 1600 | 1108 | 492 | 54 | 127 | 17 | 2 | 0 | **292** | 203 | **83** | 6 |
+| 15 min | 1600 | 1223 | 377 | 54 | 127 | 98 | 6 | 0 | **92** | 63 | **27** | 2 |
+| 30 min | 1600 | 1163 | 437 | 54 | 127 | 193 | 21 | 0 | **42** | 28 | **13** | 1 |
 
 Verificações aritméticas (devem ser verdadeiras):
 - 5 min: bruto = stride+candidatos (OK) · candidatos = rejeições+elegíveis (OK) · elegíveis = treino+OOS+excluídos (OK)
