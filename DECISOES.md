@@ -102,3 +102,32 @@ Veredito: **NENHUMA evidência fora da amostra** (5m/15m/30m). Sobreviventes Bon
 Interpretação (regra): significância isolada no treino **não é evidência** — `TRAIN SIGNIFICANT + OOS NON-SIGNIFICANT = NÃO PROMOVER`. O comportamento oscilante de `absorption_*` entre rodadas é registrado como **evidência de instabilidade** do sinal in-sample, reforçando o gate de replicação OOS.
 
 **Estado:** MODELO LOCKED · FEATURES LOCKED · THRESHOLDS LOCKED · EXPERIMENTO LOCKED · COLETA ATIVA · OOS ACUMULANDO · PREDICTIVE SIGNAL LOCKED. Próxima execução: `node scripts/fase1-amostra-diagnostico.mjs` + `node scripts/fase1-experimento-minimo.mjs`, sem alterar nenhum parâmetro.
+
+---
+
+# FILA DE MUDANÇAS FUTURAS (backlog)
+
+> Itens **parqueados** — não executar enquanto o gate da Fase 1 não avançar ou sem decisão
+> explícita do usuário. Sair da fila = registrar a decisão aqui e executar em revisão separada.
+
+## P1 — Recalibração do threshold "whale" (classificação · CVD WHALE · whale events)
+
+- **Status:** NA FILA — não executar agora. Experimentos/features/thresholds permanecem congelados.
+- **Achado (26/08, somente leitura — nada alterado):** `classifyTrade` define `large`/whale como
+  trade > **3× a média móvel dos últimos ~500 trades** (`services/market-ingestion/src/flow/classification.ts`),
+  com janela com vazamento (`rollingSum -= rollingAvg` subtrai a média atual, não o valor que sai —
+  não é uma janela deslizante real). Threshold **relativo**, não absoluto.
+- **Números (SQLite, 26.224 eventos / 132 min):** ticket médio compra **$25,8k** / venda **$26,3k**
+  (~**0,33 BTC**); mediana **$16,4k**; 11% ≥ $50k; 2,4% ≥ $100k; 7 ≥ $1M; máx 128,7 BTC. Em termos
+  absolutos para BTC, **não é "grande"** → o rótulo "whale" superestima; o bucket captura "trade grande
+  relativo ao fluxo recente". A taxa (~199 eventos/min) é consistente com um limiar relativo baixo.
+- **Impacto:** whale events (seção separada da Fase 1) e **CVD WHALE** herdam o mesmo threshold.
+- `whalePercentile: 90` no config é **código morto** (não usado por nenhum módulo).
+- **Opções na hora de executar (decisão do usuário):** (a) absoluto ≥ 1 BTC ou ≥ $100k;
+  (b) percentil fixo alto do fluxo (ex.: p99.x); (c) manter relativo, mas renomear o rótulo
+  ("trade grande relativo") sem recalibrar.
+- **Consistência do histórico:** os 26k+ eventos já gravados com a regra atual devem ser distinguidos
+  dos novos (ex.: regra v1 vs v2 nos eventos), como feito na ativação do saveEvent — nunca reclassificar
+  retroativamente como se tivessem sido coletados com a nova regra.
+- **Efeito colateral:** o observatório mostra "$0.0M" para eventos < $50k (consequência da formatação
+  sobre o threshold atual) — ajustar junto se recalibrar.
