@@ -259,7 +259,7 @@ export default function MarketPanel({ onFlowData }: { onFlowData?: (data: FlowDa
 
         {/* Derivativos */}
         <div className="marketCell">
-          <span className="marketLabel">{leigo ? "DINHEIRO NO MERCADO" : "OPEN INTEREST"}</span>
+          <span className="marketLabel">{leigo ? "DINHEIRO NO MERCADO" : "OPEN INTEREST (BTC)"}</span>
           <span className="marketValue">{(data?.oi ?? 0).toLocaleString("en-US", { maximumFractionDigits: 0 })}</span>
           <span className="marketDelta" style={{ color: (data?.oi_delta ?? 0) > 0 ? "var(--lime)" : (data?.oi_delta ?? 0) < 0 ? "var(--red)" : "var(--muted)" }}>
             {(data?.oi_delta ?? 0) > 0 ? "+" : ""}{((data?.oi_delta ?? 0) * 100).toFixed(3)}%

@@ -6,11 +6,16 @@ export function parseAggTrade(msg: Record<string, unknown>): NormalizedTrade | n
     const qty = Number(msg.q);
     const eventTime = Number(msg.T);
     const isBuyerMaker = Boolean(msg.m);
+    // Futures @trade usa 't' (id da execução); spot @aggTrade usa 'a' (id do agregado).
+    // Preservado para dedupe (P0-01).
+    const rawId = msg.t ?? msg.a;
+    const id = Number(rawId);
 
     if (!isFinite(price) || !isFinite(qty) || price <= 0 || qty <= 0) return null;
 
     return {
       exchange: 'binance',
+      id: Number.isFinite(id) && id > 0 ? id : undefined,
       eventTime,
       price,
       quantity: qty,

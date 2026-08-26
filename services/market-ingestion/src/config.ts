@@ -4,6 +4,10 @@ export const CONFIG = {
   restUrl: 'https://fapi.binance.com',
 
   streams: {
+    // `@trade` do futures entrega EXECUÇÕES individuais com id `t`. Verificado em 26/08:
+    // o futures NÃO possui stream `@aggTrade` (fstream.binance.com entrega 0 mensagens;
+    // o spot possui). A agregação é feita client-side (flow/aggregator.ts, janela ~100ms
+    // por lado agressor) como substituto — P0-01 da auditoria.
     trade: 'btcusdt@trade',
     depth: 'btcusdt@depth20@100ms',
     bookTicker: 'btcusdt@bookTicker',
@@ -36,7 +40,11 @@ export const CONFIG = {
 
   flow: {
     bucketMs: 1_000,
-    whalePercentile: 90,
+    // Threshold absoluto de "whale" (P0-01, calibrado nos dados da auditoria 26/08):
+    // US$ 100.000 de nocional por trade agregado (~1,27 BTC a US$ 78,5k). O threshold
+    // relativo anterior (3× média móvel) capturava varejo (ticket médio 0,33 BTC).
+    // whalePercentile: 90 era código morto — removido.
+    whaleNotionalUsd: 100_000,
   },
 
   score: {

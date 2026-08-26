@@ -811,3 +811,47 @@ quantitativa: reconstruída; 4. causa raiz: identificada; 5. classificação: ma
 6. impacto: quantificado; 7. proposta de correção: apresentada; 8. riscos: descritos; 9. testes:
 relacionados; 10. **nada foi alterado** (git diff vazio nos congelados; único arquivo modificado: este
 documento). **Aguardando autorização para implementar as correções.**
+
+---
+
+# 19. IMPLEMENTAÇÃO AUTORIZADA — RELATÓRIO (26/08 ~12:20Z)
+
+Autorização do arquiteto: `AUTORIZAÇÃO DE IMPLEMENTAÇÃO — OBSERVATÓRIO` (P0-01 → testar → P2-01 → testar → rebuild → validação → relatório → parar). OI, CVD, DB gaps e FLOW **não foram tocados** (cálculos validados). Churn/hysteresis/dwell → **segunda fase** (não implementado, preserva comparabilidade).
+
+## 19.1 P0-01 — Whale Events (implementado)
+
+**Investigação de `@aggTrade` (verificado ao vivo em 26/08):**
+- `fstream.binance.com` (`btcusdt@aggTrade`): **0 mensagens** em 8s/15s — o futures **NÃO possui** stream `@aggTrade`;
+- spot `stream.binance.com` (`btcusdt@aggTrade`): 88 msgs/8s — funciona no spot;
+- futures `@trade`: 143 msgs/8s — execuções individuais com id `t` (formato `{e:'trade', t, p, q, X, m, st}`).
+
+**Correção aplicada (futures não tem aggTrade → agregação client-side):**
+1. **Stream**: mantido `@trade` (execuções com id `t`).
+2. **IDs preservados**: `NormalizedTrade.id` = `t` (futures) ou `a` (spot, robustez); persistido em `events.trade_id` (schema v3) + índice único parcial (`idx_events_trade_id`, dedupe de replay).
+3. **Agregação**: `flow/aggregator.ts` — agrupa execuções da mesma direção agressora em janela de ~100ms (semântica do `@aggTrade` do spot); VWAP, quantidade somada, `executions`/`firstId` preservados nos details.
+4. **Threshold absoluto**: `CONFIG.flow.whaleNotionalUsd = 100_000` (calibrado nos dados da auditoria: ticket médio antigo 0,33 BTC ≈ $26k era varejo; $100k ≈ 1,27 BTC). `whalePercentile: 90` (morto) removido; média móvel vazada removida.
+
+**Testes (52/52 passando):** `events-persistence` (22 — schema v3, trade_id, migração idempotente), `whale-classification` (14 — threshold + parser `t`/`a`), `trade-aggregator` (16 — janela, lado, VWAP, reset).
+
+**Validação ao vivo (daemon tsx watch recarregado):**
+- trades fluindo (CVD -7,1M → -3,5M em 45s);
+- whale events: **$100k–$2,35M**, média $346k; ex.: 81 execuções → $350k, 36 execuções → $773k (ordens picadas agora agregadas);
+- taxa ~15-20/min (antes ~144/min de varejo);
+- `trade_id` populado; schema v3 + índice único no lugar; **histórico antigo (116k eventos) intocado, sem reprocessamento** (trade_id NULL permanece).
+
+**Impacto conhecido:** a partir de agora, whale events e CVD WHALE refletem trades agregados ≥ $100k (semântica v2). O dataset whale da Fase 1 (seção separada) passa a acumular com a nova regra — distinguir v1 (histórico) de v2 (novo).
+
+## 19.2 P2-01 — Exibição (implementado, somente apresentação)
+
+- **Fim do "$0.0M"**: formatação adaptativa `fmtUsd` ($K / $M / $): `$35.2K`, `$1.24M`, `$820` — aplicada à sequência temporal do OBSERVATÓRIO.
+- **Unidade do OI**: rótulos `OPEN INTEREST (BTC)` (MarketPanel) e `OI (BTC) / ΔOI` (Observatório). Nenhum dado alterado.
+
+## 19.3 Rebuild e validação
+
+- Serviço: `tsc --noEmit` + `tsc` (build) + 52 testes OK.
+- App: `tsc --noEmit` OK. Build completo do Next fica com o CI no push (sandbox local bloqueia o passo "Running TypeScript" do `next build`).
+- Daemon: reload ao vivo verificado (trades, agregados, ids).
+
+## 19.4 Não mexido (conforme decisão do arquiteto)
+
+OI (cálculo validado), CVD (validado), gaps (coleta real), FLOW (lógica validada), scripts congelados da Fase 1 (`fase1-experimento-minimo.mjs`, `fase1-amostra-diagnostico.mjs`), Absorption (não promovido), churn/hysteresis (segunda fase).

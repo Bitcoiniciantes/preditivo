@@ -76,7 +76,10 @@ function handleEvent(msg: Record<string, unknown>) {
   if (!event) return;
 
   switch (event) {
-    case 'trade': {
+    case 'trade':
+    case 'aggTrade': {
+      // Futures usa @trade (execuções com id 't'); @aggTrade não existe no futures
+      // (verificado 26/08) — mantido por robustez caso o config aponte para o spot.
       const trade = parseAggTrade(msg);
       if (trade) handler.onTrade(trade);
       break;

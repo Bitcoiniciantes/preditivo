@@ -49,6 +49,12 @@ export interface BinanceFundingRate {
 
 export interface NormalizedTrade {
   exchange: 'binance';
+  /** id do último trade/execução do agregado (futures @trade 't' ou spot @aggTrade 'a') — preservado p/ dedupe. */
+  id?: number;
+  /** id da primeira execução do agregado (quando agregado client-side). */
+  firstId?: number;
+  /** quantidade de execuções agregadas (1 quando não agregado). */
+  executions?: number;
   eventTime: number;
   price: number;
   quantity: number;
@@ -197,5 +203,6 @@ export interface EventRow {
   price: number | null;
   direction: string;
   details: string;
+  trade_id: string | null;
   created_at: string;
 }

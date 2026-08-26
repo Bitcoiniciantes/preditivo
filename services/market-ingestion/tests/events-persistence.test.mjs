@@ -1,5 +1,6 @@
 // tests/events-persistence.test.mjs
-// Fase 0 itens 5+6 — persistência de whale events + migração v2 (events.price) + schema_version.
+// Fase 0 itens 5+6 — persistência de whale events + migrações v2 (events.price) e
+// v3 (events.trade_id — P0-01) + schema_version.
 // Roda contra o build: execute `npm run build` (tsc) antes deste teste.
 //   node tests/events-persistence.test.mjs
 //
@@ -24,11 +25,11 @@ function assert(cond, msg) {
 const dir = mkdtempSync(path.join(tmpdir(), 'dsh-events-'));
 const tmp = (name) => path.join(dir, name);
 
-// ── Teste 1: DB novo — campos completos, details estruturado, null ≠ 0 ──
-console.log('\n=== Teste 1: saveEvent em DB novo (schema v2) ===');
+// ── Teste 1: DB novo — campos completos, trade_id, details estruturado, null ≠ 0 ──
+console.log('\n=== Teste 1: saveEvent em DB novo (schema v3) ===');
 {
   const s = new SQLiteStorage(tmp('fresh.db'));
-  assert(s.getSchemaVersion() === 2, `schema_version = 2 (recebeu ${s.getSchemaVersion()})`);
+  assert(s.getSchemaVersion() === 3, `schema_version = 3 (recebeu ${s.getSchemaVersion()})`);
 
   s.saveEvent({
     timestamp: 1787000002000,
@@ -37,6 +38,7 @@ console.log('\n=== Teste 1: saveEvent em DB novo (schema v2) ===');
     magnitude: 12345.67,
     direction: 'bullish',
     price: 99000.25,
+    tradeId: 987654321,
     details: JSON.stringify({ exchange: 'binance', quantity: 0.1247, side: 'BUY', isBuyerMaker: false }),
   });
 
@@ -48,6 +50,7 @@ console.log('\n=== Teste 1: saveEvent em DB novo (schema v2) ===');
   assert(r.direction === 'bullish', 'direction explícita');
   assert(r.magnitude === 12345.67, 'magnitude persistida');
   assert(r.price === 99000.25, 'price = preço exato do trade');
+  assert(r.trade_id === '987654321', 'trade_id (aggTrade) preservado');
   const det = JSON.parse(r.details);
   assert(det.exchange === 'binance' && det.quantity === 0.1247 && det.side === 'BUY' && det.isBuyerMaker === false, 'details estruturado (JSON) com dados adicionais');
 
@@ -60,17 +63,18 @@ console.log('\n=== Teste 1: saveEvent em DB novo (schema v2) ===');
   const r3 = raw.prepare('SELECT * FROM events ORDER BY id DESC LIMIT 1').get();
   assert(r3.symbol === 'BTCUSDT', 'symbol ausente → fallback CONFIG.symbol');
   assert(r3.price === null, 'price ausente → NULL (não 0)');
+  assert(r3.trade_id === null, 'tradeId ausente → NULL (não 0)');
 
   raw.close();
   s.close();
 }
 
-// ── Teste 2: DB legado (v1) — migração idempotente, eventos antigos intactos ──
-console.log('\n=== Teste 2: migração de DB legado (v1 → v2) ===');
+// ── Teste 2: DB legado (v1) — migrações v2+v3 idempotentes, eventos antigos intactos ──
+console.log('\n=== Teste 2: migração de DB legado (v1 → v3) ===');
 {
   const dbPath = tmp('legacy.db');
   const raw = new DatabaseSync(dbPath);
-  // Schema v1: events SEM price
+  // Schema v1: events SEM price e SEM trade_id
   raw.exec(`
     CREATE TABLE events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -89,28 +93,30 @@ console.log('\n=== Teste 2: migração de DB legado (v1 → v2) ===');
   raw.close();
 
   const s = new SQLiteStorage(dbPath);
-  assert(s.getSchemaVersion() === 2, `schema_version migrado 1 → 2 (recebeu ${s.getSchemaVersion()})`);
+  assert(s.getSchemaVersion() === 3, `schema_version migrado 1 → 3 (recebeu ${s.getSchemaVersion()})`);
 
   const raw2 = new DatabaseSync(dbPath, { readOnly: true });
   const old = raw2.prepare('SELECT * FROM events ORDER BY id').get();
   assert(old.price === null, 'evento antigo preservado com price NULL (sem preço histórico inventado)');
+  assert(old.trade_id === null, 'evento antigo preservado com trade_id NULL (sem reprocessamento)');
   assert(old.symbol === 'BTCUSDT' && old.event_type === 'whale_buy' && old.magnitude === 100000 && old.direction === 'bullish', 'dados antigos intactos (nada sobrescrito)');
   assert(old.details === '{"quantity":1}', 'details antigo intacto');
 
-  // Novo evento já com price no mesmo DB migrado
-  s.saveEvent({ timestamp: 1787000005000, symbol: 'BTCUSDT', eventType: 'whale_sell', magnitude: 50000, direction: 'bearish', price: 101000.5, details: '{"quantity":0.5}' });
+  // Novo evento já com price e trade_id no mesmo DB migrado
+  s.saveEvent({ timestamp: 1787000005000, symbol: 'BTCUSDT', eventType: 'whale_sell', magnitude: 50000, direction: 'bearish', price: 101000.5, tradeId: 555, details: '{"quantity":0.5}' });
   const n = raw2.prepare('SELECT * FROM events ORDER BY id DESC LIMIT 1').get();
   assert(n.price === 101000.5, 'novo evento persistido com price após migração');
+  assert(n.trade_id === '555', 'novo evento persistido com trade_id após migração');
 
-  const cols = raw2.prepare('PRAGMA table_info(events)').all().filter((c) => c.name === 'price');
-  assert(cols.length === 1, 'coluna price existe exatamente uma vez');
+  const cols = raw2.prepare('PRAGMA table_info(events)').all().filter((c) => c.name === 'price' || c.name === 'trade_id');
+  assert(cols.length === 2, 'colunas price e trade_id existem exatamente uma vez cada');
 
   raw2.close();
   s.close();
 
-  // Reabertura: idempotente, sem erro, versão permanece 2
+  // Reabertura: idempotente, sem erro, versão permanece 3
   const s2 = new SQLiteStorage(dbPath);
-  assert(s2.getSchemaVersion() === 2, `reabertura idempotente (schema_version permanece ${s2.getSchemaVersion()})`);
+  assert(s2.getSchemaVersion() === 3, `reabertura idempotente (schema_version permanece ${s2.getSchemaVersion()})`);
   s2.close();
 }
 

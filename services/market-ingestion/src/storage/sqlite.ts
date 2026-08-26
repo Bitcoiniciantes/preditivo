@@ -10,8 +10,10 @@ const __dirname = path.dirname(__filename);
 // ── Versão do schema (Fase 0, item 6 — PROJETO_COMPORTAMENTO_PREDITIVO_15Mv3 §44) ──
 //   v1 = schema original (events sem coluna price)
 //   v2 = events.price REAL adicionada + saveEvent() ligado ao fluxo de whale events
+//   v3 = events.trade_id TEXT adicionada (id do aggTrade, P0-01 da auditoria — dedupe;
+//        eventos antigos mantêm trade_id NULL, sem reprocessamento)
 // Registro via PRAGMA user_version (mecanismo canônico do SQLite; auditável em sqlite_master).
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 export class SQLiteStorage {
   private db: InstanceType<typeof DatabaseSync>;
@@ -71,6 +73,7 @@ export class SQLiteStorage {
         price REAL,
         direction TEXT,
         details TEXT,
+        trade_id TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
     `);
@@ -96,9 +99,10 @@ export class SQLiteStorage {
   }
 
   /**
-   * Migração v2 — idempotente:
-   *  - adiciona `events.price` somente se a coluna não existir (DBs anteriores à v2);
-   *  - eventos antigos permanecem como estão: price NULL, sem preço histórico inventado;
+   * Migrações v2/v3 — idempotentes:
+   *  - v2: adiciona `events.price` somente se ausente;
+   *  - v3: adiciona `events.trade_id` (id do aggTrade) somente se ausente;
+   *  - eventos antigos permanecem como estão: price NULL / trade_id NULL, sem reprocessamento;
    *  - registra o schema_version via PRAGMA user_version (somente upgrade, nunca downgrade).
    */
   private migrateSchema(): void {
@@ -107,6 +111,13 @@ export class SQLiteStorage {
       this.db.exec('ALTER TABLE events ADD COLUMN price REAL');
       console.log('[DB] Migração v2: coluna events.price adicionada (eventos antigos mantêm price NULL — sem preço histórico inventado).');
     }
+    if (!cols.some((c) => c.name === 'trade_id')) {
+      this.db.exec('ALTER TABLE events ADD COLUMN trade_id TEXT');
+      console.log('[DB] Migração v3: coluna events.trade_id adicionada (eventos antigos mantêm trade_id NULL — sem reprocessamento).');
+    }
+    // Dedupe (P0-01): índice único parcial — eventos antigos (trade_id NULL) não são afetados;
+    // eventos novos com o mesmo id de agregado são rejeitados (replay de reconexão).
+    this.db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_events_trade_id ON events(trade_id) WHERE trade_id IS NOT NULL');
 
     const row = this.db.prepare('PRAGMA user_version').get() as { user_version: number };
     const currentVersion = row?.user_version ?? 0;
@@ -165,8 +176,8 @@ export class SQLiteStorage {
 
     this.insertEventStmt = this.db.prepare(`
       INSERT INTO events (
-        timestamp, symbol, event_type, magnitude, price, direction, details
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        timestamp, symbol, event_type, magnitude, price, direction, details, trade_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     this.insertRegimeEventStmt = this.db.prepare(`
@@ -216,6 +227,7 @@ export class SQLiteStorage {
     direction: string;
     price?: number;
     details?: string;
+    tradeId?: number;
   }): void {
     try {
       this.insertEventStmt.run(
@@ -225,7 +237,8 @@ export class SQLiteStorage {
         data.magnitude ?? 0,
         data.price ?? null,
         data.direction,
-        data.details || ''
+        data.details || '',
+        data.tradeId !== undefined ? String(data.tradeId) : null
       );
     } catch (error) {
       console.error('[DB] Erro ao salvar evento:', error);

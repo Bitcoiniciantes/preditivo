@@ -118,22 +118,21 @@ Interpretação (regra): significância isolada no treino **não é evidência**
 
 ## P1 — Recalibração do threshold "whale" (classificação · CVD WHALE · whale events)
 
-- **Status:** NA FILA — não executar agora. Experimentos/features/thresholds permanecem congelados.
-- **Achado (26/08, somente leitura — nada alterado):** `classifyTrade` define `large`/whale como
+- **Status: EXECUTADO em 26/08 (autorização do arquiteto — P0-01 do observatório).** Decisão aplicada:
+  threshold **absoluto US$ 100.000** (`CONFIG.flow.whaleNotionalUsd`) + agregação client-side ~100ms
+  (substituto do `@aggTrade`, que **não existe no futures** — verificado ao vivo) + ids preservados
+  (`events.trade_id`, schema v3, índice único parcial) + testes (52/52). Histórico antigo **intocado**
+  (sem reprocessamento; `trade_id NULL` permanece). Detalhes no relatório `AUDITORIA...md` §19.
+  Consequência: whale events e CVD WHALE passam a refletir **trades agregados ≥ $100k** (semântica v2);
+  o dataset whale da Fase 1 (seção separada) distingue v1 (histórico) de v2 (novo).
+- **Achado original (26/08):** `classifyTrade` definia `large`/whale como
   trade > **3× a média móvel dos últimos ~500 trades** (`services/market-ingestion/src/flow/classification.ts`),
   com janela com vazamento (`rollingSum -= rollingAvg` subtrai a média atual, não o valor que sai —
   não é uma janela deslizante real). Threshold **relativo**, não absoluto.
-- **Números (SQLite, 26.224 eventos / 132 min):** ticket médio compra **$25,8k** / venda **$26,3k**
-  (~**0,33 BTC**); mediana **$16,4k**; 11% ≥ $50k; 2,4% ≥ $100k; 7 ≥ $1M; máx 128,7 BTC. Em termos
-  absolutos para BTC, **não é "grande"** → o rótulo "whale" superestima; o bucket captura "trade grande
-  relativo ao fluxo recente". A taxa (~199 eventos/min) é consistente com um limiar relativo baixo.
-- **Impacto:** whale events (seção separada da Fase 1) e **CVD WHALE** herdam o mesmo threshold.
-- `whalePercentile: 90` no config é **código morto** (não usado por nenhum módulo).
-- **Opções na hora de executar (decisão do usuário):** (a) absoluto ≥ 1 BTC ou ≥ $100k;
-  (b) percentil fixo alto do fluxo (ex.: p99.x); (c) manter relativo, mas renomear o rótulo
-  ("trade grande relativo") sem recalibrar.
-- **Consistência do histórico:** os 26k+ eventos já gravados com a regra atual devem ser distinguidos
-  dos novos (ex.: regra v1 vs v2 nos eventos), como feito na ativação do saveEvent — nunca reclassificar
-  retroativamente como se tivessem sido coletados com a nova regra.
+- **Números (SQLite, 26.224 eventos / 132 min — antes da correção):** ticket médio compra **$25,8k** /
+  venda **$26,3k** (~**0,33 BTC**); mediana **$16,4k**; 11% ≥ $50k; 2,4% ≥ $100k; 7 ≥ $1M; máx 128,7 BTC.
+  Em termos absolutos para BTC, **não era "grande"** → o rótulo "whale" superestimava.
+- **Impacto:** whale events (seção separada da Fase 1) e **CVD WHALE** herdam o novo threshold.
+- `whalePercentile: 90` no config era **código morto** — removido na correção.
 - **Efeito colateral:** o observatório mostra "$0.0M" para eventos < $50k (consequência da formatação
   sobre o threshold atual) — ajustar junto se recalibrar.

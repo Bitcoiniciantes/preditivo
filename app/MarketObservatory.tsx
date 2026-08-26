@@ -69,6 +69,13 @@ function fmtTime(t: number): string {
   return new Date(t).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
+// Formatação adaptativa (P2-01): $K para milhares, $M para milhões — nunca "$0.0M".
+function fmtUsd(v: number): string {
+  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`;
+  if (v >= 1_000) return `$${(v / 1_000).toFixed(1)}K`;
+  return `$${v.toFixed(0)}`;
+}
+
 function downsample(points: { p: number }[], n: number): number[] {
   if (points.length <= n) return points.map((x) => x.p);
   const step = points.length / n;
@@ -120,7 +127,7 @@ export function MarketObservatory() {
       else if (ev.direction === "bearish") { r.whaleSell++; r.whaleMagSell += ev.magnitude; }
       r.lastWhales.unshift(ev);
       if (r.lastWhales.length > 5) r.lastWhales.pop();
-      r.timeline.unshift({ t: now, label: `${ev.type === "whale_buy" ? "WHALE COMPRA" : "WHALE VENDA"} $${(ev.magnitude / 1e6).toFixed(1)}M`, tone: ev.direction === "bullish" ? "buy" : "sell" });
+      r.timeline.unshift({ t: now, label: `${ev.type === "whale_buy" ? "WHALE COMPRA" : "WHALE VENDA"} ${fmtUsd(ev.magnitude)}`, tone: ev.direction === "bullish" ? "buy" : "sell" });
       if (r.timeline.length > MAX_TIMELINE) r.timeline.pop();
     }
 
@@ -214,7 +221,7 @@ export function MarketObservatory() {
         </div>
 
         <div className="obsCell">
-          <span className="obsLabel">OI / ΔOI</span>
+          <span className="obsLabel">OI (BTC) / ΔOI</span>
           <span className="obsValue">{(data?.oi ?? 0).toLocaleString("en-US", { maximumFractionDigits: 0 })}</span>
           <span className="obsValue" style={{ color: (data?.oi_delta ?? 0) > 0 ? "var(--lime)" : (data?.oi_delta ?? 0) < 0 ? "var(--red)" : "var(--muted)" }}>
             {(data?.oi_delta ?? 0) > 0 ? "+" : ""}{((data?.oi_delta ?? 0) * 100).toFixed(3)}%
