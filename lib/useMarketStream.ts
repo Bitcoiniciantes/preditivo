@@ -3,6 +3,17 @@ import { useEffect, useRef, useState, useCallback } from "react";
 
 export type MarketStreamStatus = "off" | "connecting" | "live" | "reconnecting" | "disconnected";
 
+export type DbStats = {
+  snapshots: number;
+  spanH: number;
+  uptimeH: number;
+  segments: number;
+  gaps3min: number;
+  whaleEvents: number;
+  whaleSpanMin: number;
+  regimeEvents: number;
+};
+
 export type MarketStreamData = {
   ts: number;
   p: number;
@@ -25,6 +36,7 @@ export type MarketStreamData = {
   score: number;
   score_quality: number;
   events: { type: string; magnitude: number; direction: string; timestamp: number }[];
+  dbStats?: DbStats;
   quality: { ws: string; oi: string; funding: string };
 };
 

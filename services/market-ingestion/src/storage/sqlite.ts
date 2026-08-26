@@ -123,6 +123,38 @@ export class SQLiteStorage {
     return row?.user_version ?? 0;
   }
 
+  /**
+   * Estatísticas de acumulação do SQLite — leitura leve e somente-leitura, usada pelo
+   * broadcast para o painel observacional (Fase 1). Nada preditivo: apenas volume/gaps.
+   */
+  public getDbStats(): {
+    snapshots: number;
+    spanH: number;
+    uptimeH: number;
+    segments: number;
+    gaps3min: number;
+    whaleEvents: number;
+    whaleSpanMin: number;
+    regimeEvents: number;
+  } {
+    const s = this.db.prepare('SELECT COUNT(*) c, MIN(timestamp) mn, MAX(timestamp) mx FROM snapshots').get() as { c: number; mn: number; mx: number };
+    const w = this.db.prepare('SELECT COUNT(*) c, MIN(timestamp) mn, MAX(timestamp) mx FROM events').get() as { c: number; mn: number; mx: number };
+    const r = this.db.prepare('SELECT COUNT(*) c FROM regime_events').get() as { c: number };
+    const rows = this.db.prepare('SELECT timestamp FROM snapshots ORDER BY timestamp').all() as { timestamp: number }[];
+    let gaps = 0;
+    for (let i = 1; i < rows.length; i++) if (rows[i].timestamp - rows[i - 1].timestamp > 180_000) gaps++;
+    return {
+      snapshots: s.c,
+      spanH: s.c ? (s.mx - s.mn) / 3_600_000 : 0,
+      uptimeH: s.c / 60,
+      segments: gaps + 1,
+      gaps3min: gaps,
+      whaleEvents: w.c,
+      whaleSpanMin: w.c ? (w.mx - w.mn) / 60_000 : 0,
+      regimeEvents: r.c,
+    };
+  }
+
   private prepareStatements(): void {
     this.insertSnapshotStmt = this.db.prepare(`
       INSERT INTO snapshots (

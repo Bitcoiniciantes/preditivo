@@ -1,9 +1,6 @@
 "use client";
 import { useState, useMemo, useEffect } from "react";
-import { useMarketStream } from "../lib/useMarketStream";
-
-
-const WS_URL = process.env.NEXT_PUBLIC_MARKET_WS_URL || "ws://localhost:3001";
+import { useMarketStreamContext } from "./MarketStreamProvider";
 
 function StatusDot({ status }: { status: string }) {
   const color = status === "LIVE" ? "var(--lime)" : status === "STALE" ? "#f0ad4e" : "var(--red)";
@@ -119,7 +116,7 @@ export type FlowData = {
 };
 
 export default function MarketPanel({ onFlowData }: { onFlowData?: (data: FlowData | null) => void }) {
-  const { data, status } = useMarketStream(WS_URL, true);
+  const { data, status } = useMarketStreamContext();
   const [expanded, setExpanded] = useState(false);
   const [leigo, setLeigo] = useState(true);
 

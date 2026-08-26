@@ -144,6 +144,16 @@ export interface MarketSnapshot {
   score: number;
   score_quality: number;
   events: MarketEvent[];
+  dbStats?: {
+    snapshots: number;
+    spanH: number;
+    uptimeH: number;
+    segments: number;
+    gaps3min: number;
+    whaleEvents: number;
+    whaleSpanMin: number;
+    regimeEvents: number;
+  };
   quality: DataQuality;
 }
 

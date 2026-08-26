@@ -609,3 +609,71 @@ footer{border-top:2px solid #344a40;background:#0d1512;box-shadow:inset 0 1px 0 
 .structuralAlertLabel{font-size:8px!important;color:var(--muted)!important;letter-spacing:.1em!important;font-weight:600!important}
 .structuralAlertValue{font-size:11px!important;font-family:var(--font-geist-mono)!important;font-weight:700!important}
 .structuralAlertDivergence{background:rgba(84,184,90,.12)!important;padding:4px 8px!important;border-radius:4px!important;border:1px solid rgba(84,184,90,.3)!important}
+/* ── Painel observacional (Fase 1) ── */
+.obsCard{border-color:var(--cyan)}
+.obsCard .cardTitle{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:10px;min-height:42px}
+.obsCard .cardTitle>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.obsCard .cardTitle>div>span{font-size:9px;color:var(--muted);letter-spacing:.12em;font-weight:600}
+.obsCard .cardTitle>div>b{font-size:12px;color:var(--paper);margin:0}
+.marketStatus.off{color:var(--red)!important}
+.obsGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.obsCell{background:#0a1612;border:1px solid var(--line);border-radius:6px;padding:10px 12px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.obsLabel{font-size:8px;color:var(--muted);letter-spacing:.12em;font-weight:600}
+.obsValue{font-size:13px;font-family:var(--font-geist-mono);font-weight:700;color:var(--paper)}
+.obsPrice{font-size:18px;font-family:var(--font-geist-mono);font-weight:800;color:var(--paper)}
+.obsHint{font-size:8px;color:var(--muted)}
+.obsSpark{width:100%;height:44px;display:block;margin:6px 0 2px}
+.obsSparkEmpty{font-size:9px;color:var(--muted);padding:14px 0}
+.obsState{display:flex;align-items:baseline;gap:8px}
+.obsState span{font-size:8px;color:var(--muted);letter-spacing:.1em;min-width:64px}
+.obsState b{font-size:10px;font-family:var(--font-geist-mono);color:var(--paper);flex:1}
+.obsState em{font-size:9px;color:var(--muted);font-style:normal}
+.obsWhale{display:flex;justify-content:space-between;font-size:11px;font-family:var(--font-geist-mono)}
+.obsQuality{display:flex;gap:10px;margin:2px 0}
+.obsQuality span{display:flex;align-items:center;gap:5px;font-size:8px;color:var(--muted);letter-spacing:.1em}
+.obsQuality i{width:6px;height:6px;border-radius:50%;display:inline-block}
+.obsBottom{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.obsTimeline{background:#0a1612;border:1px solid var(--line);border-radius:6px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;min-width:0;max-height:190px;overflow:auto}
+.obsEvent{display:flex;align-items:center;gap:8px;font-size:10px;font-family:var(--font-geist-mono);color:var(--paper)}
+.obsEvent i{width:6px;height:6px;border-radius:50%;flex:none}
+.obsEvent.buy i{background:var(--lime)}.obsEvent.sell i{background:var(--red)}.obsEvent.state i{background:var(--cyan)}
+.obsEvent span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.obsEvent em{font-size:9px;color:var(--muted);font-style:normal}
+.obsEmpty{font-size:9px;color:var(--muted);padding:8px 0}
+.obsSummary{background:#0a1612;border:1px solid var(--line);border-radius:6px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.obsSummary p{margin:0;font-size:11px;line-height:1.5;color:var(--paper);font-family:var(--font-geist-mono)}
+.obsFoot{font-size:9px!important;color:var(--muted)!important;font-family:inherit!important}
+
+/* ── ANÁLISE PREDITIVA (gate da Fase 1) ── */
+.predictiveCard{border-color:#c39a45}
+.predictiveCard .cardTitle{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:10px;min-height:42px}
+.predictiveCard .cardTitle>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.predictiveCard .cardTitle>div>span{font-size:9px;color:var(--muted);letter-spacing:.12em;font-weight:600}
+.predictiveCard .cardTitle>div>b{font-size:12px;color:var(--paper);margin:0}
+.predictiveStatus{font-size:10px;font-weight:800;letter-spacing:.1em;padding:4px 8px;border-radius:4px;border:1px solid}
+.predictiveStatus.inconcl{color:#f0ad4e;border-color:#f0ad4e;background:rgba(240,173,78,.08)}
+.predictiveStatus.valid{color:var(--cyan);border-color:var(--cyan);background:rgba(46,232,194,.08)}
+.predictiveStatus.pass{color:var(--lime);border-color:var(--lime);background:rgba(84,184,90,.1)}
+.predictiveBody{display:flex;flex-direction:column;gap:10px}
+.predictiveSummary{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.predictiveSummary>div{background:#0a1612;border:1px solid var(--line);border-radius:6px;padding:10px 12px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.predictiveSummary span{font-size:8px;color:var(--muted);letter-spacing:.12em;font-weight:600}
+.predictiveSummary b{font-size:11px;font-family:var(--font-geist-mono);color:var(--paper);line-height:1.45}
+.predictiveHorizons{background:#0a1612;border:1px solid var(--line);border-radius:6px;padding:8px 12px;display:flex;flex-direction:column;gap:6px}
+.predictiveRow{display:flex;gap:10px;align-items:baseline}
+.predictiveH{font-size:11px;font-family:var(--font-geist-mono);font-weight:800;color:var(--paper);min-width:24px}
+.predictiveText{font-size:10px;color:var(--muted);line-height:1.4}
+.predictiveText.inconcl{color:var(--muted)}
+.predictiveText.valid{color:var(--cyan)}
+.predictiveText.pass{color:var(--lime)}
+.predictiveVerdict{font-size:9px;color:var(--muted);line-height:1.5;margin:0;border-left:2px solid var(--line);padding-left:8px}
+.predictiveSignal{background:rgba(84,184,90,.06);border:1px solid rgba(84,184,90,.3);border-radius:6px;padding:12px}
+.predictiveBars{display:flex;flex-direction:column;gap:6px}
+.predictiveBar{display:flex;align-items:center;gap:8px;font-size:10px;font-family:var(--font-geist-mono)}
+.predictiveBar span{width:44px;font-weight:800;color:var(--paper)}
+.predictiveBarTrack{flex:1;height:10px;background:#1a2621;border-radius:5px;overflow:hidden}
+.predictiveBarTrack i{display:block;height:100%;border-radius:5px}
+.predictiveBar b{width:38px;text-align:right;color:var(--paper)}
+.predictiveSignal p{font-size:10px;color:var(--muted);margin:8px 0 0}
+.predictiveFoot{font-size:9px;color:var(--muted);line-height:1.5;margin:0}
+.predictiveRule{font-size:8.5px;color:var(--muted);line-height:1.5;margin:2px 0 0;border-top:1px dashed var(--line);padding-top:6px}

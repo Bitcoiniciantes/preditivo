@@ -4,6 +4,8 @@ import Script from "next/script";
 import "./globals.css";
 import "./nexus.css";
 import { AlertEngine } from "./AlertEngine";
+import { Fase1VerdictProvider } from "./Fase1VerdictProvider";
+import { readFase1Verdict } from "../lib/fase1-verdict";
 
 const geistSans=Geist({variable:"--font-geist-sans",subsets:["latin"]});
 const geistMono=Geist_Mono({variable:"--font-geist-mono",subsets:["latin"]});
@@ -15,8 +17,13 @@ export const metadata:Metadata={
 };
 
 export default function RootLayout({children}:{children:React.ReactNode}){
+ // Veredito congelado da Fase 1, lido no build/dev (server-side). O painel preditivo
+ // apenas reflete este relatório — nunca calcula nada por conta própria.
+ const fase1Report = readFase1Verdict();
  return <html lang="pt-BR"><body className={`${geistSans.variable} ${geistMono.variable}`}>
-  <AlertEngine>{children}</AlertEngine>
+  <Fase1VerdictProvider report={fase1Report}>
+   <AlertEngine>{children}</AlertEngine>
+  </Fase1VerdictProvider>
   <Script id="worker-counter" strategy="afterInteractive">{`
    (() => {
     var WORKER_URL = 'https://floral-truth-af64.bitcoiniciantes.workers.dev';

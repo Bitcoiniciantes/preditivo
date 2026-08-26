@@ -7,6 +7,9 @@ import StockTickerBar from "./StockTickerBar";
 import ConfluencePanel from "./ConfluencePanel";
 import PositionPanel from "./PositionPanel";
 import MarketPanel, { type FlowData } from "./MarketPanel";
+import { MarketStreamProvider } from "./MarketStreamProvider";
+import { MarketObservatory } from "./MarketObservatory";
+import { PredictiveStatusCard } from "./PredictiveStatusCard";
 import ConfluenceCard from "./ConfluenceCard";
 import { AlertPanel } from "./AlertPanel";
 import { analyze, avg, scoreDistanceLabel, scoreLabel } from "../lib/analysis";
@@ -114,7 +117,7 @@ export function Termometro(){
  const selectedRsiStatus=!selectedRsi?"AGUARDANDO":selectedRsi.value>=70?"VENDA: RSI ESTICADO":selectedRsi.value<=30?"COMPRA: RSI SOBREVENDIDO":selectedRsi.value>=55?"ALTA":selectedRsi.value<=45?"BAIXA":"NEUTRO";
  const liveQuoteAge=liveQuote?.asset===ticker?Math.max(0,Math.floor((clock-liveQuote.updatedAt)/1000)):null,cryptoLive=!staticAssets[ticker]&&liveStatus==="live"&&!!livePrice&&liveQuoteAge!==null&&liveQuoteAge<=5,sourceLabel=staticAssets[ticker]?'YAHOO FINANCE':cryptoLive?'BINANCE • AO VIVO':liveStatus==="reconnecting"?'BINANCE • RECONECTANDO':'BINANCE',freshnessBase=freshnessLabel(market?.updatedAt,clock),freshness=staticAssets[ticker]?freshnessBase.replace('ÚLTIMA CONSULTA','DADO ATUALIZADO'):liveQuoteAge!==null?`${cryptoLive?"COTAÇÃO AO VIVO • STREAM CONECTADO":"ÚLTIMA COTAÇÃO AO VIVO"}`:freshnessBase;
  const aiMarketData=`Fonte: ${sourceLabel}. Preço atual: ${fmt(currentPrice)}. Variação no candle ${period}: ${change>=0?"+":""}${change.toFixed(2)}%. Termômetro: ${label} (${score>0?"+":""}${score}/100), confiança ${confidence}%. RSI: ${selectedRsi?selectedRsi.value.toFixed(1):"indisponível"} (${selectedRsiStatus}). Suporte: ${fmt(support)}. Resistência: ${fmt(resistance)}. Volume: ${volumeRatio?`${volumeRatio.toFixed(2)}× média`:"indisponível"}.`;
- return <main>
+ return <MarketStreamProvider><main>
   <div className='marketFreshness'><span className='sourceStatus'><i/>{loading?'BUSCANDO MERCADO':marketError?'FONTE INDISPONÍVEL':sourceLabel}</span>{!loading&&market&&!cryptoLive&&<span className='freshness'>{freshness}</span>}<button type='button' onClick={retryMarket} disabled={loading} aria-label='Consultar dados novamente' title='Consultar dados novamente'>↻</button></div>
   <header><a className="brand" href="#inicio" onClick={event=>{event.preventDefault();window.scrollTo({top:0,behavior:"smooth"});}} aria-label="Voltar ao início do Termômetro" title="Voltar ao início"><b>T°</b><span>TERMÔMETRO PREDITIVO<small>INVESTIDOR ARROJADO</small></span></a><nav aria-label="Menu principal"><a href="#grafico">Gráfico</a><a href="#regras">Regras</a><a className="externalNav" href="https://estudebitcoin.pages.dev/" target="_blank" rel="noopener noreferrer">Estude Bitcoin <span aria-hidden="true">↗</span></a></nav></header>
   <section className="analysisDesk workspace" id="painel">
@@ -158,6 +161,8 @@ export function Termometro(){
       techTimeframeMinutes={TIMEFRAME_MINUTES[period] ?? 60}
     />
     <MarketPanel onFlowData={handleFlowData} />
+    <PredictiveStatusCard />
+    <MarketObservatory />
     <AiAnalysisCard
       key={`${ticker}-${period}`}
       autoRunKey={aiRunKey}
@@ -185,6 +190,7 @@ export function Termometro(){
   <div className="alertPanelSection"><AlertPanel currency="USDT" /></div>
   <footer><span><b>T°</b> TERMÔMETRO PREDITIVO INVESTIDOR ARROJADO</span><p>Motor determinístico • Interpretação opcional assistida por IA</p><span data-goatcounter-total aria-label="Total de acessos"> · visitas: —</span><small>PILOTO v0.2</small></footer>
  </main>
+ </MarketStreamProvider>
 }
 type RadarItem = BiasItem & { available: boolean };
 function RadarBoard({items,changes,ticker,onSelect,onRemove,onAi,compact=false}:{items:RadarItem[];changes:Record<string,number>;ticker:string;onSelect:(asset:string,period?:string)=>void;onRemove:(asset:string)=>void;onAi?:()=>void;compact?:boolean}){

@@ -39,6 +39,9 @@ let lastAbsorptionState: string = 'NONE';
 let absorptionTriggerPrice = 0;
 let absorptionTriggerTs = 0;
 let absorptionResolutionPending = false;
+// Estatísticas de acumulação do SQLite para o painel observacional (refresh a cada 5s).
+let lastDbStatsAt = 0;
+let lastDbStats: ReturnType<typeof dbStorage.getDbStats> | null = null;
 
 const orderbook = new OrderBookManager();
 const imbalanceTracker = new ImbalanceTracker();
@@ -293,6 +296,13 @@ function broadcastLoop(): void {
     priceChange: 0,
   });
 
+  // Painel observacional (Fase 1): estatísticas de acumulação do SQLite, atualizadas
+  // no máximo a cada 5s (leitura leve e somente-leitura). Nada preditivo.
+  if (now - lastDbStatsAt >= 5_000) {
+    lastDbStatsAt = now;
+    lastDbStats = dbStorage.getDbStats();
+  }
+
   const snapshot: MarketSnapshot = {
     ts: now,
     p: currentPrice,
@@ -315,6 +325,7 @@ function broadcastLoop(): void {
     score,
     score_quality: quality,
     events: [...events],
+    dbStats: lastDbStats ?? undefined,
     quality: {
       ws: wsStatus,
       oi: oiStatus,
