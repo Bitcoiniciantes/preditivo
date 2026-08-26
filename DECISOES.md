@@ -145,3 +145,21 @@ Interpretação (regra): significância isolada no treino **não é evidência**
   agora usa **duas conexões WS** (base `/stream` p/ depth+bookTicker; `/market/ws` p/ aggTrade).
 - `whalePercentile: 90` no config era **código morto** — removido na correção.
 - **Efeito colateral:** formatação `$0.0M` corrigida (fmtUsd adaptativo) em P2-01.
+
+---
+
+# OI SCORE — NÃO IMPLEMENTAR DURANTE A FASE 1 (decisão do arquiteto, 26/08)
+
+**Registro explícito (manter `score.ts` e `openInterestExtreme` INALTERADOS):**
+
+- **Threshold atual incompatível com a escala de 5s:** `features/score.ts` usa `oiChange > 0.005/0.02`
+  (0,5%/2%) e `openInterestExtreme` usa `|oi_delta| > 0.005` — aplicados a um `oiChange` calculado entre
+  polls de **5s** (valores reais ~0,001–0,34%). Empiricamente (2.560 snapshots): **nenhum dispara**.
+- **Componente OI do score NÃO contribui atualmente:** o score jamais recebe ±4/±8 do OI; o score
+  persistido (e a feature `scoreMean` da Fase 1) **não refletem OI**.
+- **Alterar isso modifica o `score` e quebra a comparabilidade histórica:** qualquer recalibração muda o
+  `score` persistido e a feature `scoreMean` da Fase 1 — **NÃO fazer durante a Fase 1**.
+- **Qualquer recalibração deverá ocorrer em experimento/versionamento separado** (com decisão registrada
+  aqui antes), preservando o histórico atual como baseline.
+- **Nenhuma alteração de código** foi feita (score.ts e openInterestExtreme intocados; diff vazio em
+  `services/`, `app/`, `lib/`, `scripts/`).
