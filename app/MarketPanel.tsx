@@ -1,6 +1,7 @@
 "use client";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useMarketStreamContext } from "./MarketStreamProvider";
+import { computeOiDelta } from "../lib/oi-delta";
 
 function StatusDot({ status }: { status: string }) {
   const color = status === "LIVE" ? "var(--lime)" : status === "STALE" ? "#f0ad4e" : "var(--red)";
@@ -119,6 +120,17 @@ export default function MarketPanel({ onFlowData }: { onFlowData?: (data: FlowDa
   const { data, status } = useMarketStreamContext();
   const [expanded, setExpanded] = useState(false);
   const [leigo, setLeigo] = useState(true);
+  // ΔOI sobre 1 min (CORREÇÃO P0): buffer de OI do stream + cálculo client-side (material).
+  const oiBuf = useRef<{ ts: number; oi: number }[]>([]);
+  const [oiDelta, setOiDelta] = useState<{ oiAbs: number; oiPct: number } | null>(null);
+
+  useEffect(() => {
+    if (!data) return;
+    const now = data.ts;
+    oiBuf.current.push({ ts: now, oi: data.oi });
+    while (oiBuf.current.length && now - oiBuf.current[0].ts > 120_000) oiBuf.current.shift();
+    setOiDelta(computeOiDelta(oiBuf.current, 60_000, now));
+  }, [data]);
 
   // Expor dados do fluxo para o motor de confluência.
   // IMPORTANTE: sem dados (daemon local offline / conectando), emitir null — nunca 0.
@@ -261,8 +273,8 @@ export default function MarketPanel({ onFlowData }: { onFlowData?: (data: FlowDa
         <div className="marketCell">
           <span className="marketLabel">{leigo ? "DINHEIRO NO MERCADO" : "OPEN INTEREST (BTC)"}</span>
           <span className="marketValue">{(data?.oi ?? 0).toLocaleString("en-US", { maximumFractionDigits: 0 })}</span>
-          <span className="marketDelta" style={{ color: (data?.oi_delta ?? 0) > 0 ? "var(--lime)" : (data?.oi_delta ?? 0) < 0 ? "var(--red)" : "var(--muted)" }}>
-            {(data?.oi_delta ?? 0) > 0 ? "+" : ""}{((data?.oi_delta ?? 0) * 100).toFixed(3)}%
+          <span className="marketDelta" style={{ color: oiDelta && oiDelta.oiAbs > 0 ? "var(--lime)" : oiDelta && oiDelta.oiAbs < 0 ? "var(--red)" : "var(--muted)" }}>
+            {oiDelta ? `${oiDelta.oiAbs >= 0 ? "+" : ""}${oiDelta.oiAbs.toLocaleString("en-US", { maximumFractionDigits: 1 })} (${oiDelta.oiPct >= 0 ? "+" : ""}${oiDelta.oiPct.toFixed(5)}%) / 1min` : "—"}
           </span>
           {impactPhrases && <ImpactPhrase text={impactPhrases.oi} />}
         </div>

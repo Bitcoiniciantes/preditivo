@@ -5,8 +5,11 @@
 // sequência temporal, gaps/qualidade). Probabilidades preditivas ficam fora deste card.
 import { useEffect, useRef, useState } from "react";
 import { useMarketStreamContext } from "./MarketStreamProvider";
+import { computeOiDelta } from "../lib/oi-delta";
 
 const WINDOW_MS = 15 * 60_000; // últimos 15 minutos
+const OI_WINDOW_MS = 60_000;   // ΔOI sobre 1 min (material)
+const OI_BUF_MS = 120_000;     // buffer de OI p/ calcular o ΔOI
 const MAX_TIMELINE = 14;
 const SPARK_POINTS = 90;
 
@@ -15,10 +18,12 @@ type TimelineEvent = { t: number; label: string; tone: "buy" | "sell" | "state" 
 type Obs = {
   priceBuf: { t: number; p: number }[];
   cvdBuf: { t: number; cvd: number; cw: number }[];
+  oiBuf: { ts: number; oi: number }[];
   spark: number[];
   sparkUp: boolean;
   cvdDelta: number | null;
   cvdWhaleDelta: number | null;
+  oiDelta: { oiAbs: number; oiPct: number } | null;
   sessionMin: number;
   whaleBuy: number;
   whaleSell: number;
@@ -37,10 +42,12 @@ type Obs = {
 const zero: Obs = {
   priceBuf: [],
   cvdBuf: [],
+  oiBuf: [],
   spark: [],
   sparkUp: true,
   cvdDelta: null,
   cvdWhaleDelta: null,
+  oiDelta: null,
   sessionMin: 0,
   whaleBuy: 0,
   whaleSell: 0,
@@ -118,8 +125,10 @@ export function MarketObservatory() {
     // buffers de preço/CVD (últimos 15 min)
     r.priceBuf.push({ t: now, p: data.p });
     r.cvdBuf.push({ t: now, cvd: data.cvd, cw: data.cvd_whale });
+    r.oiBuf.push({ ts: now, oi: data.oi });
     while (r.priceBuf.length && now - r.priceBuf[0].t > WINDOW_MS) r.priceBuf.shift();
     while (r.cvdBuf.length && now - r.cvdBuf[0].t > WINDOW_MS) r.cvdBuf.shift();
+    while (r.oiBuf.length && now - r.oiBuf[0].ts > OI_BUF_MS) r.oiBuf.shift();
 
     // whale events da sessão (payload do ciclo de broadcast)
     for (const ev of data.events ?? []) {
@@ -172,12 +181,15 @@ export function MarketObservatory() {
     const sessionMin = (nowMs - sessionStart.current) / 60_000;
     const churnPerHour = sessionMin > 0 ? (r.transitions / sessionMin) * 60 : 0;
 
+    const oiDelta = computeOiDelta(r.oiBuf, OI_WINDOW_MS, now);
+
     setObs({
       ...r,
       spark: downsample(r.priceBuf, SPARK_POINTS),
       sparkUp: r.priceBuf.length >= 2 ? r.priceBuf[r.priceBuf.length - 1].p >= r.priceBuf[0].p : true,
       cvdDelta,
       cvdWhaleDelta,
+      oiDelta,
       sessionMin,
       churnPerHour,
       sinceLastMsg: nowMs - r.lastMsgAt,
@@ -223,8 +235,8 @@ export function MarketObservatory() {
         <div className="obsCell">
           <span className="obsLabel">OI (BTC) / ΔOI</span>
           <span className="obsValue">{(data?.oi ?? 0).toLocaleString("en-US", { maximumFractionDigits: 0 })}</span>
-          <span className="obsValue" style={{ color: (data?.oi_delta ?? 0) > 0 ? "var(--lime)" : (data?.oi_delta ?? 0) < 0 ? "var(--red)" : "var(--muted)" }}>
-            {(data?.oi_delta ?? 0) > 0 ? "+" : ""}{((data?.oi_delta ?? 0) * 100).toFixed(3)}%
+          <span className="obsValue" style={{ color: (obs.oiDelta && obs.oiDelta.oiAbs > 0) ? "var(--lime)" : (obs.oiDelta && obs.oiDelta.oiAbs < 0) ? "var(--red)" : "var(--muted)" }}>
+            {obs.oiDelta ? `${obs.oiDelta.oiAbs >= 0 ? "+" : ""}${obs.oiDelta.oiAbs.toLocaleString("en-US", { maximumFractionDigits: 1 })} (${obs.oiDelta.oiPct >= 0 ? "+" : ""}${obs.oiDelta.oiPct.toFixed(5)}%) / 1min` : "—"}
           </span>
           <span className="obsLabel">BOOK IMBALANCE</span>
           <span className="obsValue" style={{ color: (data?.imb ?? 0) > 0 ? "var(--lime)" : (data?.imb ?? 0) < 0 ? "var(--red)" : "var(--muted)" }}>
