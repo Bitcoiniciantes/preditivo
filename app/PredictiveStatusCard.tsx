@@ -7,10 +7,18 @@
 // em revisão. O bloco PREDICTIVE SIGNAL existe no código, mas é inalcançável enquanto
 // PREDICTIVE_GATE === false.
 //
-// Transições automáticas (a partir do dbStats do daemon — volume real do SQLite):
-//   INSUFFICIENT DATA → VALIDATION : quando N total estimado por horizonte ≥ 90
-//                                    (≈ 30 por classe — tercis do treino, 3 classes)
-//   VALIDATION → PREDICTIVE SIGNAL : exigido relatório PASS commitado + revisão do gate.
+// Gate de amostra (definição registrada em DECISOES.md): o N ≥ 30 POR CLASSE é exigido
+// no conjunto onde a probabilidade é exibida — para liberar probabilidades preditivas,
+// o TESTE/OOS deve satisfazer N ≥ 30 por classe (N total ≥ 90 com tercis do treino).
+// N total ≥ 90 no conjunto inteiro NÃO é suficiente: a distribuição do OOS é o critério.
+//
+// Estados (vocabulário distinto — não confundir "validação executada sem evidência"
+// com "amostra insuficiente"):
+//   VALIDAÇÃO EXECUTADA · OOS: NENHUMA EVIDÊNCIA · PREDIÇÃO: BLOQUEADA
+//     → quando há OOS suficiente para o gate de classe (≥ 90) e o relatório não replicou;
+//   VALIDAÇÃO NÃO EXECUTÁVEL · AMOSTRA INSUFICIENTE (OOS < 90)
+//     → quando o OOS ainda não atinge o mínimo por classe (caso atual);
+//   PREDICTIVE SIGNAL → apenas com relatório PASS + PREDICTIVE_GATE liberado em revisão.
 import { useMarketStreamContext } from "./MarketStreamProvider";
 import { useFase1Verdict } from "./Fase1VerdictProvider";
 
@@ -19,10 +27,8 @@ import { useFase1Verdict } from "./Fase1VerdictProvider";
 // commitado mostrar out-of-sample PASS; (3) decisão registrada em DECISOES.md.
 const PREDICTIVE_GATE = false;
 
-// Distinção de amostra (regra do experimento congelado — PROJETO..._15Mv3 §44.5):
-//   - a regra é N ≥ 30 POR CLASSE para exibir probabilidades de classe;
-//   - com classes por tercis do treino (3 classes ~balanceadas), isso equivale a
-//     N TOTAL ≥ 90 (30 × 3). O card exibe sempre os dois números, sem confundi-los.
+// Regra: N ≥ 30 POR CLASSE no conjunto onde a probabilidade é exibida (OOS p/ predição).
+// Com classes por tercis do treino (3 classes ~balanceadas): N total ≥ 90 no OOS.
 const REQUIRED_PER_CLASS = 30;
 const REQUIRED_TOTAL = REQUIRED_PER_CLASS * 3; // 90
 const HORIZONS = [5, 15, 30] as const;
@@ -40,25 +46,39 @@ export function PredictiveStatusCard() {
   const db = data?.dbStats ?? null;
   const uptimeMin = (db?.uptimeH ?? 0) * 60;
   const estN = (h: number) => Math.floor(uptimeMin / h);
-  const anyValidation = HORIZONS.some((h) => estN(h) >= REQUIRED_TOTAL);
 
-  const reportSaysPass = (h: number) =>
-    verdict?.horizons[String(h)]?.evidence &&
+  // N do relatório congelado (autoritativo); fallback para a estimativa por volume.
+  const obsOf = (h: number) => verdict?.horizons[String(h)]?.obs ?? estN(h);
+  const oosOf = (h: number) => verdict?.horizons[String(h)]?.test ?? estN(h);
+  const reportPass = (h: number) =>
+    !!verdict?.horizons[String(h)]?.evidence &&
     verdict.horizons[String(h)].evidence !== "nenhuma" &&
     !verdict.horizons[String(h)].evidence.startsWith("?");
 
-  const signalReady = PREDICTIVE_GATE && HORIZONS.some((h) => reportSaysPass(h) && estN(h) >= REQUIRED_TOTAL);
+  // O gate por classe é medido NO OOS.
+  const gateOosMet = (h: number) => oosOf(h) >= REQUIRED_TOTAL;
+  const anyGateMet = HORIZONS.some(gateOosMet);
+  const anyPass = HORIZONS.some(reportPass);
+  const signalReady = PREDICTIVE_GATE && anyPass && anyGateMet;
 
-  const overallStatus = signalReady
-    ? { label: "PREDICTIVE SIGNAL", tone: "pass", note: "gate liberado em revisão — exibindo probabilidades do relatório" }
-    : anyValidation
-      ? { label: "VALIDATION", tone: "valid", note: "N total ≥ 90 (≈30 por classe) em ao menos um horizonte — reexecutar o experimento congelado; sem probabilidades exibidas" }
-      : { label: "INCONCLUSIVA", tone: "inconcl", note: "N total < 90 (⇒ < 30 por classe) em todos os horizontes — sem probabilidades exibidas" };
+  const headline = !verdict
+    ? "SEM RELATÓRIO — experimento congelado ainda não executado/commitado"
+    : verdict.conclusion?.includes("NÃO suportada")
+      ? "HIPÓTESE: NÃO SUPORTADA (até aqui)"
+      : verdict.conclusion?.includes("evidência preliminar")
+        ? "HIPÓTESE: EVIDÊNCIA PRELIMINAR (aguardando gate)"
+        : "HIPÓTESE: INDEFINIDA (relatório sem conclusão reconhecida)";
+
+  const badge = signalReady
+    ? { label: "PREDICTIVE SIGNAL", tone: "pass" }
+    : anyGateMet
+      ? { label: "VALIDAÇÃO EXECUTADA · OOS: NENHUMA EVIDÊNCIA · PREDIÇÃO: BLOQUEADA", tone: "valid" }
+      : { label: "VALIDAÇÃO NÃO EXECUTÁVEL · AMOSTRA INSUFICIENTE (OOS < 90)", tone: "inconcl" };
 
   const sampleLabel = db
-    ? anyValidation
-      ? `suficiente para validação (N total ≥ ${REQUIRED_TOTAL} ⇒ ≈${REQUIRED_PER_CLASS} por classe em ao menos um horizonte)`
-      : `insuficiente (N total < ${REQUIRED_TOTAL} por horizonte ⇒ < ${REQUIRED_PER_CLASS} por classe)`
+    ? anyGateMet
+      ? `OOS com N total ≥ ${REQUIRED_TOTAL} (⇒ ≈${REQUIRED_PER_CLASS} por classe) em ao menos um horizonte — gate de classe no OOS atendido`
+      : `OOS < ${REQUIRED_TOTAL} em todos os horizontes ⇒ gate de classe no OOS NÃO atendido (insuficiente para exibir probabilidades)`
     : "—";
 
   return (
@@ -68,13 +88,15 @@ export function PredictiveStatusCard() {
           <span>ANÁLISE PREDITIVA</span>
           <b>Gate estatístico da Fase 1</b>
         </div>
-        <span className={`predictiveStatus ${overallStatus.tone}`}>{overallStatus.label}</span>
+        <span className={`predictiveStatus ${badge.tone}`} title={badge.label}>{badge.label.split("·")[0].trim()}</span>
       </div>
 
       <div className="predictiveBody">
+        <p className={`predictiveHeadline ${anyPass && anyGateMet ? "pass" : anyGateMet ? "valid" : "inconcl"}`}>{headline}</p>
+
         <div className="predictiveSummary">
           <div>
-            <span>AMOSTRA</span>
+            <span>AMOSTRA (gate por classe = OOS)</span>
             <b>{sampleLabel}</b>
           </div>
           <div>
@@ -104,26 +126,16 @@ export function PredictiveStatusCard() {
             <span className="predictiveText">aguardando validação — exige dados subminuto (snapshots atuais: 1/min)</span>
           </div>
           {HORIZONS.map((h) => {
-            const n = estN(h);
-            const perClass = Math.floor(n / 3);
-            const v = verdict?.horizons[String(h)];
-            const ready = n >= REQUIRED_TOTAL;
-            const pass = reportSaysPass(h);
-            let text: string;
-            let tone: string;
-            if (pass && PREDICTIVE_GATE) {
-              text = `evidência fora da amostra (${v!.evidence}) — gate liberado`;
-              tone = "pass";
-            } else if (pass) {
-              text = `relatório reporta evidência (${v!.evidence}) — aguardando liberação revisada do gate`;
-              tone = "valid";
-            } else if (ready) {
-              text = `sem evidência estatística no último relatório — VALIDATION: reexecutar o experimento congelado · N total ~${n}/${REQUIRED_TOTAL} (≈${perClass} por classe)`;
-              tone = "valid";
-            } else {
-              text = `sem evidência estatística — N total estimado ~${n}/${REQUIRED_TOTAL} (≈${perClass} por classe)`;
-              tone = "inconcl";
-            }
+            const obsN = obsOf(h);
+            const oosN = oosOf(h);
+            const gate = gateOosMet(h);
+            const pass = reportPass(h);
+            const fromReport = !!verdict;
+            const evLabel = pass ? "EVIDÊNCIA" : "SEM EVIDÊNCIA";
+            const text = fromReport
+              ? `N=${obsN} · OOS=${oosN} · ${evLabel} · gate OOS (≥30/classe): ${gate ? "atendido" : `não atendido (OOS<${REQUIRED_TOTAL})`}`
+              : `N≈${obsN} · OOS≈${oosN} · sem relatório commitado · gate: não avaliado`;
+            const tone = pass && gate ? "pass" : gate ? "valid" : "inconcl";
             return (
               <div className="predictiveRow" key={h}>
                 <span className="predictiveH">{h}m</span>
@@ -132,10 +144,19 @@ export function PredictiveStatusCard() {
             );
           })}
           <p className="predictiveRule">
-            Regra do experimento (congelado): N ≥ {REQUIRED_PER_CLASS} por classe para exibir probabilidades de classe.
-            Com tercis do treino (3 classes ~balanceadas), N total ≥ {REQUIRED_TOTAL} ⇒ ≈{REQUIRED_PER_CLASS} por classe.
-            O N estimado aqui é por volume de dados; o N efetivo (janelas íntegras + outcome) vem do relatório reexecutado.
+            Gate N ≥ {REQUIRED_PER_CLASS} por classe aplicado ao conjunto onde a probabilidade é exibida:
+            para liberar probabilidades preditivas, o <b>TESTE/OOS</b> precisa de N total ≥ {REQUIRED_TOTAL}
+            (≈{REQUIRED_PER_CLASS} por classe com tercis do treino). N total ≥ {REQUIRED_TOTAL} no conjunto
+            inteiro <b>não</b> é suficiente — a distribuição do OOS é o critério (DECISOES.md). Os N exibidos
+            vêm do relatório congelado commitado; entre reexecuções, o fluxo completo está em FASE1_AMOSTRA_DIAGNOSTICO.md.
           </p>
+        </div>
+
+        <div className="predictiveLock">
+          <div><span>PROBABILIDADES</span><b>BLOQUEADAS</b><em>{anyGateMet ? "gate de classe no OOS atendido — aguardando relatório" : "OOS < 90 ⇒ < 30 por classe"}</em></div>
+          <div><span>MODELO</span><b>CONGELADO</b><em>sem alterações</em></div>
+          <div><span>EXPERIMENTO</span><b>CONGELADO</b><em>scripts/fase1-experimento-minimo.mjs</em></div>
+          <div><span>COLETA</span><b>ATIVA</b><em>{db ? `${fmtH(db.uptimeH)} efetivas · ${db.whaleEvents.toLocaleString("pt-BR")} whale events` : "daemon offline"}</em></div>
         </div>
 
         {verdict?.conclusion && (
@@ -171,7 +192,7 @@ export function PredictiveStatusCard() {
 
         <p className="predictiveFoot">
           Sem inventar probabilidades. Nenhuma probabilidade preditiva é exibida enquanto o gate estatístico
-          (out-of-sample PASS, N ≥ 30 por classe) não for atingido e liberado em revisão (DECISOES.md).
+          (out-of-sample PASS, N ≥ 30 por classe no OOS) não for atingido e liberado em revisão (DECISOES.md).
         </p>
       </div>
     </article>

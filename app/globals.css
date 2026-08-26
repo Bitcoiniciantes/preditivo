@@ -677,3 +677,12 @@ footer{border-top:2px solid #344a40;background:#0d1512;box-shadow:inset 0 1px 0 
 .predictiveSignal p{font-size:10px;color:var(--muted);margin:8px 0 0}
 .predictiveFoot{font-size:9px;color:var(--muted);line-height:1.5;margin:0}
 .predictiveRule{font-size:8.5px;color:var(--muted);line-height:1.5;margin:2px 0 0;border-top:1px dashed var(--line);padding-top:6px}
+.predictiveHeadline{font-size:11px;font-family:var(--font-geist-mono);font-weight:800;letter-spacing:.06em;margin:0;padding:8px 10px;border-radius:6px;border:1px solid}
+.predictiveHeadline.inconcl{color:#f0ad4e;border-color:rgba(240,173,78,.35);background:rgba(240,173,78,.07)}
+.predictiveHeadline.valid{color:var(--cyan);border-color:rgba(46,232,194,.35);background:rgba(46,232,194,.07)}
+.predictiveHeadline.pass{color:var(--lime);border-color:rgba(84,184,90,.4);background:rgba(84,184,90,.08)}
+.predictiveLock{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.predictiveLock>div{background:#0a1612;border:1px solid var(--line);border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:2px}
+.predictiveLock span{font-size:8px;color:var(--muted);letter-spacing:.12em;font-weight:600}
+.predictiveLock b{font-size:11px;font-family:var(--font-geist-mono);color:var(--paper)}
+.predictiveLock em{font-size:8.5px;color:var(--muted);font-style:normal;line-height:1.4}
