@@ -138,7 +138,7 @@ export function PredictiveStatusCard() {
         <div className="predictiveHorizons">
           <div className="predictiveRow">
             <span className="predictiveH">1m</span>
-            <span className="predictiveText">aguardando validação — exige dados subminuto (snapshots atuais: 1/min)</span>
+            <span className="predictiveText">construível com snapshots de 1/min, porém com resolução limitada (~1–1,5 min). Maior precisão temporal exigiria persistência subminuto.</span>
           </div>
           {HORIZONS.map((h) => {
             const obsN = obsOf(h);
