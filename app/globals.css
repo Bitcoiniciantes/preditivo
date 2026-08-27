@@ -692,3 +692,7 @@ footer{border-top:2px solid #344a40;background:#0d1512;box-shadow:inset 0 1px 0 
 /* ── RAIO-X DA NOTA — botão +Expandir (lista recolhida) ── */
 .signalsToggle{width:100%;padding:10px 12px;margin:0;background:#0a1612;border:1px solid var(--line);border-radius:6px;color:var(--cyan);font-size:10px;font-weight:800;letter-spacing:.12em;cursor:pointer;text-align:center}
 .signalsToggle:hover{border-color:var(--cyan);background:#0e1c16}
+/* ── POSIÇÕES EM ABERTO — botão +INCLUIR na frente do título ── */
+.positionTitleRow{display:flex;align-items:center;gap:10px;min-width:0}
+.positionTitleRow .positionToggle{flex:none}
+.positionTitleRow>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
