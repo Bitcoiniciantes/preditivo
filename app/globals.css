@@ -689,3 +689,6 @@ footer{border-top:2px solid #344a40;background:#0d1512;box-shadow:inset 0 1px 0 
 /* ── ANÁLISE PREDITIVA + OBSERVATÓRIO — lado a lado (abaixo do RAIO-X DA NOTA) ── */
 .flowWidgetsRow{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;align-items:start}
 @media (max-width:900px){.flowWidgetsRow{grid-template-columns:1fr}}
+/* ── RAIO-X DA NOTA — botão +Expandir (lista recolhida) ── */
+.signalsToggle{width:100%;padding:10px 12px;margin:0;background:#0a1612;border:1px solid var(--line);border-radius:6px;color:var(--cyan);font-size:10px;font-weight:800;letter-spacing:.12em;cursor:pointer;text-align:center}
+.signalsToggle:hover{border-color:var(--cyan);background:#0e1c16}
