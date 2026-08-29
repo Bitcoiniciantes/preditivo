@@ -4,6 +4,7 @@ import { OrderBookManager } from './orderbook/manager.js';
 import { ImbalanceTracker } from './orderbook/imbalance.js';
 import { processTradeForCvd, getCvdState, resetCvd } from './flow/cvd.js';
 import { classifyTrade } from './flow/classification.js';
+import { isValidPrice, resolveAbsorption } from './flow/absorption-resolve.js';
 import { pollOi, getOiState } from './derivatives/oi.js';
 import { pollFunding, getFundingState } from './derivatives/funding.js';
 import { RegimeDetector } from './engine/regime.js';
@@ -146,9 +147,28 @@ function handleStatusChange(status: 'connecting' | 'live' | 'reconnecting' | 'di
     imbalanceTracker.clear();
     resetCvd();
     events.length = 0;
-    lastAbsorptionState = 'NONE';
+    // Absorption — CORREÇÃO CRÍTICA (disconnect): invalidar explicitamente qualquer evento
+    // pendente em vez de deixar pending=true com trigger zerado (que produzia Δ$Infinity%
+    // e duração absurda após reconnect). Nunca resolver com dados inválidos.
+    if (absorptionResolutionPending) {
+      console.log('[Absorption] Interrupted: WS disconnect — state invalidated safely (ABSORPTION_INTERRUPTED_WS_DISCONNECT)');
+      if (isValidPrice(currentPrice)) {
+        dbStorage.saveRegimeEvent({
+          timestamp: Date.now(),
+          eventType: 'absorption_interrupted',
+          fromState: lastAbsorptionState !== 'NONE' ? lastAbsorptionState : 'NONE',
+          toState: 'NONE',
+          price: currentPrice,
+          confidence: 0,
+          extra: 'reason:ws_disconnect',
+        });
+      }
+    }
+    absorptionResolutionPending = false;
     absorptionTriggerPrice = 0;
     absorptionTriggerTs = 0;
+    lastAbsorptionState = 'NONE';
+    absorptionDetector.reset(); // reinicia o detector — após reconnect só reativa com dados válidos
   }
 }
 
@@ -222,13 +242,17 @@ function broadcastLoop(): void {
   // ── Absorption backtest logging ──
   const absorptionStateChanged = absorptionResult.state !== lastAbsorptionState;
 
-  // Transição NONE → BEAR/BULL: triggered
-  if (absorptionStateChanged && lastAbsorptionState === 'NONE' && absorptionResult.state !== 'NONE') {
-    // Se já havia uma resolução pendente, marcar como failed (interrompida por novo trigger)
+  // Transição NONE → BEAR/BULL: triggered (só com preço válido — nunca criar resolução com preço inválido)
+  if (absorptionStateChanged && lastAbsorptionState === 'NONE' && absorptionResult.state !== 'NONE' && isValidPrice(currentPrice)) {
+    // Se já havia uma resolução pendente, marcar como interrompida por novo trigger
     if (absorptionResolutionPending) {
-      const oldDeltaPct = Math.abs((currentPrice - absorptionTriggerPrice) / absorptionTriggerPrice * 100);
-      const oldElapsed = (now - absorptionTriggerTs) / 60_000;
-      console.log(`[Absorption] Interrupted: pending resolution cut short by new trigger | Δ$${oldDeltaPct.toFixed(4)}% (${oldElapsed.toFixed(1)}min)`);
+      const oldDeltaPct = (isValidPrice(currentPrice) && isValidPrice(absorptionTriggerPrice))
+        ? Math.abs((currentPrice - absorptionTriggerPrice) / absorptionTriggerPrice * 100)
+        : NaN;
+      const oldElapsed = Number.isFinite(absorptionTriggerTs) && absorptionTriggerTs > 0
+        ? (now - absorptionTriggerTs) / 60_000
+        : NaN;
+      console.log(`[Absorption] Interrupted: pending resolution cut short by new trigger | Δ$${Number.isFinite(oldDeltaPct) ? oldDeltaPct.toFixed(4) : 'n/a'}% (${Number.isFinite(oldElapsed) ? oldElapsed.toFixed(1) : 'n/a'}min)`);
       dbStorage.saveRegimeEvent({
         timestamp: now,
         eventType: 'absorption_interrupted',
@@ -236,7 +260,7 @@ function broadcastLoop(): void {
         toState: absorptionResult.state,
         price: currentPrice,
         confidence: regimeResult.confidence,
-        extra: `trigger_price:${absorptionTriggerPrice},delta_pct:${oldDeltaPct.toFixed(4)},elapsed_min:${oldElapsed.toFixed(1)}`,
+        extra: `trigger_price:${absorptionTriggerPrice},delta_pct:${Number.isFinite(oldDeltaPct) ? oldDeltaPct.toFixed(4) : 'n/a'},elapsed_min:${Number.isFinite(oldElapsed) ? oldElapsed.toFixed(1) : 'n/a'}`,
       });
     }
 
@@ -255,14 +279,26 @@ function broadcastLoop(): void {
     });
   }
 
-  // Resolução pendente: checar a cada tick se preço atingiu threshold ou janela expirou
+  // Resolução pendente: lógica pura com guards (nunca Infinity/NaN/trigger=0)
   if (absorptionResolutionPending) {
-    const priceChangePct = Math.abs((currentPrice - absorptionTriggerPrice) / absorptionTriggerPrice * 100);
-    const elapsedMin = (now - absorptionTriggerTs) / 60_000;
+    const r = resolveAbsorption({
+      currentPrice,
+      triggerPrice: absorptionTriggerPrice,
+      triggerTs: absorptionTriggerTs,
+      now,
+      thresholdPct: ABSORPTION_RESOLUTION_THRESHOLD_PCT,
+      windowMinutes: ABSORPTION_RESOLUTION_WINDOW_MINUTES,
+    });
 
-    if (priceChangePct >= ABSORPTION_RESOLUTION_THRESHOLD_PCT) {
+    if (r.action === 'invalid') {
+      // Estado inválido (ex.: trigger zerado por disconnect) — limpar com segurança.
+      console.log('[Absorption] Invalid state detected — clearing pending resolution safely (no Infinity / trigger=0)');
+      absorptionResolutionPending = false;
+      absorptionTriggerPrice = 0;
+      absorptionTriggerTs = 0;
+    } else if (r.action === 'resolved') {
       // Resolvido
-      console.log(`[Absorption] Resolved: Δ$${priceChangePct.toFixed(4)}% (${elapsedMin.toFixed(1)}min, trigger=$${absorptionTriggerPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })})`);
+      console.log(`[Absorption] Resolved: Δ$${r.priceChangePct.toFixed(4)}% (${r.elapsedMin.toFixed(1)}min, trigger=$${absorptionTriggerPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })})`);
       dbStorage.saveRegimeEvent({
         timestamp: now,
         eventType: 'absorption_resolved',
@@ -270,12 +306,12 @@ function broadcastLoop(): void {
         toState: 'NONE',
         price: currentPrice,
         confidence: regimeResult.confidence,
-        extra: `trigger_price:${absorptionTriggerPrice},delta_pct:${priceChangePct.toFixed(4)},elapsed_min:${elapsedMin.toFixed(1)}`,
+        extra: `trigger_price:${absorptionTriggerPrice},delta_pct:${r.priceChangePct.toFixed(4)},elapsed_min:${r.elapsedMin.toFixed(1)}`,
       });
       absorptionResolutionPending = false;
-    } else if (elapsedMin > ABSORPTION_RESOLUTION_WINDOW_MINUTES) {
+    } else if (r.action === 'failed') {
       // Janela expirou
-      console.log(`[Absorption] Failed (window expired): Δ$${priceChangePct.toFixed(4)}% (${elapsedMin.toFixed(1)}min)`);
+      console.log(`[Absorption] Failed (window expired): Δ$${r.priceChangePct.toFixed(4)}% (${r.elapsedMin.toFixed(1)}min)`);
       dbStorage.saveRegimeEvent({
         timestamp: now,
         eventType: 'absorption_failed',
@@ -283,10 +319,11 @@ function broadcastLoop(): void {
         toState: 'NONE',
         price: currentPrice,
         confidence: regimeResult.confidence,
-        extra: `trigger_price:${absorptionTriggerPrice},delta_pct:${priceChangePct.toFixed(4)},elapsed_min:${elapsedMin.toFixed(1)},reason:window_expired`,
+        extra: `trigger_price:${absorptionTriggerPrice},delta_pct:${r.priceChangePct.toFixed(4)},elapsed_min:${r.elapsedMin.toFixed(1)},reason:window_expired`,
       });
       absorptionResolutionPending = false;
     }
+    // action === 'pending' → aguarda (nada a fazer)
   }
 
   lastAbsorptionState = absorptionResult.state;
