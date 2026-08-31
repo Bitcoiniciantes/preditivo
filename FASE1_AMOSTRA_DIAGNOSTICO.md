@@ -1,14 +1,14 @@
 # FASE 1 — DIAGNÓSTICO DO FLUXO DE AMOSTRA (gerado por scripts/fase1-amostra-diagnostico.mjs)
 
-Gerado em: 2026-08-26T11:53:01.546Z
+Gerado em: 2026-08-31T23:55:57.105Z
 
 Fluxo: **N bruto** (snapshots) → excluídos por **stride** → **candidatos** → excluídos por **janela** (gap/curta) → excluídos por **outcome** (segmento/sem snapshot/tolerância) → **N elegível** → excluídos pelo **split** (purging/embargo) → **treino + OOS**.
 
 | Horizonte | N bruto | stride | candidatos | janela gap | janela curta | outcome segmento | outcome sem snap | outcome tol. | **N elegível** | treino | **OOS** | excluídos split |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 5 min | 2157 | 1536 | 621 | 54 | 131 | 17 | 0 | 0 | **419** | 292 | **121** | 6 |
-| 15 min | 2157 | 1738 | 419 | 54 | 127 | 98 | 4 | 0 | **136** | 94 | **40** | 2 |
-| 30 min | 2157 | 1701 | 456 | 54 | 127 | 193 | 18 | 0 | **64** | 44 | **19** | 1 |
+| 5 min | 8775 | 6690 | 2085 | 78 | 186 | 24 | 0 | 0 | **1797** | 1257 | **534** | 6 |
+| 15 min | 8775 | 7776 | 999 | 78 | 182 | 130 | 12 | 0 | **597** | 417 | **178** | 2 |
+| 30 min | 8775 | 7918 | 857 | 78 | 182 | 303 | 1 | 0 | **293** | 204 | **88** | 1 |
 
 Verificações aritméticas (devem ser verdadeiras):
 - 5 min: bruto = stride+candidatos (OK) · candidatos = rejeições+elegíveis (OK) · elegíveis = treino+OOS+excluídos (OK)
@@ -19,9 +19,9 @@ Detalhe dos excluídos do split (faixa do meio — por construção satisfazem o
 
 | Horizonte | fronteira B (UTC) | excluídos split | todos cruzam a fronteira (t+h > B)? | todos no embargo (B ≤ t < B+H_MAX)? |
 |---|---:|---:|---|---|
-| 5 min | 2026-08-26T00:46:39.395Z | 6 | sim | sim |
-| 15 min | 2026-08-26T01:11:39.522Z | 2 | sim | sim |
-| 30 min | 2026-08-26T01:25:39.599Z | 1 | sim | sim |
+| 5 min | 2026-08-29T20:40:25.652Z | 6 | sim | sim |
+| 15 min | 2026-08-29T20:39:25.640Z | 2 | sim | sim |
+| 30 min | 2026-08-29T21:24:25.954Z | 1 | sim | sim |
 
 Definições:
 - **N bruto**: total de snapshots no SQLite (base única para todos os horizontes).
