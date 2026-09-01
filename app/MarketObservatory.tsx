@@ -37,6 +37,7 @@ type Obs = {
   gaps: number;
   sinceLastMsg: number;
   lastMsgAt: number;
+  nowMs: number;
 };
 
 const zero: Obs = {
@@ -61,6 +62,7 @@ const zero: Obs = {
   gaps: 0,
   sinceLastMsg: 0,
   lastMsgAt: 0,
+  nowMs: 0,
 };
 
 function ago(since: number, now: number): string {
@@ -193,6 +195,7 @@ export function MarketObservatory() {
       sessionMin,
       churnPerHour,
       sinceLastMsg: nowMs - r.lastMsgAt,
+      nowMs,
     });
   }, [data]);
 
@@ -246,10 +249,10 @@ export function MarketObservatory() {
 
         <div className="obsCell obsStateCell">
           <span className="obsLabel">ESTADOS (persistência)</span>
-          <div className="obsState"><span>REGIME</span><b>{data?.regime ?? "—"}</b><em>{ago(obs.since.regime, Date.now())}</em></div>
-          <div className="obsState"><span>FLOW</span><b>{data?.flow_regime ?? "—"}</b><em>{ago(obs.since.flow, Date.now())}</em></div>
-          <div className="obsState"><span>ABSORÇÃO</span><b>{data?.absorption_state ?? "—"}</b><em>{ago(obs.since.abs, Date.now())}</em></div>
-          <div className="obsState"><span>DIVERGÊNCIA</span><b>{data?.divergence ?? "—"}</b><em>{ago(obs.since.div, Date.now())}</em></div>
+          <div className="obsState"><span>REGIME</span><b>{data?.regime ?? "—"}</b><em>{ago(obs.since.regime, obs.nowMs)}</em></div>
+          <div className="obsState"><span>FLOW</span><b>{data?.flow_regime ?? "—"}</b><em>{ago(obs.since.flow, obs.nowMs)}</em></div>
+          <div className="obsState"><span>ABSORÇÃO</span><b>{data?.absorption_state ?? "—"}</b><em>{ago(obs.since.abs, obs.nowMs)}</em></div>
+          <div className="obsState"><span>DIVERGÊNCIA</span><b>{data?.divergence ?? "—"}</b><em>{ago(obs.since.div, obs.nowMs)}</em></div>
         </div>
 
         <div className="obsCell">
