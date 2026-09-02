@@ -30,7 +30,7 @@ export class SQLiteStorage {
       fs.mkdirSync(dataDir, { recursive: true });
     }
 
-    const dbPath = dbPathOverride || path.join(dataDir, 'market.db');
+    const dbPath = dbPathOverride || process.env.DB_PATH || path.join(dataDir, 'market.db');
     console.log(`[DB] Conectando ao SQLite em: ${dbPath}`);
 
     this.db = new DatabaseSync(dbPath);
@@ -199,7 +199,7 @@ export class SQLiteStorage {
     bookImbalance?: number;
     score?: number;
     regime?: string;
-  }): void {
+  }): boolean {
     try {
       this.insertSnapshotStmt.run(
         data.timestamp,
@@ -214,8 +214,10 @@ export class SQLiteStorage {
         data.score || 0,
         data.regime || 'NEUTRAL'
       );
+      return true;
     } catch (error) {
       console.error('[DB] Erro ao salvar snapshot:', error);
+      return false;
     }
   }
 
@@ -228,7 +230,7 @@ export class SQLiteStorage {
     price?: number;
     details?: string;
     tradeId?: number;
-  }): void {
+  }): boolean {
     try {
       this.insertEventStmt.run(
         data.timestamp,
@@ -240,8 +242,10 @@ export class SQLiteStorage {
         data.details || '',
         data.tradeId !== undefined ? String(data.tradeId) : null
       );
+      return true;
     } catch (error) {
       console.error('[DB] Erro ao salvar evento:', error);
+      return false;
     }
   }
 
@@ -257,7 +261,7 @@ export class SQLiteStorage {
     price: number;
     confidence?: number;
     extra?: string;
-  }): void {
+  }): boolean {
     try {
       this.insertRegimeEventStmt.run(
         data.timestamp,
@@ -268,8 +272,10 @@ export class SQLiteStorage {
         data.confidence || 0,
         data.extra || null,
       );
+      return true;
     } catch (error) {
       console.error('[DB] Erro ao salvar regime event:', error);
+      return false;
     }
   }
 }
