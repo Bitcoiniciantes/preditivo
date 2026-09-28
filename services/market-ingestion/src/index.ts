@@ -12,6 +12,8 @@ import { FlowRegimeDetector } from './engine/flow-regime.js';
 import { AbsorptionDetector } from './engine/absorption.js';
 import { computeScore } from './features/score.js';
 import { broadcast, startBroadcastServer } from './broadcast/websocket-server.js';
+import { getLastSnapshot, setLastSnapshot } from './ia/snapshot-store.js';
+import { startPainelIaServer } from './ia/server.js';
 import { Worker } from 'node:worker_threads';
 import { fileURLToPath } from 'node:url';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
@@ -100,6 +102,14 @@ function main() {
   console.log(`[Daemon] Broadcast interval: ${CONFIG.intervals.broadcastMs}ms`);
 
   startBroadcastServer();
+
+  // Análise IA do PainelColorido (HTTP local :3002, sob demanda). Falha ao
+  // subir (ex.: porta ocupada) só desabilita a IA — nunca o daemon.
+  try {
+    startPainelIaServer(getLastSnapshot);
+  } catch (error) {
+    console.error('[PainelIA] servidor IA indisponível:', error instanceof Error ? error.message : String(error));
+  }
 
   const stopBinance = connectBinance({
     onTrade: handleTrade,
@@ -418,6 +428,10 @@ function broadcastLoop(): void {
   };
 
   broadcast(snapshot);
+  // Servidor local de IA (:3002) lê o snapshot mais recente via getter.
+  // Só guarda referência do objeto já construído — sem recálculo, sem efeito
+  // no broadcast, no motor ou no WebSocket :3001.
+  setLastSnapshot(snapshot);
   events.length = 0;
 }
 
