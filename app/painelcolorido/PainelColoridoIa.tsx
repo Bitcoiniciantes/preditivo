@@ -4,7 +4,8 @@
 // mediante clique explícito em "PEDIR ANÁLISE". Sem polling, sem auto-run,
 // sem atualização por tick: a análise congela no snapshot da solicitação.
 // O botão desabilita quando o stream não está LIVE, o snapshot tem mais de
-// 15s, há requisição em andamento ou o cooldown local vigora.
+// 15s ou há requisição em andamento. Sem cooldown no cliente (uso solo
+// local); a trava de 60s vive só no servidor :3002.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -18,7 +19,6 @@ import {
 type Status = "idle" | "loading" | "ok" | "erro";
 
 const MAX_SNAPSHOT_AGE_S = 15;
-const COOLDOWN_MS = 60_000;
 
 function fmtHora(iso: string): string {
   const d = new Date(iso);
@@ -43,9 +43,7 @@ export function PainelColoridoIa({
   const [fromCache, setFromCache] = useState(false);
   const [error, setError] = useState("");
   const [retryAfter, setRetryAfter] = useState(0);
-  const [cooldownLeft, setCooldownLeft] = useState(0);
   const [open, setOpen] = useState(false);
-  const cooldownUntil = useRef(0);
   const requestRef = useRef<AbortController | null>(null);
   const hasAnalysisRef = useRef(false);
 
@@ -71,15 +69,6 @@ export function PainelColoridoIa({
     return () => window.clearTimeout(timer);
   }, [retryAfter]);
 
-  useEffect(() => {
-    if (cooldownLeft <= 0) return;
-    const timer = window.setTimeout(() => {
-      const left = Math.max(0, Math.ceil((cooldownUntil.current - Date.now()) / 1000));
-      setCooldownLeft(left);
-    }, 1000);
-    return () => window.clearTimeout(timer);
-  }, [cooldownLeft]);
-
   // Popup: Esc fecha + trava o scroll do fundo enquanto aberto.
   useEffect(() => {
     if (!open) return;
@@ -96,20 +85,15 @@ export function PainelColoridoIa({
   }, [open ]);
 
   const stale = snapshotAgeSec === null || snapshotAgeSec > MAX_SNAPSHOT_AGE_S;
-  const cooling = cooldownLeft > 0;
   const loading = status === "loading";
-  const disabled = !live || stale || loading || cooling;
+  // Uso solo local: sem cooldown no cliente. A trava de 60s vive só no
+  // servidor (:3002) como proteção silenciosa contra custo/acúmulo.
+  const disabled = !live || stale || loading;
 
-  const motivoBloqueio = !live
-    ? "Aguardando stream LIVE."
-    : stale
-      ? "Snapshot desatualizado (>15s)."
-      : cooling
-        ? `Aguarde ${cooldownLeft}s para nova análise.`
-        : "";
+  const motivoBloqueio = !live ? "Aguardando stream LIVE." : stale ? "Snapshot desatualizado (>15s)." : "";
 
   const pedir = useCallback(async () => {
-    if (requestRef.current || Date.now() < cooldownUntil.current) return;
+    if (requestRef.current) return;
     setError("");
     setRetryAfter(0);
     setFromCache(false);
@@ -130,20 +114,23 @@ export function PainelColoridoIa({
       setError(message);
       setRetryAfter(cause instanceof PcIaError ? cause.retryAfterSeconds : 0);
     } finally {
-      cooldownUntil.current = Date.now() + COOLDOWN_MS;
-      setCooldownLeft(Math.ceil(COOLDOWN_MS / 1000));
       if (requestRef.current === controller) requestRef.current = null;
       // Mantém a última leitura válida visível quando a nova tentativa falha.
       setStatus(ok || hasAnalysisRef.current ? "ok" : "erro");
     }
   }, []);
 
-  // Clique único na sidebar: abre o popup e já dispara a análise (clique
-  // explícito). Com leitura em cache, o popup abre mostrando-a.
+  // Clique na sidebar: abre o popup e sempre dispara uma nova análise quando
+  // liberado (LIVE + snapshot fresco). Se bloqueado, só abre o popup com a
+  // última leitura e o motivo.
   const abrir = useCallback(() => {
     setOpen(true);
-    if (!hasAnalysisRef.current) void pedir();
-  }, [pedir]);
+    const bloqueado = !live
+      || snapshotAgeSec === null
+      || snapshotAgeSec > MAX_SNAPSHOT_AGE_S
+      || requestRef.current !== null;
+    if (!bloqueado) void pedir();
+  }, [pedir, live, snapshotAgeSec]);
 
   return (
     <>
@@ -164,18 +151,12 @@ export function PainelColoridoIa({
       </div>
 
       {open && (
-        <div
-          className="pc-ia-overlay"
-          onClick={() => {
-            if (!loading) setOpen(false);
-          }}
-        >
+        <div className="pc-ia-overlay">
           <div
             className="pc-ia-modal"
             role="dialog"
             aria-modal="true"
             aria-label="Análise IA da microestrutura"
-            onClick={(e) => e.stopPropagation()}
           >
             <div className="pc-ia-modal-head">
               <div>
@@ -206,7 +187,7 @@ export function PainelColoridoIa({
                   disabled={disabled}
                   title={motivoBloqueio || "Solicitar leitura da IA"}
                 >
-                  {loading ? "ANALISANDO…" : cooling ? `AGUARDE ${cooldownLeft}s` : "PEDIR ANÁLISE"}
+                  {loading ? "ANALISANDO…" : "PEDIR ANÁLISE"}
                 </button>
                 {motivoBloqueio && !loading && <small className="pc-hint">{motivoBloqueio}</small>}
               </div>
@@ -244,6 +225,12 @@ export function PainelColoridoIa({
               <p className="pc-ia-disclaimer">
                 Leitura assistida da microestrutura. Não é recomendação de investimento.
               </p>
+
+              <div className="pc-ia-foot">
+                <button type="button" className="pc-ia-close-btn" onClick={() => setOpen(false)}>
+                  FECHAR ANÁLISE
+                </button>
+              </div>
             </div>
           </div>
         </div>

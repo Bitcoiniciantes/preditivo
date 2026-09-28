@@ -25,7 +25,7 @@ export class PcIaUpstreamError extends Error {
 
 function resolveModel(): string {
   const raw = (process.env.GEMINI_MODEL || '').trim();
-  return raw.length > 0 ? raw : 'gemini-2.0-flash';
+  return raw.length > 0 ? raw : 'gemini-3.5-flash-lite';
 }
 
 function resolveApiKey(): string {

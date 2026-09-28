@@ -6,7 +6,9 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:daemon\"",
+    "dev:frontend": "next dev",
+    "dev:daemon": "cd services/market-ingestion && npm run dev",
     "build": "next build",
     "start": "next start",
     "test": "node --test tests/rendered-html.test.mjs tests/analysis.test.mjs tests/bitcoin-buy.test.mjs tests/confluence.test.mjs tests/chart.test.mjs tests/live-price.test.mjs tests/positions.test.mjs",
@@ -24,6 +26,7 @@
     "@types/node": "22.19.19",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
+    "concurrently": "^10.0.5",
     "eslint": "9.39.4",
     "eslint-config-next": "^16.3.1",
     "tailwindcss": "4.2.1",
