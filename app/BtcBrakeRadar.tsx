@@ -6,7 +6,7 @@
 // matemática para lib/brake-radar.ts. Não repete CVD, funding, OI, RSI, order
 // book nem qualquer métrica de microestrutura. Não executa ordens.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   analyzeBrakeRadar,
   fetchBrakeKlines,
@@ -166,25 +166,21 @@ export function BtcBrakeRadar({
   const [snapshot, setSnapshot] = useState<BrakeKlinesSnapshot | null>(null);
   const [now, setNow] = useState(0);
   const [priceTrend, setPriceTrend] = useState<PriceTrend>("flat");
-  const previousValidPriceRef = useRef<number | null>(null);
+  const [trackedPrice, setTrackedPrice] = useState<number | null>(null);
   const validLivePrice = livePrice !== null && Number.isFinite(livePrice) && livePrice > 0
     ? livePrice
     : null;
 
-  useEffect(() => {
-    if (validLivePrice === null) return;
-    const previousPrice = previousValidPriceRef.current;
-    if (previousPrice !== null && previousPrice > 0) {
-      const delta = ((validLivePrice / previousPrice) - 1) * 100;
-      const roundedDelta = Math.round(delta * 1000) / 1000;
-      setPriceTrend(
-        Math.abs(roundedDelta) < 0.01 ? "flat" : delta > 0 ? "up" : "down",
-      );
+  // Compara com a cotação válida anterior sem setState dentro de efeito.
+  if (validLivePrice !== null && validLivePrice !== trackedPrice) {
+    if (trackedPrice !== null && trackedPrice > 0) {
+      const delta = (validLivePrice / trackedPrice - 1) * 100;
+      setPriceTrend(Math.abs(delta) < 0.01 ? "flat" : delta > 0 ? "up" : "down");
     } else {
       setPriceTrend("flat");
     }
-    previousValidPriceRef.current = validLivePrice;
-  }, [validLivePrice]);
+    setTrackedPrice(validLivePrice);
+  }
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
