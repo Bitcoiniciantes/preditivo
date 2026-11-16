@@ -12,6 +12,8 @@ import { MarketObservatory } from "./MarketObservatory";
 import { PredictiveStatusCard } from "./PredictiveStatusCard";
 import ConfluenceCard from "./ConfluenceCard";
 import { AlertPanel } from "./AlertPanel";
+import { BtcBrakeRadar } from "./BtcBrakeRadar";
+import "./brake-radar.css";
 import { analyze, avg, scoreDistanceLabel, scoreLabel } from "../lib/analysis";
 import { buildConfluence } from "../lib/confluence";
 import { fetchBitcoinNupl, fetchLiveStockMarket, fetchMarket, fetchMultiRsi } from "../lib/api";
@@ -143,6 +145,8 @@ export function Termometro(){
   </div><article className="card chart" id="grafico"><div className="cardTitle chartTitle"><div><span>ESTRUTURA DE PREÇO</span><b>{patternTitle}</b></div>{ticker==="BTC"&&nupl&&<NuplBar nupl={nupl}/>}<div className="chartPeriodSwitch" aria-label="Período do gráfico"><span>TIME FRAME</span><div>{availablePeriods.map(p=><button key={`chart-${p}`} type="button" onClick={()=>changePeriod(p)} className={period===p?"active":""} aria-pressed={period===p}>{p}</button>)}</div></div></div><PriceStructureChart asset={displayName} candles={chartCandles} currentPrice={currentPrice ?? 0} currency={currency} loading={loading} period={period} resistance={resistance} support={support}/><div className="chartFoot"><span><i className="dot candleUpDot"/>Alta: fechamento ≥ abertura</span><span><i className="dot candleDownDot"/>Baixa: fechamento &lt; abertura</span><span>Volume <b>{volumeRatio?`${volumeRatio.toFixed(2)}× média`:"—"}</b></span><span className="chartPurpose">Corpo: abertura–fechamento · Pavio: mínima–máxima · Níveis calculados com candles concluídos.</span></div></article>
     <RadarBoard items={radarItems} changes={quickChanges} ticker={ticker} onSelect={selectAsset} onRemove={removeAsset} compact />
         <ConfluencePanel data={confluence} loading={loading} asset={displayName + "/" + currency} period={period} />
+
+        <BtcBrakeRadar />
 
         <PositionPanel asset={ticker} currentPrice={currentPrice} assets={assets} />
   <article className="card signals" id="regras"><Title kicker="RAIO-X DA NOTA" title={`${signals.filter(signal=>!signal.context).length} sinais de nota + ${signals.filter(signal=>signal.context).length} contextos`} extra={<span className="sum">SOMA: <b>{score>0?"+":""}{score}</b></span>}/><button type="button" className="signalsToggle" onClick={()=>setSignalsExpanded(v=>!v)} aria-expanded={signalsExpanded}>{signalsExpanded?"− Recolher":`+ Expandir (${signals.length} indicadores)`}</button>{signalsExpanded&&<div className="signalList">{signals.map((signal,index)=><button type="button" key={signal.title} onClick={()=>setOpen(open===index?null:index)} className={open===index?"opened":""} aria-expanded={open===index}><span className={`sign ${signal.context?"context":signal.score===0?"zero":signal.score>0?"positive":"negative"}`}>{signal.context?"CTX":<>{signal.score>0?"+":""}{signal.score}</>}</span><span className="signalText"><b>{signal.title}</b><small>{signal.summary}</small>{open===index&&<em>{signal.detail}</em>}</span><span className={`group ${signal.context?"contextGroup":""}`}>{signal.group}</span><span className="chev" aria-hidden="true">›</span></button>)}</div>}</article>
