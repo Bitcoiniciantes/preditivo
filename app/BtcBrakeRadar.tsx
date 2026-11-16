@@ -6,7 +6,7 @@
 // matemática para lib/brake-radar.ts. Não repete CVD, funding, OI, RSI, order
 // book nem qualquer métrica de microestrutura. Não executa ordens.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   analyzeBrakeRadar,
   fetchBrakeKlines,
@@ -33,6 +33,23 @@ function fmtPct(value: number | null, signed = false): string {
 function fmtPrice(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "—";
   return `$${value.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
+}
+
+function fmtCurrentPrice(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "—";
+  return value.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function fmtDailyChange(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "—";
+  const rounded = Math.round(value * 100) / 100;
+  return `${rounded > 0 ? "+" : ""}${rounded.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}%`;
 }
 
 function fmtTime(value: number | null): string {
@@ -116,9 +133,58 @@ function preservedTone(reading: BrakeRadarReading): string {
   return "brNegative";
 }
 
-export function BtcBrakeRadar() {
+type PriceTrend = "up" | "down" | "flat";
+
+function priceTrendTone(trend: PriceTrend): string {
+  if (trend === "up") return "brPositive";
+  if (trend === "down") return "brCaution";
+  return "brMuted";
+}
+
+function changeTone(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "brMuted";
+  if (value > 0) return "brPositive";
+  if (value < 0) return "brNegative";
+  return "brMuted";
+}
+
+function quoteTone(dailyChangePct: number | null, tickTrend: PriceTrend): string {
+  if (dailyChangePct !== null && Number.isFinite(dailyChangePct)) {
+    if (dailyChangePct > 0) return "brPositive";
+    if (dailyChangePct < 0) return "brCaution";
+  }
+  return priceTrendTone(tickTrend);
+}
+
+export function BtcBrakeRadar({
+  livePrice = null,
+  dailyChangePct = null,
+}: {
+  livePrice?: number | null;
+  dailyChangePct?: number | null;
+}) {
   const [snapshot, setSnapshot] = useState<BrakeKlinesSnapshot | null>(null);
   const [now, setNow] = useState(0);
+  const [priceTrend, setPriceTrend] = useState<PriceTrend>("flat");
+  const previousValidPriceRef = useRef<number | null>(null);
+  const validLivePrice = livePrice !== null && Number.isFinite(livePrice) && livePrice > 0
+    ? livePrice
+    : null;
+
+  useEffect(() => {
+    if (validLivePrice === null) return;
+    const previousPrice = previousValidPriceRef.current;
+    if (previousPrice !== null && previousPrice > 0) {
+      const delta = ((validLivePrice / previousPrice) - 1) * 100;
+      const roundedDelta = Math.round(delta * 1000) / 1000;
+      setPriceTrend(
+        Math.abs(roundedDelta) < 0.01 ? "flat" : delta > 0 ? "up" : "down",
+      );
+    } else {
+      setPriceTrend("flat");
+    }
+    previousValidPriceRef.current = validLivePrice;
+  }, [validLivePrice]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -136,7 +202,9 @@ export function BtcBrakeRadar() {
       running = true;
       try {
         const next = await fetchBrakeKlines(controller.signal);
-        if (active) setSnapshot(next);
+        if (active) {
+          setSnapshot(next);
+        }
       } catch (error) {
         // Mantém a última leitura válida. Se ela envelhecer > 2 min, o próprio
         // analisador classifica DADOS INDISPONÍVEIS e bloqueia qualquer sinal.
@@ -168,6 +236,7 @@ export function BtcBrakeRadar() {
   );
 
   const bar = barView(reading);
+  const displayedPrice = validLivePrice ?? reading.lastClose15m;
   const preservedText = formatPreservedMinutes(reading.preservedMinutes);
   const preservedMet = reading.preservedMinutes !== null
     && reading.preservedMinutes >= BRAKE_PRESERVED_REFERENCE_MIN;
@@ -183,8 +252,9 @@ export function BtcBrakeRadar() {
     >
       <div className="brHead">
         <div className="brHeadMain">
-          <span className="brKicker">BTC/USDT · RADAR DE FREIO DA QUEDA</span>
-          <h3 className="brState">{reading.label}</h3>
+          <h3 className="brTitle">BITCOIN — RADAR DE FREIO DA QUEDA</h3>
+          <span className="brKicker">BTC/USDT</span>
+          <div className="brState">{reading.label}</div>
         </div>
         <div className="brHeadSide">
           <span className="brBadge">{reading.badge}</span>
@@ -239,9 +309,22 @@ export function BtcBrakeRadar() {
       </div>
 
       <div className="brContext">
-        <span>Mínima: <b>{fmtPrice(reading.minimum12h)}</b></span>
-        <span>Nível 20%: <b>{fmtPrice(reading.targetDcaPrice)}</b></span>
-        <span>EMA9: <b>{fmtPrice(reading.ema9)}</b></span>
+        <div className="brContextRefs">
+          <span>Mínima: <b>{fmtPrice(reading.minimum12h)}</b></span>
+          <span>Nível 20%: <b>{fmtPrice(reading.targetDcaPrice)}</b></span>
+          <span>EMA9: <b>{fmtPrice(reading.ema9)}</b></span>
+        </div>
+        <div className="brCurrentPrice" aria-label="Cotação atual do Bitcoin">
+          <div className="brQuoteLine">
+            <span className="brQuoteAsset">BTC:</span>
+            <b className={quoteTone(dailyChangePct, priceTrend)}>{fmtCurrentPrice(displayedPrice)}</b>
+            {dailyChangePct !== null && Number.isFinite(dailyChangePct) ? (
+              <small className={`brDailyChange ${changeTone(dailyChangePct)}`}>
+                {fmtDailyChange(dailyChangePct)}
+              </small>
+            ) : null}
+          </div>
+        </div>
       </div>
 
       <div className="brAction">

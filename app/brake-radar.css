@@ -3,19 +3,25 @@
 
 .brakeRadar {
   --br-tone: #94a3b8;
+  /* Lavagem de fundo por estado: parte do canto superior e dissolve no fundo
+     original. Estados neutros (gray) repetem a base e não alteram nada. */
+  --br-base: #0b1512;
+  --br-wash: #0b1512;
+  --br-edge: var(--line);
   position: relative;
   overflow: hidden;
   padding: 0 0 14px;
-  background: #0b1310;
-  border: 1px solid var(--line);
+  background-color: var(--br-base);
+  background-image: radial-gradient(130% 120% at 0% 0%, var(--br-wash) 0%, #0b151200 58%);
+  border: 1px solid var(--br-edge);
   color: var(--paper);
   font-variant-numeric: tabular-nums;
 }
-.brakeRadar.tone-green { --br-tone: #10b981; }
-.brakeRadar.tone-amber { --br-tone: #f59e0b; }
-.brakeRadar.tone-red { --br-tone: #ef4444; }
-.brakeRadar.tone-cyan { --br-tone: #38bdf8; }
-.brakeRadar.tone-gray { --br-tone: #94a3b8; }
+.brakeRadar.tone-green { --br-tone: #10b981; --br-wash: #10291f; --br-edge: #10b981; }
+.brakeRadar.tone-amber { --br-tone: #f59e0b; --br-wash: #28200f; --br-edge: #f59e0b; }
+.brakeRadar.tone-red { --br-tone: #ef4444; --br-wash: #251116; --br-edge: #ef4444; }
+.brakeRadar.tone-cyan { --br-tone: #38bdf8; --br-wash: #0c2330; --br-edge: #38bdf8; }
+.brakeRadar.tone-gray { --br-tone: #94a3b8; --br-wash: #0b1512; --br-edge: var(--line); }
 
 .brHead {
   display: flex;
@@ -30,6 +36,14 @@
   flex-direction: column;
   gap: 6px;
   min-width: 0;
+}
+.brTitle {
+  margin: 0;
+  color: var(--paper);
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: -.01em;
+  line-height: 1.2;
 }
 .brKicker {
   color: var(--muted);
@@ -197,9 +211,10 @@
 }
 
 .brContext {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px 16px;
   margin: 12px 18px 0;
   padding: 10px 0;
   border-top: 1px solid #1b2722;
@@ -208,7 +223,13 @@
   font-size: 10px;
   line-height: 1.45;
 }
-.brContext span + span::before {
+.brContextRefs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 12px;
+  min-width: 0;
+}
+.brContextRefs span + span::before {
   content: "·";
   margin-right: 9px;
   color: #3b4a44;
@@ -217,6 +238,43 @@
   color: #dbe5e0;
   font-weight: 800;
   white-space: nowrap;
+}
+.brCurrentPrice {
+  display: flex;
+  align-items: flex-end;
+  min-width: 170px;
+  text-align: right;
+}
+.brQuoteLine {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 8px;
+  white-space: nowrap;
+}
+.brQuoteAsset {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+.brCurrentPrice b {
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: -.035em;
+  line-height: .98;
+  white-space: nowrap;
+}
+.brCurrentPrice b small {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+.brDailyChange {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .02em;
+  line-height: 1.1;
 }
 
 .brAction {
@@ -283,7 +341,11 @@
     white-space: normal;
   }
   .brBarArea { padding: 12px 14px 0; }
-  .brContext { margin: 10px 14px 0; gap: 6px 14px; }
+  .brContext { grid-template-columns: 1fr; margin: 10px 14px 0; gap: 8px; }
+  .brCurrentPrice { align-items: flex-start; min-width: 0; text-align: left; }
+  .brQuoteLine { justify-content: flex-start; }
+  .brQuoteAsset { font-size: 12px; }
+  .brCurrentPrice b { font-size: 30px; }
   .brAction { margin: 10px 14px 0; }
   .brNote { margin: 9px 14px 0; }
 }
@@ -294,6 +356,8 @@
   .brMetric b { font-size: 15px; }
   .brMetricSub { font-size: 7.5px; }
   .brContext { font-size: 9px; }
+  .brQuoteLine { gap: 6px; }
+  .brCurrentPrice b { font-size: 28px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

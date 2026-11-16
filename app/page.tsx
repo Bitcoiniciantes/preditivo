@@ -8,11 +8,13 @@ import ConfluencePanel from "./ConfluencePanel";
 import PositionPanel from "./PositionPanel";
 import MarketPanel, { type FlowData } from "./MarketPanel";
 import { MarketStreamProvider } from "./MarketStreamProvider";
-import { MarketObservatory } from "./MarketObservatory";
-import { PredictiveStatusCard } from "./PredictiveStatusCard";
 import ConfluenceCard from "./ConfluenceCard";
 import { AlertPanel } from "./AlertPanel";
+import { SuperPainelUnificado } from "./SuperPainelUnificado";
+import { ExperimentoV1Encerrado } from "./ExperimentoV1Encerrado";
+import { PainelColorido } from "./painelcolorido/PainelColorido";
 import { BtcBrakeRadar } from "./BtcBrakeRadar";
+import "./painelcolorido/painelcolorido.css";
 import "./brake-radar.css";
 import { analyze, avg, scoreDistanceLabel, scoreLabel } from "../lib/analysis";
 import { buildConfluence } from "../lib/confluence";
@@ -53,18 +55,18 @@ export function Termometro(){
  const [market,setMarket]=useState<MarketData|null>(null),[loading,setLoading]=useState(true),[marketError,setMarketError]=useState("");
  const [signalsExpanded,setSignalsExpanded]=useState(false);
  const [multiRsi,setMultiRsi]=useState<MultiRsi|null>(null),[multiRsiLoading,setMultiRsiLoading]=useState(true);
- const [nupl,setNupl]=useState<NuplReading|null>(null);
- const [ranking,setRanking]=useState<BiasItem[]>([]);
- const [quickChanges,setQuickChanges]=useState<Record<string,number>>({});
- const [periodScoreState,setPeriodScoreState]=useState<{asset:string;scores:Record<string,number|null>}>({asset:"",scores:{}});
- const [clock,setClock]=useState(()=>Date.now());
- const periodScrollY=useRef<number|null>(null);
+  const [nupl,setNupl]=useState<NuplReading|null>(null);
+  const [ranking,setRanking]=useState<BiasItem[]>([]);
+  const [quickChanges,setQuickChanges]=useState<Record<string,number>>({});
+  const [periodScoreState,setPeriodScoreState]=useState<{asset:string;scores:Record<string,number|null>}>({asset:"",scores:{}});
+  const [clock,setClock]=useState(()=>Date.now());
+  const periodScrollY=useRef<number|null>(null);
  const [aiRunKey,setAiRunKey]=useState(0);
  const [liveQuote,setLiveQuote]=useState<{asset:string;price:number;updatedAt:number}|null>(null),[liveStatus,setLiveStatus]=useState<LivePriceStatus>("off");
   const [price24hReference,setPrice24hReference]=useState<{asset:string;price:number}|null>(null);
   const [flowData,setFlowData]=useState<FlowData|null>(null);
   const handleFlowData=useCallback((d:FlowData|null)=>setFlowData(d),[]);
- useEffect(()=>{const timer=window.setInterval(()=>setClock(Date.now()),1000);return()=>window.clearInterval(timer)},[]);
+  useEffect(()=>{const timer=window.setInterval(()=>setClock(Date.now()),1000);return()=>window.clearInterval(timer)},[]);
  const liveEligible=!staticAssets[ticker]&&market?.asset===ticker;
  useEffect(()=>{setLiveQuote(null);if(!liveEligible){setLiveStatus("off");return}return subscribeLivePrice(ticker,{onStatus:setLiveStatus,onPrice:tick=>setLiveQuote({asset:ticker,price:tick.price,updatedAt:Date.now()})})},[ticker,liveEligible]);
  useEffect(()=>{let active=true;async function load(){try{const data=await fetchBitcoinNupl();if(active)setNupl(data)}catch{if(active)setNupl(null)}}load();const timer=window.setInterval(load,600000);return()=>{active=false;window.clearInterval(timer)}},[]);
@@ -79,8 +81,9 @@ export function Termometro(){
  const [periodFeedback,setPeriodFeedback]=useState(""),[showPeriodHelp,setShowPeriodHelp]=useState(false);
  useEffect(()=>{const controller=new AbortController();loadMarket(ticker,period,controller.signal).then(data=>{if(controller.signal.aborted)return;setMarket(data);setMarketError('');setUsingCached(false);setPeriodFeedback(current=>current?("✓ Termômetro atualizado para "+period):"")}).catch(error=>{if(controller.signal.aborted)return;const cached=readCachedMarket(ticker,period);setMarket(cached);setUsingCached(!!cached);setMarketError(marketErrorMessage(error,ticker))}).finally(()=>{if(!controller.signal.aborted)setLoading(false)});return()=>controller.abort()},[ticker,period]);
  useEffect(()=>{const controller=new AbortController();let fetching=false;const refresh=async()=>{if(fetching)return;fetching=true;try{const data=await fetchMultiRsi(ticker,controller.signal);if(!controller.signal.aborted)setMultiRsi(data)}catch{if(!controller.signal.aborted)setMultiRsi(null)}finally{fetching=false;if(!controller.signal.aborted)setMultiRsiLoading(false)}};refresh();const timer=window.setInterval(refresh,30000);return()=>{controller.abort();window.clearInterval(timer)}},[ticker]);
- useEffect(()=>{const controller=new AbortController();mapSettledWithConcurrency(assets,3,(asset)=>loadMarket(asset,period,controller.signal)).then(results=>{if(controller.signal.aborted)return;const next=results.flatMap(result=>{if(result.status!=="fulfilled")return[];const reading=analyze(result.value);return reading?[{asset:result.value.asset,score:reading.score,confidence:reading.confidence,change:reading.change,rsi:reading.rsi}]:[]});setRanking(next.sort((a,b)=>b.score-a.score))});return()=>controller.abort()},[assets,period]);
- useEffect(()=>{let active=true;const load=async()=>{const next:Record<string,number>={};const results=await Promise.all(assets.map(async asset=>{try{const response=await fetch(`https://data-api.binance.vision/api/v3/ticker/24hr?symbol=${asset}USDT`,{cache:"no-store"});const quote=await response.json();const change=Number(quote.priceChangePercent);return Number.isFinite(change)?[asset,change] as const:null}catch{return null}}));for(const item of results)if(item)next[item[0]]=item[1];const pending=assets.filter(asset=>!(asset in next));if(pending.length){const external=await Promise.all(pending.map(async asset=>{try{const symbol=marketSymbols[asset]??asset;const response=await fetch(`https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/candles?asset=${encodeURIComponent(symbol)}&period=1H`,{cache:"no-store"});const body=await response.json(),candles=Array.isArray(body?.candles)?body.candles:[],last=Number(candles.at(-1)?.close),reference=Number(candles.at(-25)?.close);return Number.isFinite(last)&&Number.isFinite(reference)&&reference>0?[asset,(last/reference-1)*100] as const:null}catch{return null}}));for(const item of external)if(item)next[item[0]]=item[1]}if(active)setQuickChanges(next)};load();const timer=window.setInterval(load,30000);return()=>{active=false;window.clearInterval(timer)}},[assets]); useEffect(()=>{const controller=new AbortController();setPeriodScoreState({asset:ticker,scores:{}});mapSettledWithConcurrency(periodOptions,3,(itemPeriod)=>loadMarket(ticker,itemPeriod,controller.signal)).then(results=>{if(controller.signal.aborted)return;setPeriodScoreState({asset:ticker,scores:Object.fromEntries(results.map((result,index)=>{if(result.status!=="fulfilled")return[periodOptions[index],null];const reading=analyze(result.value);return[periodOptions[index],reading?.score??null]}))})});return()=>controller.abort()},[ticker]);
+
+  useEffect(()=>{const controller=new AbortController();mapSettledWithConcurrency(assets,3,(asset)=>loadMarket(asset,period,controller.signal)).then(results=>{if(controller.signal.aborted)return;const next=results.flatMap(result=>{if(result.status!=="fulfilled")return[];const reading=analyze(result.value);return reading?[{asset:result.value.asset,score:reading.score,confidence:reading.confidence,change:reading.change,rsi:reading.rsi}]:[]});setRanking(next.sort((a,b)=>b.score-a.score))});return()=>controller.abort()},[assets,period]);
+  useEffect(()=>{let active=true;const load=async()=>{const next:Record<string,number>={};const results=await Promise.all(assets.map(async asset=>{try{const response=await fetch(`https://data-api.binance.vision/api/v3/ticker/24hr?symbol=${asset}USDT`,{cache:"no-store"});const quote=await response.json();const change=Number(quote.priceChangePercent);return Number.isFinite(change)?[asset,change] as const:null}catch{return null}}));for(const item of results)if(item)next[item[0]]=item[1];const pending=assets.filter(asset=>!(asset in next));if(pending.length){const external=await Promise.all(pending.map(async asset=>{try{const symbol=marketSymbols[asset]??asset;const response=await fetch(`https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/candles?asset=${encodeURIComponent(symbol)}&period=1H`,{cache:"no-store"});const body=await response.json(),candles=Array.isArray(body?.candles)?body.candles:[],last=Number(candles.at(-1)?.close),reference=Number(candles.at(-25)?.close);return Number.isFinite(last)&&Number.isFinite(reference)&&reference>0?[asset,(last/reference-1)*100] as const:null}catch{return null}}));for(const item of external)if(item)next[item[0]]=item[1]}if(active)setQuickChanges(next)};load();const timer=window.setInterval(load,30000);return()=>{active=false;window.clearInterval(timer)}},[assets]);  useEffect(()=>{const controller=new AbortController();setPeriodScoreState({asset:ticker,scores:{}});mapSettledWithConcurrency(periodOptions,3,(itemPeriod)=>loadMarket(ticker,itemPeriod,controller.signal)).then(results=>{if(controller.signal.aborted)return;setPeriodScoreState({asset:ticker,scores:Object.fromEntries(results.map((result,index)=>{if(result.status!=="fulfilled")return[periodOptions[index],null];const reading=analyze(result.value);return[periodOptions[index],reading?.score??null]}))})});return()=>controller.abort()},[ticker]);
  const notifyParentAiContext=(asset:string,nextPeriod:string)=>{if(typeof window!=="undefined"&&window.parent!==window)window.parent.postMessage({type:"termometro:ai-context-changed",asset,period:nextPeriod},"https://bitcoiniciantes.github.io")};
  const changePeriod=(nextPeriod:string)=>{if(nextPeriod===period){setPeriodFeedback("✓ "+nextPeriod+" já está selecionado");return}periodScrollY.current=window.scrollY;notifyParentAiContext(ticker,nextPeriod);const currentReading=analyze(market);if(currentReading)setPreviousReading({period,score:currentReading.score});setLoading(true);setMarketError("");setUsingCached(false);setPeriodFeedback("Atualizando termômetro para "+nextPeriod+"…");setPeriod(nextPeriod)};
  useEffect(()=>{const savedY=periodScrollY.current;if(savedY===null)return;const frame=window.requestAnimationFrame(()=>{window.scrollTo({top:savedY,behavior:"auto"});periodScrollY.current=null});return()=>window.cancelAnimationFrame(frame)},[period]);
@@ -89,10 +92,10 @@ export function Termometro(){
  const cleanAsset=(value:string)=>value.trim().normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9.-]/g,"");
  const closeKeyboard=()=>{if(typeof document!=="undefined"&&document.activeElement instanceof HTMLElement)document.activeElement.blur()};
  const analyzeQuery=()=>{const clean=cleanAsset(query);if(clean){selectAsset(clean);setQuery("");closeKeyboard()}};
- const includeAsset=()=>{const clean=cleanAsset(query);if(!clean)return;const next=assets.includes(clean)?assets:[...assets,clean];setAssets(next);localStorage.setItem("termometro-assets",JSON.stringify(next));selectAsset(clean);setQuery("");closeKeyboard()};
- const removeAsset=(asset:string)=>{if(defaults.includes(asset))return;const next=assets.filter(item=>item!==asset);setAssets(next);localStorage.setItem("termometro-assets",JSON.stringify(next));if(ticker===asset)selectAsset(next[0]||"BTC")};
+  const includeAsset=()=>{const clean=cleanAsset(query);if(!clean)return;const next=assets.includes(clean)?assets:[...assets,clean];setAssets(next);localStorage.setItem("termometro-assets",JSON.stringify(next));selectAsset(clean);setQuery("");closeKeyboard()};
+  const removeAsset=(asset:string)=>{if(defaults.includes(asset))return;const next=assets.filter(item=>item!==asset);setAssets(next);localStorage.setItem("termometro-assets",JSON.stringify(next));if(ticker===asset)selectAsset(next[0]||"BTC")};
  const analysis=useMemo(()=>analyze(market),[market]);
- const confluence=useMemo(()=>buildConfluence(market,analysis,multiRsi),[market,analysis,multiRsi]); const loadedPeriodScores=periodScoreState.asset===ticker?periodScoreState.scores:{}; const currentPeriodScore=market?.asset===ticker&&market.period===period?analysis?.score:null; const displayedPeriodScores={...loadedPeriodScores,[period]:currentPeriodScore??loadedPeriodScores[period]}; const extreme=analysis?.extreme; const signals=analysis?.signals??fallbackSignals,score=analysis?.score??0,confidence=analysis?.confidence??0,change=analysis?.change??0;
+   const confluence=useMemo(()=>buildConfluence(market,analysis,multiRsi),[market,analysis,multiRsi]); const loadedPeriodScores=periodScoreState.asset===ticker?periodScoreState.scores:{}; const currentPeriodScore=market?.asset===ticker&&market.period===period?analysis?.score:null; const displayedPeriodScores={...loadedPeriodScores,[period]:currentPeriodScore??loadedPeriodScores[period]}; const extreme=analysis?.extreme; const signals=analysis?.signals??fallbackSignals,score=analysis?.score??0,confidence=analysis?.confidence??0,change=analysis?.change??0;
  const livePrice=liveQuote?.asset===ticker?liveQuote.price:undefined;
  const currentPrice=livePrice??market?.candles.at(-1)?.close;
  const change24h=currentPrice&&price24hReference?.asset===ticker&&price24hReference.price>0?(currentPrice/price24hReference.price-1)*100:null;
@@ -105,16 +108,16 @@ export function Termometro(){
  const displayName=displayAsset(ticker);
  const fmt=(value:number|undefined)=>value?`${currency} ${value.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}`:"—";
  const pct=(value:number)=>currentPrice&&value?`${value>=currentPrice?"+":""}${((value/currentPrice-1)*100).toFixed(2)}%`:"—"; const entryDistance=currentPrice&&entry?(entry/currentPrice-1)*100:0,supportDistance=currentPrice&&support?(support/currentPrice-1)*100:0;
- const showPlan=!!analysis&&score>=20&&entryDistance<=15;
- const planStatus=!analysis?"SEM DADOS":score<=-20?"PRESSÃO DE VENDA":score<20?"AGUARDAR":entryDistance>15?"GATILHO DISTANTE":entryDistance>5?"EM OBSERVAÇÃO":"PRÓXIMO DO GATILHO";
- const planTone=score<=-20?"sell":score<20||entryDistance>15?"wait":"ready";
- const planMessage=!analysis?"Aguardando dados suficientes.":score<=-20?"Plano de compra suspenso: pressão vendedora predominante.":score<20?"Leitura neutra. Nenhuma entrada válida neste momento.":entryDistance>15?`Rompimento a ${entryDistance.toFixed(2)}% do preço atual; cenário ainda distante.`:entryDistance>5?`Ativo a ${entryDistance.toFixed(2)}% do gatilho; mantenha em observação.`:"Gatilho próximo; aguarde confirmação do fechamento.";
- const patternTitle=analysis&&signals[1]?.score>0?signals[1].summary:"Sem padrão confirmado";
+  const showPlan=!!analysis&&score>=20&&entryDistance<=15;
+  const planStatus=!analysis?"SEM DADOS":score<=-20?"PRESSÃO DE VENDA":score<20?"AGUARDAR":entryDistance>15?"GATILHO DISTANTE":entryDistance>5?"EM OBSERVAÇÃO":"PRÓXIMO DO GATILHO";
+  const planTone=score<=-20?"sell":score<20||entryDistance>15?"wait":"ready";
+  const planMessage=!analysis?"Aguardando dados suficientes.":score<=-20?"Plano de compra suspenso: pressão vendedora predominante.":score<20?"Leitura neutra. Nenhuma entrada válida neste momento.":entryDistance>15?`Rompimento a ${entryDistance.toFixed(2)}% do preço atual; cenário ainda distante.`:entryDistance>5?`Ativo a ${entryDistance.toFixed(2)}% do gatilho; mantenha em observação.`:"Gatilho próximo; aguarde confirmação do fechamento.";
+  const patternTitle=analysis&&signals[1]?.score>0?signals[1].summary:"Sem padrão confirmado";
  const label=scoreLabel(score);
  const scoreExplanation=score>=20?"Convergência positiva, com risco controlado.":score<=-20?"Pressão vendedora predominante; evite antecipar reversão.":`${score>=10?"Sinais mistos com viés positivo.":score<=-10?"Sinais mistos com viés negativo.":"Sinais equilibrados."} ${scoreDistanceLabel(score)}`;
- const toneClass=score>=20?"tonePositive":score<=-20?"toneNegative":"toneNeutral";
- const radarItems=useMemo(()=>[...ranking.filter(item=>item.asset!=="MSTR").map(item=>({...item,available:true})),...assets.filter(asset=>asset!=="MSTR"&&!ranking.some(item=>item.asset===asset)).map(asset=>({asset,score:0,confidence:0,change:0,rsi:undefined,available:false}))],[ranking,assets]);
- const availablePeriods=periodOptions;
+  const toneClass=score>=20?"tonePositive":score<=-20?"toneNegative":"toneNeutral";
+  const radarItems=useMemo(()=>[...ranking.filter(item=>item.asset!=="MSTR").map(item=>({...item,available:true})),...assets.filter(asset=>asset!=="MSTR"&&!ranking.some(item=>item.asset===asset)).map(asset=>({asset,score:0,confidence:0,change:0,rsi:undefined,available:false}))],[ranking,assets]);
+  const availablePeriods=periodOptions;
  const selectedRsi=multiRsi?.rows.find(row=>row.label===rsiLabelByPeriod[period]);
  const selectedRsiTone=!selectedRsi?"neutral":selectedRsi.value>=55?"high":selectedRsi.value<=45?"low":"neutral";
  const selectedRsiStatus=!selectedRsi?"AGUARDANDO":selectedRsi.value>=70?"VENDA: RSI ESTICADO":selectedRsi.value<=30?"COMPRA: RSI SOBREVENDIDO":selectedRsi.value>=55?"ALTA":selectedRsi.value<=45?"BAIXA":"NEUTRO";
@@ -122,7 +125,7 @@ export function Termometro(){
  const aiMarketData=`Fonte: ${sourceLabel}. Preço atual: ${fmt(currentPrice)}. Variação no candle ${period}: ${change>=0?"+":""}${change.toFixed(2)}%. Termômetro: ${label} (${score>0?"+":""}${score}/100), confiança ${confidence}%. RSI: ${selectedRsi?selectedRsi.value.toFixed(1):"indisponível"} (${selectedRsiStatus}). Suporte: ${fmt(support)}. Resistência: ${fmt(resistance)}. Volume: ${volumeRatio?`${volumeRatio.toFixed(2)}× média`:"indisponível"}.`;
  return <MarketStreamProvider><main>
   <div className='marketFreshness'><span className='sourceStatus'><i/>{loading?'BUSCANDO MERCADO':marketError?'FONTE INDISPONÍVEL':sourceLabel}</span>{!loading&&market&&!cryptoLive&&<span className='freshness'>{freshness}</span>}<button type='button' onClick={retryMarket} disabled={loading} aria-label='Consultar dados novamente' title='Consultar dados novamente'>↻</button></div>
-  <header><a className="brand" href="#inicio" onClick={event=>{event.preventDefault();window.scrollTo({top:0,behavior:"smooth"});}} aria-label="Voltar ao início do Termômetro" title="Voltar ao início"><b>T°</b><span>TERMÔMETRO PREDITIVO<small>INVESTIDOR ARROJADO</small></span></a><nav aria-label="Menu principal"><a href="#grafico">Gráfico</a><a href="#regras">Regras</a><a className="externalNav" href="https://estudebitcoin.pages.dev/" target="_blank" rel="noopener noreferrer">Estude Bitcoin <span aria-hidden="true">↗</span></a></nav></header>
+  <header><a className="brand" href="#inicio" onClick={event=>{event.preventDefault();window.scrollTo({top:0,behavior:"smooth"});}} aria-label="Voltar ao início do Termômetro" title="Voltar ao início"><b>T°</b><span>TERMÔMETRO PREDITIVO<small>INVESTIDOR ARROJADO</small></span></a><nav aria-label="Menu principal"><a href="#grafico">Gráfico</a><a href="#regras">Regras</a><a href="#super-painel-unificado">Super Painel</a><a href="/painelcolorido">Painel Colorido</a><a className="externalNav" href="https://estudebitcoin.pages.dev/" target="_blank" rel="noopener noreferrer">Estude Bitcoin <span aria-hidden="true">↗</span></a></nav></header>
   <section className="analysisDesk workspace" id="painel">
   <div className="analysisColumn analysisLeft">
     <div className="workspaceMain">
@@ -146,19 +149,17 @@ export function Termometro(){
     <RadarBoard items={radarItems} changes={quickChanges} ticker={ticker} onSelect={selectAsset} onRemove={removeAsset} compact />
         <ConfluencePanel data={confluence} loading={loading} asset={displayName + "/" + currency} period={period} />
 
-        <BtcBrakeRadar />
+        <BtcBrakeRadar
+          livePrice={ticker === "BTC" ? livePrice : null}
+          dailyChangePct={ticker === "BTC" ? change24h : null}
+        />
 
         <PositionPanel asset={ticker} currentPrice={currentPrice} assets={assets} />
   <article className="card signals" id="regras"><Title kicker="RAIO-X DA NOTA" title={`${signals.filter(signal=>!signal.context).length} sinais de nota + ${signals.filter(signal=>signal.context).length} contextos`} extra={<span className="sum">SOMA: <b>{score>0?"+":""}{score}</b></span>}/><button type="button" className="signalsToggle" onClick={()=>setSignalsExpanded(v=>!v)} aria-expanded={signalsExpanded}>{signalsExpanded?"− Recolher":`+ Expandir (${signals.length} indicadores)`}</button>{signalsExpanded&&<div className="signalList">{signals.map((signal,index)=><button type="button" key={signal.title} onClick={()=>setOpen(open===index?null:index)} className={open===index?"opened":""} aria-expanded={open===index}><span className={`sign ${signal.context?"context":signal.score===0?"zero":signal.score>0?"positive":"negative"}`}>{signal.context?"CTX":<>{signal.score>0?"+":""}{signal.score}</>}</span><span className="signalText"><b>{signal.title}</b><small>{signal.summary}</small>{open===index&&<em>{signal.detail}</em>}</span><span className={`group ${signal.context?"contextGroup":""}`}>{signal.group}</span><span className="chev" aria-hidden="true">›</span></button>)}</div>}</article>
 
-  <div className="flowWidgetsRow">
-    <PredictiveStatusCard />
-    <MarketObservatory />
-  </div>
-
   </div>
   <div className="analysisColumn analysisRight">
-    <article className={`card thermo heroThermo thermoTone ${toneClass}`}><div className="mobilePeriods periodPrompt"><div className="periodGuide"><div><span>ESCOLHA O PERÍODO DA ANÁLISE</span><button type="button" onClick={()=>setShowPeriodHelp(value=>!value)} aria-expanded={showPeriodHelp} aria-label="Explicar períodos">i</button></div><small>O resultado muda conforme o período.</small>{showPeriodHelp&&<p>Períodos curtos reagem mais rápido e têm mais ruído. Períodos longos mostram tendências mais consistentes.</p>}</div><div className="periods">{availablePeriods.map(p=><button key={p} onClick={()=>changePeriod(p)} className={period===p?"active":""} aria-pressed={period===p} aria-label={`Consultar período ${p}`}>{p}</button>)}</div>{periodFeedback&&<div className={`periodFeedback ${periodFeedback.startsWith("✓")?"done":""}`} role="status" aria-live="polite">{periodFeedback}</div>}</div><Title kicker="TERMÔMETRO DO ATIVO" title={loading?`Carregando ${displayName}…`:`Leitura consolidada · ${displayName}`} extra={<button type="button" className="info" title="Regras fixas, sem IA" aria-label="Sobre as regras do Termômetro">i</button>}/><div className="scoreRing" style={{"--score":`${(score+100)*1.8}deg`} as React.CSSProperties}><div><b>{score>0?"+":""}{score}</b><span>DE 100</span><strong className="heroAsset">{ticker==="BTC"&&<i aria-hidden="true">₿</i>}{displayAsset(ticker)}</strong></div></div><span className={`heroRsi ${selectedRsiTone}`}>RSI = <b>{selectedRsi ? Math.round(selectedRsi.value) : "—"}</b></span><h3>{label}</h3><p>{scoreExplanation}</p><div className="scale"><div className="scaleTrack"><i style={{left:`${(score+100)/2}%`}}/></div><div><span>-100<br/>Venda</span><span>0<br/>Neutro</span><span>+100<br/>Compra</span></div></div><div className="confidence"><span>Concordância dos sinais</span><b>{confidence}%</b><div><i style={{width:`${confidence}%`}}/></div></div></article>
+    <article className={`card thermo heroThermo thermoTone ${toneClass}`}><div className="mobilePeriods periodPrompt"><div className="periodGuide"><div><span>ESCOLHA O PERÍODO DA ANÁLISE</span><button type="button" onClick={()=>setShowPeriodHelp(value=>!value)} aria-expanded={showPeriodHelp} aria-label="Explicar períodos">i</button></div><small>O resultado muda conforme o período.</small>{showPeriodHelp&&<p>Períodos curtos reagem mais rápido e têm mais ruído. Períodos longos mostram tendências mais consistentes.</p>}</div><div className="periods">{availablePeriods.map(p=><button key={p} onClick={()=>changePeriod(p)} className={period===p?"active":""} aria-pressed={period===p} aria-label={`Consultar período ${p}`}>{p}</button>)}</div>{periodFeedback&&<div className={`periodFeedback ${periodFeedback.startsWith("✓")?"done":""}`} role="status" aria-live="polite">{periodFeedback}</div>}</div><Title kicker="TERMÔMETRO DO ATIVO" title={loading?`Carregando ${displayName}…`:`Leitura consolidada · ${displayName}`} extra={<button type="button" className="info" title="Regras fixas, sem IA" aria-label="Sobre as regras do Termômetro">i</button>}/><span className={`heroRsi ${selectedRsiTone}`}>RSI = <b>{selectedRsi ? Math.round(selectedRsi.value) : "—"}</b></span><h3>{label}</h3><p>{scoreExplanation}</p><div className="scale"><div className="scaleTrack"><i style={{left:`${(score+100)/2}%`}}/></div><div><span>-100<br/>Venda</span><span>0<br/>Neutro</span><span>+100<br/>Compra</span></div></div><div className="confidence"><span>Concordância dos sinais</span><b>{confidence}%</b><div><i style={{width:`${confidence}%`}}/></div></div></article>
     {extreme&&<article className={`card extremeCard ${extreme.tone}`}><Title kicker="EXTREMO TÉCNICO" title={extreme.status} extra={<span className="extremePeriod">{period}</span>}/><div className="extremeBody"><p>{extreme.summary}</p><div className="extremeMetrics"><span><small>RSI WILDER</small><b>{extreme.rsi.toFixed(1)}</b></span><span><small>FORÇA ADX</small><b>{extreme.adx.toFixed(1)}</b></span><span><small>DISTÂNCIA</small><b>{extreme.atrDistance.toFixed(1)} ATR</b></span></div><div className="extremeContext"><span>{extreme.adx>=25?'TENDÊNCIA FORTE':'TENDÊNCIA FRACA'}</span><span>{extreme.divergence==='bullish'?'DIVERGÊNCIA DE ALTA':extreme.divergence==='bearish'?'DIVERGÊNCIA DE BAIXA':'SEM DIVERGÊNCIA'}</span></div><small className="extremeDetail">{extreme.detail}</small></div></article>}
     <RsiGeneralPanel asset={displayName} data={multiRsi} loading={multiRsiLoading}/>
     <ConfluenceCard
@@ -171,6 +172,16 @@ export function Termometro(){
       techTimeframeMinutes={TIMEFRAME_MINUTES[period] ?? 60}
     />
     <MarketPanel onFlowData={handleFlowData} />
+    <article className="card levels"><Title kicker="PLANO TÉCNICO" title="Cenário condicional"/><div className={`planStatus ${planTone}`}><span>STATUS DO CENÁRIO</span><b>{planStatus}</b><p>{planMessage}</p></div>{showPlan?<><div className="level target"><span>ALVO PROJETADO</span><b>{fmt(target)}</b><small>{pct(target)}</small></div><div className="level entry"><span>ROMPIMENTO / ENTRADA CONDICIONAL</span><b>{fmt(entry)}</b><small>{entryDistance.toFixed(2)}% do preço atual</small></div><div className="level stop"><span>INVALIDAÇÃO / STOP APÓS ENTRADA</span><b>{fmt(stop)}</b><small>{pct(stop)}</small></div><div className="risk"><span>RISCO : RETORNO</span><b>{entry&&stop?"1 : 2,5":"—"}</b></div></>:<><div className="level currentLevel"><span>PREÇO ATUAL</span><b>{fmt(currentPrice)}</b><small>referência</small></div><div className={`level ${score<=-20?"stop":"entry"}`}><span>{score<=-20?"SUPORTE DE REFERÊNCIA":"RESISTÊNCIA DE REFERÊNCIA"}</span><b>{fmt(score<=-20?support:resistance)}</b><small>{score<=-20?pct(support):pct(resistance)}</small></div><div className="distanceNote"><span>{score<=-20?"DISTÂNCIA ATÉ O SUPORTE":"DISTÂNCIA ATÉ O ROMPIMENTO"}</span><b>{score<=-20?`${supportDistance.toFixed(2)}%`:`${entryDistance.toFixed(2)}%`}</b></div></>}<p className="disclaimer">Níveis usam candles concluídos, estrutura e ATR. Conteúdo educacional, não é recomendação.</p></article>
+  </div>
+</section>
+  <div className="alertPanelSection"><AlertPanel currency="USDT" /></div>
+  <section id="painel-colorido" aria-label="Painel Colorido"><PainelColorido /></section>
+  <section id="super-painel-unificado" aria-label="Super Painel Unificado"><SuperPainelUnificado /></section>
+  <ExperimentoV1Encerrado />
+  <section id="analista-digital-isolado" aria-label="Analista Digital (IA) — seção isolada">
+    <div className="cardTitle"><div><span>LEITURA ASSISTIDA POR IA</span><b>Analista Digital (IA)</b></div></div>
+    <p className="obsHint">Fora da hierarquia observacional · sem probabilidades do motor · sem sinais de operação.</p>
     <AiAnalysisCard
       key={`${ticker}-${period}`}
       autoRunKey={aiRunKey}
@@ -192,10 +203,7 @@ export function Termometro(){
         signals: signals.map(({ title, summary, score: signalScore, group, context }) => ({ title, summary, score: signalScore, group, context })),
       }}
     />
-    <article className="card levels"><Title kicker="PLANO TÉCNICO" title="Cenário condicional"/><div className={`planStatus ${planTone}`}><span>STATUS DO CENÁRIO</span><b>{planStatus}</b><p>{planMessage}</p></div>{showPlan?<><div className="level target"><span>ALVO PROJETADO</span><b>{fmt(target)}</b><small>{pct(target)}</small></div><div className="level entry"><span>ROMPIMENTO / ENTRADA CONDICIONAL</span><b>{fmt(entry)}</b><small>{entryDistance.toFixed(2)}% do preço atual</small></div><div className="level stop"><span>INVALIDAÇÃO / STOP APÓS ENTRADA</span><b>{fmt(stop)}</b><small>{pct(stop)}</small></div><div className="risk"><span>RISCO : RETORNO</span><b>{entry&&stop?"1 : 2,5":"—"}</b></div></>:<><div className="level currentLevel"><span>PREÇO ATUAL</span><b>{fmt(currentPrice)}</b><small>referência</small></div><div className={`level ${score<=-20?"stop":"entry"}`}><span>{score<=-20?"SUPORTE DE REFERÊNCIA":"RESISTÊNCIA DE REFERÊNCIA"}</span><b>{fmt(score<=-20?support:resistance)}</b><small>{score<=-20?pct(support):pct(resistance)}</small></div><div className="distanceNote"><span>{score<=-20?"DISTÂNCIA ATÉ O SUPORTE":"DISTÂNCIA ATÉ O ROMPIMENTO"}</span><b>{score<=-20?`${supportDistance.toFixed(2)}%`:`${entryDistance.toFixed(2)}%`}</b></div></>}<p className="disclaimer">Níveis usam candles concluídos, estrutura e ATR. Conteúdo educacional, não é recomendação.</p></article>
-  </div>
-</section>
-  <div className="alertPanelSection"><AlertPanel currency="USDT" /></div>
+  </section>
   <footer><span><b>T°</b> TERMÔMETRO PREDITIVO INVESTIDOR ARROJADO</span><p>Motor determinístico • Interpretação opcional assistida por IA</p><span data-goatcounter-total aria-label="Total de acessos"> · visitas: —</span><small>PILOTO v0.2</small></footer>
  </main>
  </MarketStreamProvider>
