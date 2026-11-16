@@ -95,6 +95,20 @@ function m15Series(points, lowAt = {}) {
   });
 }
 
+// Cenário real do card: bloco anterior de +1,1%, recuo recente moderado,
+// recuperação relevante da amplitude e fundo preservado. Não é retomada de queda.
+function pullbackScenario({ lastH1Close = 100.6956, lastClose15m = 100.7 } = {}) {
+  const closes = [
+    ...Array(12).fill(102),
+    101, 100, 99, 98, 97, 100, 100.4, 100.8, 101.1, 101, 100.8, lastH1Close,
+  ];
+  const points = Array(48).fill(97);
+  points[45] = 97.2;
+  points[46] = 97.5;
+  points[47] = lastClose15m;
+  return { h1: hourly(closes), m15: m15Series(points) };
+}
+
 function readingOf(scenario, fetchedAt = NOW - 1_000, now = NOW) {
   return analyzeBrakeRadar({ ...scenario, fetchedAt, now });
 }
@@ -263,6 +277,49 @@ test("REPIQUE sem freio aplicável: recuperação não libera DCA", () => {
   assert.doesNotMatch(reading.action, /DCA 1 LIBERADO/);
 });
 
+test("REPIQUE SEM FREIO: recuo moderado após recuperação não é retomada de queda", () => {
+  // Espelha a leitura real: anterior +1,1%, recente −0,4%, retração ~70% e fundo
+  // preservado. O recuo é acomodação dentro da recuperação, não nova queda.
+  const reading = readingOf(pullbackScenario());
+  assert.equal(reading.state, "REBOUND");
+  assert.equal(reading.label, "REPIQUE EM OBSERVAÇÃO");
+  assert.equal(reading.tone, "cyan");
+  assert.equal(reading.badge, "AGUARDAR");
+  assert.equal(reading.hasDrop, true);
+  assert.equal(reading.brakeApplicable, false);
+  assert.equal(reading.brakePct, null);
+  assert.equal(reading.accelerating, false);
+  assert.ok(reading.recentReturnPct < 0 && reading.recentReturnPct > -0.5);
+  assert.ok(reading.retracementPct >= 15);
+  assert.ok(reading.preservedMinutes >= 60);
+  assert.equal(reading.barMetric, "recovery");
+  assert.match(reading.action, /AGUARDAR/);
+  assert.doesNotMatch(reading.action, /DCA 1 LIBERADO/);
+  assert.match(reading.reason, /recuo recente de −0,4%/);
+  assert.match(reading.reason, /não caracteriza retomada da queda/);
+});
+
+test("recuo forte sem freio: continua QUEDA SEM ESTABILIZAÇÃO", () => {
+  const reading = readingOf(pullbackScenario({ lastH1Close: 100.2, lastClose15m: 100.2 }));
+  assert.equal(reading.state, "UNSTABLE");
+  assert.equal(reading.label, "QUEDA SEM ESTABILIZAÇÃO");
+  assert.equal(reading.tone, "red");
+  assert.equal(reading.badge, "NÃO INICIAR");
+  assert.equal(reading.brakeApplicable, false);
+  assert.ok(reading.recentReturnPct <= -0.5);
+  assert.match(reading.reason, /sem freio mensurável/);
+  assert.match(reading.reason, /movimento recente de −0,9%/);
+});
+
+test("recuo moderado sem recuperação relevante: continua vermelho", () => {
+  const reading = readingOf(pullbackScenario({ lastClose15m: 97 }));
+  assert.equal(reading.state, "UNSTABLE");
+  assert.equal(reading.tone, "red");
+  assert.ok(reading.recentReturnPct < 0 && reading.recentReturnPct > -0.5);
+  assert.ok(reading.retracementPct < 15);
+  assert.doesNotMatch(reading.action, /DCA 1 LIBERADO/);
+});
+
 test("MERCADO LATERAL / SEM QUEDA: cinza, sem DCA", () => {
   const closes = Array(24).fill(100);
   const reading = readingOf({
@@ -368,6 +425,10 @@ test("integração: card renderizado abaixo do NEXUS na home", async () => {
   assert.match(component, /Nível 20%/);
   assert.match(component, /RECUPERAÇÃO DA AMPLITUDE \(%\)/);
   assert.match(component, /FREIO DA QUEDA \(%\)/);
+  assert.match(component, /FREIO NÃO APLICÁVEL/);
+  assert.doesNotMatch(component, /SEM MÉTRICA/);
+  assert.doesNotMatch(component, /INATIVO/);
+  assert.match(component, /brBarAreaEmpty/);
   assert.match(component, /brPreserveTrack/);
 
   const css = await readFile(new URL("../app/brake-radar.css", import.meta.url), "utf8");

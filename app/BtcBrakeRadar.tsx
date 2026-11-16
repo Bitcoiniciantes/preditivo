@@ -50,6 +50,7 @@ type BarView = {
   display: string;
   mark: number | null;
   markTitle: string;
+  track: boolean;
 };
 
 function clampPct(value: number | null): number {
@@ -58,7 +59,8 @@ function clampPct(value: number | null): number {
 }
 
 // A barra única representa a métrica do estado atual: freio durante a queda,
-// retração durante repique/reção, e neutra quando não há métrica válida.
+// retração durante repique/reção. Sem métrica válida, nenhuma barra é desenhada
+// (e nenhum percentual falso é inventado).
 function barView(reading: BrakeRadarReading): BarView {
   if (reading.barMetric === "recovery") {
     return {
@@ -67,23 +69,26 @@ function barView(reading: BrakeRadarReading): BarView {
       display: fmtPct(reading.retracementPct),
       mark: 20,
       markTitle: "Referência de 20% da amplitude",
+      track: true,
     };
   }
   if (reading.barMetric === "brake") {
     return {
       label: "FREIO DA QUEDA (%)",
       value: clampPct(reading.brakePct),
-      display: reading.brakePct === null ? "INATIVO" : fmtPct(reading.brakePct),
+      display: fmtPct(reading.brakePct),
       mark: 25,
       markTitle: "Mínimo de 25% para sinal de reação",
+      track: true,
     };
   }
   return {
-    label: "SEM MÉTRICA",
+    label: "FREIO NÃO APLICÁVEL",
     value: 0,
-    display: "INATIVO",
+    display: "",
     mark: null,
     markTitle: "",
+    track: false,
   };
 }
 
@@ -213,22 +218,24 @@ export function BtcBrakeRadar() {
         </div>
       </div>
 
-      <div className="brBarArea">
+      <div className={`brBarArea${bar.track ? "" : " brBarAreaEmpty"}`}>
         <div className="brBarHead">
           <span>{bar.label}</span>
-          <b>{bar.display}</b>
+          {bar.display ? <b>{bar.display}</b> : null}
         </div>
-        <div
-          className="brBarTrack"
-          role="progressbar"
-          aria-label={`${bar.label}: ${bar.display}`}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.round(bar.value)}
-        >
-          <i style={{ width: `${bar.value}%` }} />
-          {bar.mark !== null && <em style={{ left: `${bar.mark}%` }} title={bar.markTitle} />}
-        </div>
+        {bar.track && (
+          <div
+            className="brBarTrack"
+            role="progressbar"
+            aria-label={`${bar.label}: ${bar.display}`}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(bar.value)}
+          >
+            <i style={{ width: `${bar.value}%` }} />
+            {bar.mark !== null && <em style={{ left: `${bar.mark}%` }} title={bar.markTitle} />}
+          </div>
+        )}
       </div>
 
       <div className="brContext">
