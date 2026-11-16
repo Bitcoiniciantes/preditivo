@@ -170,6 +170,10 @@
   letter-spacing: .08em;
   text-transform: uppercase;
 }
+/* Sem métrica válida, a trilha é omitida e sobra só o rótulo — nunca 0% falso. */
+.brBarAreaEmpty { padding-bottom: 2px; }
+.brBarAreaEmpty .brBarHead { margin-bottom: 0; }
+.brBarAreaEmpty .brBarHead span { letter-spacing: .04em; }
 .brBarTrack {
   position: relative;
   height: 7px;

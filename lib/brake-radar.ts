@@ -20,6 +20,10 @@ export const BRAKE_MIN_RETRACEMENT_PCT = 20;
 // Repique em observação: recuperação relevante, ainda sem os cinco critérios.
 export const BRAKE_MIN_REBOUND_RETRACEMENT_PCT = 15;
 export const BRAKE_MIN_RECENT_REBOUND_PCT = 0.4;
+// Recuo máximo (em módulo) que ainda é lido como acomodação dentro de uma
+// recuperação, e não como retomada da queda. Só vale quando o fundo segue
+// preservado e a retração continua acima de 15%; acima disso o estado é crítico.
+export const BRAKE_MAX_MODERATE_PULLBACK_PCT = 0.5;
 // Referência visual de fundo preservado e nível de recuperação para DCA.
 export const BRAKE_PRESERVED_REFERENCE_MIN = 60;
 export const BRAKE_DCA_LEVEL_PCT = 20;
@@ -446,7 +450,23 @@ export function analyzeBrakeRadar(input: BrakeKlineInput): BrakeRadarReading {
 
   const accelerating = previous !== null && recent !== null && previous < 0 && recent < previous;
   const measurableBrakeBelow = brakeApplicable && (brakePct ?? 0) < BRAKE_MIN_BRAKE_PCT;
-  const noBrakeWithNegativeRecent = !brakeApplicable && recent !== null && recent < 0;
+  // Recuo moderado dentro de uma recuperação relevante. Sem freio mensurável o
+  // bloco anterior foi de alta ou lateral; se o recuo recente é pequeno, o fundo
+  // segue preservado e a retração continua acima de 15%, não existe retomada de
+  // queda. Vai para REPIQUE EM OBSERVAÇÃO — os cinco critérios seguem bloqueando
+  // o DCA, porque reação exige freio aplicável de pelo menos 25%.
+  const moderatePullback = hasDrop
+    && !brakeApplicable
+    && recent !== null
+    && recent < 0
+    && recent >= -BRAKE_MAX_MODERATE_PULLBACK_PCT
+    && !recentNewLow
+    && recovery
+    && !accelerating;
+  const noBrakeWithNegativeRecent = !brakeApplicable
+    && recent !== null
+    && recent < 0
+    && !moderatePullback;
   const criticalDrop = hasDrop && (measurableBrakeBelow || recentNewLow || noBrakeWithNegativeRecent);
 
   const dropTxt = dropWindow.dropPct !== null ? pctText(Math.abs(dropWindow.dropPct)) : "—";
@@ -542,7 +562,10 @@ export function analyzeBrakeRadar(input: BrakeKlineInput): BrakeRadarReading {
     if (!brakeApplicable || (brakePct ?? 0) < BRAKE_MIN_BRAKE_PCT) {
       missing.push("freio aplicável de pelo menos 25%");
     }
-    reason = `BTC recuperou ${pctText(structure.retracementPct ?? 0)} da amplitude da queda, ${preservedClause}. ${missing.length ? `Confirmação exige ${missing.join(", ")}.` : "Aguardando os demais critérios."}`;
+    const pullbackClause = moderatePullback
+      ? ` O recuo recente de ${recentTxt} é moderado e não caracteriza retomada da queda.`
+      : "";
+    reason = `BTC recuperou ${pctText(structure.retracementPct ?? 0)} da amplitude da queda, ${preservedClause}.${pullbackClause} ${missing.length ? `Confirmação exige ${missing.join(", ")}.` : "Aguardando os demais critérios."}`;
   } else if (brakeApplicable && (brakePct ?? 0) >= BRAKE_MIN_BRAKE_PCT) {
     state = "SLOWING";
     label = "QUEDA DESACELERANDO";
