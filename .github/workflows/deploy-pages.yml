@@ -34,11 +34,24 @@ jobs:
       - uses: actions/upload-pages-artifact@v5
         with:
           path: ./out
+  market-ingestion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: services/market-ingestion/package-lock.json
+      - run: npm ci --prefix services/market-ingestion
+      - run: npm run typecheck --prefix services/market-ingestion
+      - run: npm run build --prefix services/market-ingestion
+      - run: npm test --prefix services/market-ingestion
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    needs: build
+    needs: [build, market-ingestion]
     runs-on: ubuntu-latest
     steps:
       - name: Publicar

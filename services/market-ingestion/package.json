@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "start:supervised": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/supervise-daemon.ps1",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "ws": "^8.18.0"
