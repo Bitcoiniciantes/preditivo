@@ -303,9 +303,36 @@
 }
 
 /* Cotação ao vivo é contextual; o valor principal utiliza o candle fechado de 15m. */
-.topRadar .brSpotReference {
-  margin-top: 0.25rem;
-  font-size: 0.72rem;
-  opacity: 0.75;
-  text-align: right;
+
+
+/* LAYOUT_CACA_TOPOS_V2 */
+/* Cotacao spot informativa abaixo da referencia fechada. */
+.topRadar .brContext {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 265px);
+  align-items: start;
+}
+.topRadar .brCurrentPrice {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+.topRadar .brQuoteLine {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  max-width: 100%;
+  white-space: normal;
+}
+.topRadar .brQuoteLine > b {
+  font-size: clamp(24px, 3.3vw, 34px);
+  line-height: 1.05;
+}
+
+@media (max-width: 720px) {
+  .topRadar .brContext { grid-template-columns: minmax(0, 1fr); }
+  .topRadar .brCurrentPrice,
+  .topRadar .brQuoteLine { align-items: flex-start; text-align: left; }
+  .topRadar .brSpotReference { text-align: left; }
 }

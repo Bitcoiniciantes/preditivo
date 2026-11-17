@@ -216,7 +216,6 @@ export function BtcTopRadar({
           <span>Mínima de origem: <b>{fmtPrice(reading.originLow)}</b></span>
           <span>Máxima monitorada: <b>{fmtPrice(reading.maximum)}</b></span>
           <span>Alta até o topo: <b>{fmtPct(reading.riseToPeakPct, true)}</b></span>
-          <span>Fechamento 15m (base do recuo): <b>{fmtPrice(reading.lastClose15m)}</b></span>
           <span>Janela do topo: <b className={peakEligibilityTone(reading)}>{peakEligibilityText(reading)}</b></span>
           <span>EMA9 15m: <b>{fmtPrice(reading.ema9_15m)}</b></span>
           <span>EMA9 1H: <b>{fmtPrice(reading.ema9_1h)}</b></span>

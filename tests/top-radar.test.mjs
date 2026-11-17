@@ -632,7 +632,7 @@ test("Integração: wrapper preserva Caça-Fundos e adiciona Caça-Topos", async
   assert.match(top, /Máxima monitorada/);
   assert.match(top, /Alta até o topo/);
   assert.match(top, /peakAgeText\(reading\)/);
-  assert.match(top, /Fechamento 15m \(base do recuo\)/);
+  assert.doesNotMatch(top, /Fechamento 15m \(base do recuo\)/);
   assert.match(top, /Spot ao vivo \(informativo\)/);
   assert.match(top, /referencePrice = reading\.lastClose15m/);
   assert.match(top, /EMA9 15m/);
