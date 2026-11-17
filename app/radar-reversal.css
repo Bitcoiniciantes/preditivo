@@ -301,3 +301,11 @@
     transition: none;
   }
 }
+
+/* Cotação ao vivo é contextual; o valor principal utiliza o candle fechado de 15m. */
+.topRadar .brSpotReference {
+  margin-top: 0.25rem;
+  font-size: 0.72rem;
+  opacity: 0.75;
+  text-align: right;
+}

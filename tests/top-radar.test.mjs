@@ -185,6 +185,32 @@ test("Alta de ~2,2% até a máxima com topo elegível: EXAUSTÃO CONFIRMADA", ()
   assert.match(reading.reason, /não representa reversão definitiva/);
 });
 
+test("Fechamento 15m abaixo da origem encerra nova realização sem apagar critérios históricos", () => {
+  const scenario = confirmedScenario();
+  const baseline = readingOf(scenario);
+  assert.equal(baseline.state, "EXHAUSTION_CONFIRMED");
+  scenario.m15[47] = {
+    ...scenario.m15[47],
+    close: baseline.originLow - 0.1,
+    low: baseline.originLow - 0.2,
+  };
+  const reading = readingOf(scenario);
+  assert.equal(reading.originLost, true);
+  assert.equal(reading.state, "ORIGIN_LOST");
+  assert.equal(reading.confirmed, false);
+  assert.equal(reading.label, "ALTA ANULADA — ORIGEM PERDIDA");
+  assert.doesNotMatch(reading.action, /REALIZAÇÃO PARCIAL/);
+  assert.match(reading.reason, /fechamento do último candle de 15m/);
+  assert.equal(reading.criteria.filter((item) => item.met).length, 5);
+});
+
+test("Preço acima da origem preserva confirmação e recuo usa só fechamento fechado", () => {
+  const reading = readingOf(confirmedScenario());
+  assert.equal(reading.originLost, false);
+  assert.equal(reading.confirmed, true);
+  assert.ok(Math.abs(reading.drawdownPct - (reading.maximum - reading.lastClose15m) / reading.maximum * 100) < 1e-8);
+});
+
 test("Mesmo movimento com topo acima de 6h: não gera nova confirmação", () => {
   const reading = readingOf(expiredScenario());
   assert.ok(reading.peakAgeMinutes > TOP_MAX_CONFIRM_AGE_HOURS * 60);
@@ -601,12 +627,14 @@ test("Integração: wrapper preserva Caça-Fundos e adiciona Caça-Topos", async
   const top = await readFile(new URL("../app/BtcTopRadar.tsx", import.meta.url), "utf8");
   assert.match(top, /MOVIMENTO RECENTE \(3H\)/);
   assert.match(top, /RECUO DO TOPO/);
-  assert.match(top, /TEMPO SEM NOVA MÁXIMA/);
+  assert.match(top, /IDADE DO TOPO/);
   assert.match(top, /Mínima de origem/);
   assert.match(top, /Máxima monitorada/);
   assert.match(top, /Alta até o topo/);
-  assert.match(top, /Idade do topo/);
-  assert.match(top, /Valorização líquida 12h/);
+  assert.match(top, /peakAgeText\(reading\)/);
+  assert.match(top, /Fechamento 15m \(base do recuo\)/);
+  assert.match(top, /Spot ao vivo \(informativo\)/);
+  assert.match(top, /referencePrice = reading\.lastClose15m/);
   assert.match(top, /EMA9 15m/);
   assert.match(top, /DIAGNÓSTICO TÉCNICO/);
   assert.match(top, /Confirmação estrutural 1H/);

@@ -73,6 +73,7 @@ export type TopState =
   | "STRONG_UPTREND"
   | "DECELERATING"
   | "TOP_WATCH"
+  | "ORIGIN_LOST"
   | "EXHAUSTION_CONFIRMED";
 
 export type TopCriterionId =
@@ -149,6 +150,8 @@ export type TopRadarReading = {
   h1Filter: TopH1Filter;
   /** Cinco critérios + filtro 1H + topo elegível + recuo dentro da janela. */
   confirmed: boolean;
+  /** Último fechamento de 15m perdeu a mínima anterior ao topo. */
+  originLost: boolean;
   /** Recuo acima de 3%: saiu da janela inicial de exaustão. */
   beyondWatchWindow: boolean;
   updatedAt: number | null;
@@ -168,6 +171,7 @@ const ACTIONS: Record<TopState, string> = {
   STRONG_UPTREND: "MANTER OBSERVAÇÃO",
   DECELERATING: "MONITORAR ENFRAQUECIMENTO",
   TOP_WATCH: "OBSERVAR POSSÍVEL REALIZAÇÃO",
+  ORIGIN_LOST: "REAVALIAR ESTRUTURA — SEM NOVO GATILHO",
   EXHAUSTION_CONFIRMED: "AVALIAR REALIZAÇÃO PARCIAL",
 };
 
@@ -177,6 +181,7 @@ const LABELS: Record<TopState, string> = {
   STRONG_UPTREND: "ALTA FORTE",
   DECELERATING: "ALTA DESACELERANDO",
   TOP_WATCH: "TOPO EM OBSERVAÇÃO",
+  ORIGIN_LOST: "ALTA ANULADA — ORIGEM PERDIDA",
   EXHAUSTION_CONFIRMED: "EXAUSTÃO CONFIRMADA",
 };
 
@@ -186,6 +191,7 @@ const TONES: Record<TopState, TopTone> = {
   STRONG_UPTREND: "green",
   DECELERATING: "amber",
   TOP_WATCH: "cyan",
+  ORIGIN_LOST: "amber",
   EXHAUSTION_CONFIRMED: "red",
 };
 
@@ -195,6 +201,7 @@ const BADGES: Record<TopState, string> = {
   STRONG_UPTREND: "ALTA SUSTENTADA",
   DECELERATING: "PERDENDO FORÇA",
   TOP_WATCH: "EM OBSERVAÇÃO",
+  ORIGIN_LOST: "ORIGEM PERDIDA",
   EXHAUSTION_CONFIRMED: "5/5 + 1H",
 };
 
@@ -377,6 +384,7 @@ function unavailable(reason: string, updatedAt: number | null): TopRadarReading 
     criteria: emptyCriteria(),
     h1Filter: emptyH1Filter(),
     confirmed: false,
+    originLost: false,
     beyondWatchWindow: false,
     updatedAt,
   };
@@ -471,6 +479,7 @@ type StateInput = {
   h1FilterMet: boolean;
   drawdownPct: number | null;
   peakEligible: boolean;
+  originLost: boolean;
 };
 
 type Classification = {
@@ -494,6 +503,12 @@ function classify(input: StateInput): Classification {
     && input.drawdownPct <= TOP_MAX_WATCH_DRAWDOWN_PCT + EPSILON;
   const partialSignals = [input.decelMet, input.preservedMet, input.drawdownMet, input.ema15Met]
     .filter(Boolean).length;
+
+  // Perder a mínima de origem em candle FECHADO encerra o gatilho novo,
+  // mas preserva os cinco critérios históricos para auditoria.
+  if (input.originLost) {
+    return { state: "ORIGIN_LOST", confirmed: false, beyondWatchWindow, partialSignals };
+  }
 
   // Confirmação exige topo elegível e recuo dentro da janela inicial.
   const confirmed = allCriteria && input.peakEligible && !beyondWatchWindow;
@@ -574,6 +589,7 @@ export function analyzeTopRadar(input: TopKlineInput): TopRadarReading {
   const { previous, recent } = measurePeriodReturns(h1);
   const peak = measurePeak(m15);
   const lastClose15m = lastM15.close;
+  const originLost = peak.originLow !== null && lastClose15m <= peak.originLow + EPSILON;
   const drawdownPct = peak.maximum !== null && peak.maximum > 0
     ? clamp((peak.maximum - lastClose15m) / peak.maximum * 100, 0, 100)
     : null;
@@ -686,6 +702,7 @@ export function analyzeTopRadar(input: TopKlineInput): TopRadarReading {
     h1FilterMet,
     drawdownPct,
     peakEligible,
+    originLost,
   });
 
   const { state, confirmed, beyondWatchWindow, partialSignals } = classification;
@@ -701,7 +718,9 @@ export function analyzeTopRadar(input: TopKlineInput): TopRadarReading {
 
   let reason: string;
 
-  if (state === "NEUTRAL") {
+  if (state === "ORIGIN_LOST") {
+    reason = `O fechamento do último candle de 15m (${priceText(lastClose15m)}) perdeu a mínima de origem ${originTxt}. A alta até o topo ${peakTxt} foi totalmente devolvida. A eventual exaustão anterior permanece como registro técnico, mas não há novo gatilho de realização parcial; reavaliar a estrutura do preço.`;
+  } else if (state === "NEUTRAL") {
     const head = partialSignals >= 2
       ? "Sinais técnicos parciais identificados, mas condição de alta relevante não atendida."
       : "Sem alta relevante suficiente para habilitar a análise de exaustão.";
@@ -759,6 +778,7 @@ export function analyzeTopRadar(input: TopKlineInput): TopRadarReading {
     criteria,
     h1Filter,
     confirmed,
+    originLost,
     beyondWatchWindow,
     updatedAt: fetchedAt,
   };

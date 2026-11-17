@@ -92,14 +92,6 @@ function changeTone(value: number | null): string {
   return "brMuted";
 }
 
-function quoteTone(dailyChangePct: number | null): string {
-  if (dailyChangePct !== null && Number.isFinite(dailyChangePct)) {
-    if (dailyChangePct > 0) return "brPositive";
-    if (dailyChangePct < 0) return "brCaution";
-  }
-  return "brMuted";
-}
-
 function barWidth(reading: TopRadarReading): number {
   if (reading.drawdownPct === null) return 0;
   return clampPct((reading.drawdownPct / TOP_MAX_WATCH_DRAWDOWN_PCT) * 100);
@@ -144,7 +136,8 @@ export function BtcTopRadar({
   const validLivePrice = livePrice !== null && Number.isFinite(livePrice) && livePrice > 0
     ? livePrice
     : null;
-  const displayedPrice = validLivePrice ?? reading.lastClose15m;
+  // O preço principal é sempre a mesma referência dos cálculos de recuo.
+  const referencePrice = reading.lastClose15m;
   const bar = barWidth(reading);
   const barMark = (TOP_MIN_DRAWDOWN_PCT / TOP_MAX_WATCH_DRAWDOWN_PCT) * 100;
   const hasDrawdown = reading.drawdownPct !== null;
@@ -186,13 +179,13 @@ export function BtcTopRadar({
           </small>
         </div>
         <div className="brMetric">
-          <span>TEMPO SEM NOVA MÁXIMA</span>
-          <b className={preservedTone(reading.minutesWithoutNewHigh)}>
-            {formatPreservedMinutes(reading.minutesWithoutNewHigh)}
+          <span>IDADE DO TOPO</span>
+          <b className={preservedTone(reading.peakAgeMinutes)}>
+            {peakAgeText(reading)}
           </b>
           <small className="brMetricSub">
-            {reading.minutesWithoutNewHigh !== null && reading.minutesWithoutNewHigh >= TOP_MIN_NO_NEW_HIGH_MINUTES
-              ? "topo preservado"
+            {reading.minutesWithoutNewHigh !== null
+              ? `${formatPreservedMinutes(reading.minutesWithoutNewHigh)} em candles fechados`
               : `meta ${TOP_MIN_NO_NEW_HIGH_MINUTES} min`}
           </small>
         </div>
@@ -223,25 +216,24 @@ export function BtcTopRadar({
           <span>Mínima de origem: <b>{fmtPrice(reading.originLow)}</b></span>
           <span>Máxima monitorada: <b>{fmtPrice(reading.maximum)}</b></span>
           <span>Alta até o topo: <b>{fmtPct(reading.riseToPeakPct, true)}</b></span>
-          <span>Valorização líquida 12h: <b>{fmtPct(reading.rise12hPct, true)}</b></span>
-          <span>
-            Idade do topo: <b>{peakAgeText(reading)}</b>
-            {" · "}
-            <b className={peakEligibilityTone(reading)}>{peakEligibilityText(reading)}</b>
-          </span>
+          <span>Fechamento 15m (base do recuo): <b>{fmtPrice(reading.lastClose15m)}</b></span>
+          <span>Janela do topo: <b className={peakEligibilityTone(reading)}>{peakEligibilityText(reading)}</b></span>
           <span>EMA9 15m: <b>{fmtPrice(reading.ema9_15m)}</b></span>
           <span>EMA9 1H: <b>{fmtPrice(reading.ema9_1h)}</b></span>
         </div>
-        <div className="brCurrentPrice" aria-label="Cotação atual do Bitcoin">
+        <div className="brCurrentPrice" aria-label="Preço de fechamento do último candle de 15 minutos do Bitcoin">
           <div className="brQuoteLine">
-            <span className="brQuoteAsset">BTC:</span>
-            <b className={quoteTone(dailyChangePct)}>{fmtCurrentPrice(displayedPrice)}</b>
-            {dailyChangePct !== null && Number.isFinite(dailyChangePct) ? (
-              <small className={`brDailyChange ${changeTone(dailyChangePct)}`}>
-                {fmtDailyChange(dailyChangePct)}
-              </small>
-            ) : null}
+            <span className="brQuoteAsset">BTC · fechamento 15m:</span>
+            <b>{fmtCurrentPrice(referencePrice)}</b>
           </div>
+          {validLivePrice !== null && (
+            <div className="brSpotReference">
+              <span>Spot ao vivo (informativo): ${fmtCurrentPrice(validLivePrice)}</span>
+              {dailyChangePct !== null && Number.isFinite(dailyChangePct) && (
+                <small className={changeTone(dailyChangePct)}> {fmtDailyChange(dailyChangePct)} em 24h</small>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -257,7 +249,9 @@ export function BtcTopRadar({
           <b>
             {reading.state === "NEUTRAL"
               ? "alta relevante não atendida"
-              : `${criteriaMet}/5 critérios · 1H ${reading.h1Filter.met ? "aprovado" : "reprovado"}`}
+              : reading.originLost
+                ? `${criteriaMet}/5 critérios históricos · origem perdida`
+                : `${criteriaMet}/5 critérios · 1H ${reading.h1Filter.met ? "aprovado" : "reprovado"}`}
           </b>
         </summary>
         <div className="trDiagBody">
@@ -284,7 +278,9 @@ export function BtcTopRadar({
             <p className="trDiagVerdict">
               {reading.state === "NEUTRAL"
                 ? "A contagem acima é apenas auditoria dos critérios técnicos; ela não representa confirmação de topo enquanto a alta relevante não for atendida."
-                : `Critérios técnicos atendidos: ${criteriaMet} de 5. A confirmação exige todos e o filtro estrutural 1H.`}
+                : reading.originLost
+                  ? `Critérios históricos: ${criteriaMet} de 5. A mínima de origem foi perdida em fechamento de 15m; não há novo gatilho.`
+                  : `Critérios técnicos atendidos: ${criteriaMet} de 5. A confirmação exige todos e o filtro estrutural 1H.`}
             </p>
           </section>
 
@@ -312,7 +308,7 @@ export function BtcTopRadar({
       </details>
 
       <p className="brNote">
-        Apenas candles fechados de 15m e 1h · Binance spot · atualização a cada 60s · não é recomendação,
+        Indicadores e ação: apenas candles fechados de 15m e 1h · cotação spot separada e informativa · Binance · atualização a cada 60s · não é recomendação,
         não executa ordens e não afirma reversão definitiva da tendência.
       </p>
     </article>
