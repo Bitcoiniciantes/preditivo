@@ -27,15 +27,15 @@ function assert(condition: boolean, msg: string) {
 // ── Teste 1: RegimeDetector — histerese sob oscilação ──
 console.log('\n=== Teste 1: RegimeDetector histerese ===');
 
-const regime = new RegimeDetector({ windowSeconds: 60, minSamples: 3, baseThreshold: 0.05, volatilityFactor: 2.0, confirmationThreshold: 3 });
+const regime = new RegimeDetector({ windowSeconds: 60, minSamples: 3, baseThreshold: 0.05, volatilityFactor: 5.0, confirmationEnter: 3, confirmationExit: 5 });
 const basePrice = 77000;
 let regimeChanges = 0;
 let lastRegime = 'RANGE';
 
-// Simular 30 preços estáveis (confidence vai subir)
+// Simular 30 preços estáveis (determinístico — sem Math.random)
 console.log('Fase 1: 30 preços estáveis em torno de 77000...');
 for (let i = 0; i < 30; i++) {
-  const price = basePrice + (Math.random() - 0.5) * 10; //振幅 ±5
+  const price = basePrice + ((i % 5) - 2); // ±2 determinístico
   const result = regime.evaluate(price, Date.now() + i * 1000);
   if (result.regime !== lastRegime) {
     regimeChanges++;
@@ -62,13 +62,13 @@ for (let i = 0; i < 30; i++) {
 }
 assert(regimeChanges === 0, `Fase 2: 0 false regime changes na oscilação (recebeu ${regimeChanges})`);
 
-// Tendência clara — deve confirmar BULL_TREND
-console.log('\nFase 3: Tendência clara de alta (subindo 2 por tick)...');
+// Tendência clara — deve confirmar BULL_TREND (calibrada para volatilityFactor 5.0)
+console.log('\nFase 3: Tendência clara de alta (subindo 6 por tick)...');
 regimeChanges = 0;
 lastRegime = regime.evaluate(basePrice, Date.now() + 60000).regime;
 
-for (let i = 0; i < 20; i++) {
-  const price = basePrice + 100 + i * 2;
+for (let i = 0; i < 30; i++) {
+  const price = basePrice + 100 + i * 6;
   const result = regime.evaluate(price, Date.now() + (60 + i) * 1000);
   if (result.regime !== lastRegime) {
     regimeChanges++;

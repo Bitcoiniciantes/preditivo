@@ -48,7 +48,19 @@ next-env.d.ts
 /services/market-ingestion/daemon.err
 /services/market-ingestion/daemon-err.log
 /services/market-ingestion/data/
+/services/logs/
 /npx @deepseek-aidsh web/
 
+# monitor operacional R6 — artefato regenerado a cada 5 min (não versionar)
+/public/r6-status.json
+# monitor operacional F2-v1 — artefato regenerado a cada ciclo de coleta (não versionar)
+/public/fase2-status.json
+# painel definitivo — artefato gerado por scripts/painel-status.mjs (não versionar, nunca editar à mão)
+/public/painel-status.json
+
+# produto preditivo V1 — dataset derivado e venv de referência (não versionar; fixtures SIM)
+/data/*.db
+/data/*.db-journal
+/reference/.venv/
 # editor
 /.vscode/

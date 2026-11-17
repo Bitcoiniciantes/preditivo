@@ -7,6 +7,7 @@
     "dev": "tsx watch --env-file=../../.env src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "start:supervised": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/supervise-daemon.ps1",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

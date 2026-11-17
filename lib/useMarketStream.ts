@@ -35,6 +35,7 @@ export type MarketStreamData = {
   absorption_intensity: number;
   score: number;
   score_quality: number;
+  longShort?: Record<string, { ratio: number; longPct: number; shortPct: number; period: string; updatedAt: number; fetchedAt: number } | null> | null;
   events: { type: string; magnitude: number; direction: string; timestamp: number }[];
   dbStats?: DbStats;
   quality: { ws: string; oi: string; funding: string };

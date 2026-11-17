@@ -696,3 +696,103 @@ footer{border-top:2px solid #344a40;background:#0d1512;box-shadow:inset 0 1px 0 
 .positionTitle .positionTitleRow{display:flex;flex-direction:row;align-items:center;gap:10px;min-width:0;flex:1}
 .positionTitle .positionTitleRow .positionToggle{flex:none}
 .positionTitle .positionTitleRow>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* ── PAINEL DEFINITIVO — refinamento visual (só apresentação; escopo: #painel-definitivo) ── */
+#painel-definitivo .pdefStatus{display:flex;flex-direction:column;gap:2px;border:1px solid var(--line);border-left-width:3px;border-radius:6px;padding:8px 12px;margin-bottom:8px;background:#0a1612}
+#painel-definitivo .pdefStatus b{font-size:11px;font-family:var(--font-geist-mono);letter-spacing:.04em}
+#painel-definitivo .pdefStatus span{font-size:9px;color:var(--muted)}
+#painel-definitivo .pdefStatus.ok{border-left-color:var(--lime)}
+#painel-definitivo .pdefStatus.ok b{color:var(--lime)}
+#painel-definitivo .pdefStatus.warn{border-left-color:#f0ad4e}
+#painel-definitivo .pdefStatus.warn b{color:#f0ad4e}
+#painel-definitivo .pdefStatus.bad{border-left-color:var(--red)}
+#painel-definitivo .pdefStatus.bad b{color:var(--red)}
+#painel-definitivo .pdefBadge{display:inline-block;align-self:flex-start;font-size:13px;font-family:var(--font-geist-mono);font-weight:800;letter-spacing:.04em;padding:3px 10px;border:1px solid currentColor;border-radius:4px;background:rgba(255,255,255,.03)}
+#painel-definitivo .pdefBarTrack{height:6px;background:#1a2621;border-radius:3px;overflow:hidden;margin:3px 0 1px}
+#painel-definitivo .pdefBarFill{display:block;height:100%;border-radius:3px}
+#painel-definitivo .pdefHist i{width:6px;height:6px;border-radius:50%;flex:none}
+#painel-definitivo .pdefHist.is-regime b{font-weight:800;color:var(--paper)}
+#painel-definitivo .pdefHist:not(.is-regime) b{font-weight:400;color:var(--muted)}
+/* ── INDICADOR ÚNICO (Fase 1A) — só apresentação; escopo: #indicador-unico ── */
+#indicador-unico .iuStatus{display:flex;flex-direction:column;gap:2px;border:1px solid var(--line);border-left-width:3px;border-radius:6px;padding:8px 12px;margin-bottom:8px;background:#0a1612}
+#indicador-unico .iuStatus b{font-size:11px;font-family:var(--font-geist-mono);letter-spacing:.04em}
+#indicador-unico .iuStatus span{font-size:9px;color:var(--muted)}
+#indicador-unico .iuStatus.ok{border-left-color:var(--lime)}
+#indicador-unico .iuStatus.ok b{color:var(--lime)}
+#indicador-unico .iuStatus.warn{border-left-color:#f0ad4e}
+#indicador-unico .iuStatus.warn b{color:#f0ad4e}
+#indicador-unico .iuStatus.bad{border-left-color:var(--red)}
+#indicador-unico .iuStatus.bad b{color:var(--red)}
+#indicador-unico .iuBadge{display:inline-block;align-self:flex-start;font-size:13px;font-family:var(--font-geist-mono);font-weight:800;letter-spacing:.04em;padding:3px 10px;border:1px solid currentColor;border-radius:4px;background:rgba(255,255,255,.03)}
+#indicador-unico .iuBarTrack{height:6px;background:#1a2621;border-radius:3px;overflow:hidden;margin:3px 0 1px}
+#indicador-unico .iuBarFill{display:block;height:100%;border-radius:3px}
+#indicador-unico .iuHist i{width:6px;height:6px;border-radius:50%;flex:none}
+#indicador-unico .iuHist.is-regime b{font-weight:800;color:var(--paper)}
+#indicador-unico .iuHist:not(.is-regime) b{font-weight:400;color:var(--muted)}
+
+/* ── EXPERIMENTO V1 — ENCERRADO (isolado, fora da hierarquia principal) ── */
+#experimento-v1-encerrado{padding:4px 0 20px;opacity:.92}
+#experimento-v1-encerrado .cardTitle span{color:var(--muted)}
+
+/* ── DESIGN SYSTEM DO SUPER PAINEL (Pós-V1) — só apresentação ──
+   Tokens: reaproveita --ink/--panel/--line/--muted/--lime/--cyan/--red/--paper.
+   Acentos: laranja bitcoin #f4a52c · âmbar #f0ad4e · roxo #9b70ed · aço #8ea3b7. */
+:root{
+  --spu-accent:#f4a52c;
+  --spu-amber:#f0ad4e;
+  --spu-purple:#9b70ed;
+  --spu-steel:#8ea3b7;
+  --spu-card:#0d1512;
+  --spu-radius:6px;
+}
+#super-painel-unificado{padding:4px 0 20px}
+#super-painel-unificado .spuLayout{display:grid;grid-template-columns:172px minmax(0,1fr);gap:12px;align-items:start}
+#super-painel-unificado .spuSide{position:sticky;top:86px;display:flex;flex-direction:column;gap:2px;border:1px solid var(--line);border-radius:var(--spu-radius);background:var(--spu-card);padding:10px}
+#super-painel-unificado .spuSide a{font-size:10px;letter-spacing:.06em;text-decoration:none;color:var(--muted);padding:6px 8px;border-radius:4px}
+#super-painel-unificado .spuSide a:hover{color:var(--paper);background:#ffffff08}
+#super-painel-unificado .spuSide a em{font-style:normal;font-size:8px;color:var(--muted)}
+#super-painel-unificado .spuSide .spuSideClosed{color:var(--spu-amber);border:1px dashed #f0ad4e66;margin-top:6px}
+#super-painel-unificado .spuMain{min-width:0;display:flex;flex-direction:column;gap:10px}
+#super-painel-unificado .spuHead{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;padding:12px 14px;border:1px solid var(--line);border-left:3px solid var(--spu-accent);border-radius:var(--spu-radius);background:var(--spu-card)}
+#super-painel-unificado .spuPrice{display:flex;flex-direction:column;gap:4px;min-width:220px}
+#super-painel-unificado .spuPrice b{font-size:34px;font-family:var(--font-geist-mono),monospace;letter-spacing:-.02em}
+/* Escala tipográfica do Super Painel (só aqui; demais painéis intactos) */
+#super-painel-unificado .obsLabel{font-size:10px;letter-spacing:.14em}
+#super-painel-unificado .obsState{font-size:12px}
+#super-painel-unificado .obsState b{font-size:15px;font-weight:800}
+#super-painel-unificado .obsHint{font-size:10px}
+#super-painel-unificado .spuBadge{font-size:16px}
+#super-painel-unificado .spuConn{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+#super-painel-unificado .spuLiveBadge{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:900;letter-spacing:.08em;padding:4px 10px;border-radius:4px;border:1px solid currentColor;white-space:nowrap}
+#super-painel-unificado .spuLiveBadge i{width:8px;height:8px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor}
+#super-painel-unificado .spuSrcDots{display:inline-flex;gap:10px;font-size:9px;color:var(--muted)}
+#super-painel-unificado .spuSrcDots em{display:inline-flex;align-items:center;gap:4px;font-style:normal;font-weight:700;letter-spacing:.05em}
+#super-painel-unificado .spuSrcDots i{width:7px;height:7px;border-radius:50%}
+#super-painel-unificado .spu-green{color:var(--lime)}
+#super-painel-unificado .spu-orange{color:var(--spu-amber)}
+#super-painel-unificado .spu-red{color:var(--red)}
+#super-painel-unificado .spuRegime{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+#super-painel-unificado .spuBadge{display:inline-block;font-size:15px;font-weight:800;letter-spacing:.04em;padding:4px 12px;border:1px solid currentColor;border-radius:4px;background:rgba(255,255,255,.03)}
+#super-painel-unificado .spuWide{grid-column:1/-1}
+#super-painel-unificado .spuEvent{display:flex;align-items:center;gap:8px}
+#super-painel-unificado .spuEvent i{width:8px;height:8px;border-radius:50%;flex:none}
+#super-painel-unificado .spuEvent>span{flex:0 0 auto;font-size:11px;color:var(--muted)}
+#super-painel-unificado .spuEvent b{flex:0 1 auto;font-size:12px;font-weight:600;color:var(--paper)}
+#super-painel-unificado .spuEvent em{font-style:normal;font-size:8px;font-weight:800;letter-spacing:.06em;margin-left:8px;white-space:nowrap;padding:2px 7px;border-radius:3px;border:1px solid currentColor}
+#super-painel-unificado .spuGauge{display:flex;align-items:center;gap:12px;margin:8px 0 6px}
+#super-painel-unificado .spuGauge svg{width:64px;height:64px;flex:none}
+#super-painel-unificado .spuGaugeTrack{stroke:#3a4a42}
+#super-painel-unificado .spuGaugeText{font-size:11px;font-weight:800;fill:var(--paper);font-family:var(--font-geist-mono),monospace}
+#super-painel-unificado .spuGauge span{font-size:9px;color:var(--muted)}
+#super-painel-unificado .spuSpark{width:100%;height:32px;display:block;margin:2px 0}
+#super-painel-unificado .spuImbBar{margin:30px 0 8px;overflow:visible}
+#super-painel-unificado .spuImbTrack{position:relative;height:16px;border-radius:8px;background:linear-gradient(90deg,var(--red) 0%,#3a4441 50%,var(--lime) 100%)}
+#super-painel-unificado .spuImbTrack i{position:absolute;top:-4px;width:5px;height:24px;background:#fff;border-radius:3px;transform:translateX(-50%);box-shadow:0 0 8px #ffffff88}
+#super-painel-unificado .spuImbPin{position:absolute;top:-24px;transform:translateX(-50%);font-size:12px;font-weight:800;font-family:var(--font-geist-mono),monospace;color:var(--paper);background:#0d1512;border:1px solid var(--line);border-radius:4px;padding:1px 6px;white-space:nowrap}
+#super-painel-unificado .spuImbScale{display:flex;justify-content:space-between;align-items:center;font-size:9px;font-weight:800;letter-spacing:.1em;color:#c7d0cb;margin-top:5px}
+#super-painel-unificado .spuLegend{color:var(--muted);font-size:9px}
+@media(max-width:900px){
+  #super-painel-unificado .spuLayout{grid-template-columns:minmax(0,1fr)}
+  #super-painel-unificado .spuSide{position:static;flex-direction:row;flex-wrap:wrap;align-items:center}
+  #super-painel-unificado .spuSide .obsLabel{width:100%}
+  #super-painel-unificado .spuHead{flex-direction:column;align-items:stretch}
+}

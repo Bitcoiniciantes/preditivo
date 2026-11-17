@@ -1,0 +1,303 @@
+/* app/radar-reversal.css — abas do RADAR DE REVERSÃO e diagnóstico do
+   CAÇA-TOPOS. Todo o escopo fica dentro de .radarReversal/.topRadar para não
+   alterar o Caça-Fundos nem outros cards do dashboard. */
+
+.radarReversal {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.rrShell {
+  overflow: hidden;
+  background: #0b1512;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.rrHead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 16px 11px;
+}
+.rrHeadMain {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.rrKicker {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .16em;
+}
+.rrTitle {
+  margin: 0;
+  color: var(--paper);
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: -.01em;
+  line-height: 1.2;
+}
+.rrSource {
+  flex: none;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  white-space: nowrap;
+}
+
+.rrTabs {
+  display: flex;
+  gap: 6px;
+  padding: 0 16px 12px;
+}
+.rrTab {
+  position: relative;
+  min-height: 36px;
+  padding: 8px 14px;
+  border: 1px solid #31413a;
+  border-radius: 6px;
+  background: #0a110f;
+  color: #9ba8a2;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .1em;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+.rrTab:hover {
+  border-color: #5d7a6a;
+  color: var(--paper);
+}
+.rrTab[aria-selected="true"] {
+  border-color: var(--lime);
+  background: #54b85a18;
+  color: #7ad881;
+  box-shadow: inset 0 -2px 0 var(--lime);
+}
+.rrTab:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+.rrPanel[hidden] {
+  display: none !important;
+}
+
+/* ── Caça-Topos ─────────────────────────────────────────────────────────── */
+
+.topRadar .brTitle {
+  letter-spacing: 0;
+}
+.topRadar .trDrawdownTrack em {
+  background: #ffffffcc;
+}
+.topRadar .trDrawdownTrack i {
+  min-width: 2px;
+}
+
+.trDiag {
+  margin: 10px 18px 0;
+  border-top: 1px solid #1b2722;
+}
+.trDiag > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .12em;
+  cursor: pointer;
+  list-style: none;
+}
+.trDiag > summary::-webkit-details-marker {
+  display: none;
+}
+.trDiag > summary::after {
+  content: "›";
+  flex: none;
+  color: var(--br-tone);
+  font-size: 16px;
+  line-height: 1;
+  transform: rotate(90deg);
+  transition: transform .15s ease;
+}
+.trDiag[open] > summary::after {
+  transform: rotate(-90deg);
+}
+.trDiag > summary b {
+  margin-left: auto;
+  color: var(--br-tone);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .06em;
+  white-space: nowrap;
+}
+.trDiagBody {
+  display: grid;
+  gap: 12px;
+  padding: 0 0 12px;
+}
+.trDiagGroup {
+  min-width: 0;
+}
+.trDiagGroup h4 {
+  margin: 0 0 6px;
+  color: #b6c2bc;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .12em;
+}
+.trList {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.trList li {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+  padding: 8px 9px;
+  border: 1px solid #1d2925;
+  border-radius: 6px;
+  background: #0a110f;
+}
+.trList li.trOk {
+  border-color: #2f5b3c;
+}
+.trList li.trNo {
+  border-color: #4a3032;
+}
+.trMark {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1;
+}
+.trOk .trMark {
+  background: #54b85a22;
+  color: #7ad881;
+}
+.trNo .trMark {
+  background: #ff5b6718;
+  color: #ff8991;
+}
+.trText {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.trText b {
+  color: #dbe5e0;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+.trText small {
+  color: #7f8d86;
+  font-size: 8px;
+  line-height: 1.35;
+}
+.trList em {
+  align-self: center;
+  color: #aebbb4;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 800;
+  text-align: right;
+  white-space: nowrap;
+}
+.trOk em {
+  color: #8ee39a;
+}
+.trNo em {
+  color: #ff9ba4;
+}
+.trDiagVerdict {
+  margin: 7px 0 0;
+  color: #8d9a94;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+  .rrHead {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 14px 9px;
+  }
+  .rrTitle {
+    font-size: 14px;
+  }
+  .rrSource {
+    white-space: normal;
+  }
+  .rrTabs {
+    padding: 0 14px 10px;
+  }
+  .rrTab {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 6px;
+    font-size: 9px;
+  }
+  .trDiag {
+    margin: 9px 14px 0;
+  }
+  .trDiag > summary {
+    gap: 8px;
+    font-size: 8px;
+  }
+  .trDiag > summary b {
+    font-size: 7px;
+  }
+  .trList li {
+    grid-template-columns: 16px minmax(0, 1fr);
+  }
+  .trList em {
+    grid-column: 2;
+    justify-self: start;
+    text-align: left;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 400px) {
+  .rrTab {
+    letter-spacing: .06em;
+  }
+  .trDiag > summary {
+    flex-wrap: wrap;
+  }
+  .trDiag > summary b {
+    margin-left: 0;
+  }
+  .trText b {
+    font-size: 8.5px;
+  }
+  .trText small {
+    font-size: 7.5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rrTab,
+  .trDiag > summary::after {
+    transition: none;
+  }
+}

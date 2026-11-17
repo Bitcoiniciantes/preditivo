@@ -129,6 +129,8 @@ const PainelColoridoIa = dynamic(
 );
 
 const PC_AI_ENABLED = process.env.NEXT_PUBLIC_PC_AI_ENABLED === "1";
+const PC_HISTORY_ENABLED = process.env.NEXT_PUBLIC_PC_HISTORY_ENABLED !== "0";
+const HIST_PAUSADO = "Histórico pausado";
 
 // Timeframe do gráfico → período efetivo da API Long/Short (contas).
 // 1m e 1W não existem na API: usam 5m e 1d. 30m fica no cache do daemon
@@ -162,6 +164,10 @@ export function PainelColorido() {
   }, []);
 
   useEffect(() => {
+    if (!PC_HISTORY_ENABLED) {
+      setHist(null);
+      return;
+    }
     let active = true;
     const load = async () => {
       try {
@@ -192,7 +198,7 @@ export function PainelColorido() {
   const lsFetchedAt = ls ? (ls.fetchedAt ?? ls.updatedAt) : null;
   const lsAge = lsFetchedAt !== null ? now - lsFetchedAt : null;
   const lsStale = lsAge !== null && lsAge > LS_STALE_MS;
-  const alertas = derivarAlertas(data, hist, now);
+  const alertas = derivarAlertas(data, PC_HISTORY_ENABLED ? hist : null, now);
   const visiveis = alertas.filter((a) =>
     tab === "TODOS" ? true : tab === "ATIVOS" ? a.ativo : tab === "ENCERRADOS" ? a.nivel === "ENCERRADO" : a.nivel === "INFORMATIVO");
   // Subseção "Últimas divergências" (somente apresentação): filtra o hist.recent
@@ -244,8 +250,8 @@ export function PainelColorido() {
                 <div><PcGauge value={data ? Math.min(100, data.regime_volatility * 1000) : 0} tone={COR_TOM.range} /><small title="Índice visual normalizado (volatilidade × 1000), não porcentagem física.">Volatilidade (índice)</small></div>
               </div>
               <div className="pc-kv"><span>Tempo no Estado</span><b>{sess.since.regime ? haQuanto(sess.since.regime, now) : "—"}</b></div>
-              <div className="pc-kv"><span>Duração média</span><b>{hist?.durations?.[data?.regime ?? ""] ? (hist.durations[data?.regime ?? ""].avgMin < 1 ? "<1min" : `~${hist.durations[data?.regime ?? ""].avgMin}min`) : "—"}</b></div>
-              <div className="pc-kv"><span>Mudanças (24h)</span><b>{hist ? hist.regimeChanges24h : "—"}</b></div>
+              <div className="pc-kv"><span>Duração média</span><b>{!PC_HISTORY_ENABLED ? HIST_PAUSADO : hist?.durations?.[data?.regime ?? ""] ? (hist.durations[data?.regime ?? ""].avgMin < 1 ? "<1min" : `~${hist.durations[data?.regime ?? ""].avgMin}min`) : "—"}</b></div>
+              <div className="pc-kv"><span>Mudanças (24h)</span><b>{!PC_HISTORY_ENABLED ? HIST_PAUSADO : hist ? hist.regimeChanges24h : "—"}</b></div>
             </section>
 
             <section className="pc-card" id="pc-fluxo">
@@ -328,7 +334,9 @@ export function PainelColorido() {
                 <table className="pc-table"><thead><tr><th>TIPO</th><th>DURAÇÃO</th><th>INÍCIO</th><th>STATUS</th></tr></thead>
                   <tbody><tr><td>Fluxo vs Preço</td><td className="pc-div-dur">{sess.since.div ? haQuanto(sess.since.div, now) : "—"}</td><td>{sess.since.div ? fmtHora(sess.since.div) : "—"}</td><td className="pc-div-status">ATIVA</td></tr></tbody></table>
               ) : <span className="pc-empty">Nenhuma divergência ativa.</span>}
-              {divHistorico !== null && (
+              {!PC_HISTORY_ENABLED ? (
+                <span className="pc-empty">{HIST_PAUSADO}.</span>
+              ) : divHistorico !== null && (
                 divHistorico.length > 0 ? (
                   <>
                     <span className="pc-sub">ÚLTIMAS DIVERGÊNCIAS</span>
@@ -345,8 +353,8 @@ export function PainelColorido() {
               <span className="pc-label">SAÚDE DA COLETA</span>
               <div className="pc-kv"><span>Conexão</span><b>{quality.ws}</b></div>
               <div className="pc-kv"><span>Stream</span><b>{live ? "Ativo" : "Inativo"}</b></div>
-              <div className="pc-kv"><span>Snapshots</span><b>{data?.dbStats ? data.dbStats.snapshots.toLocaleString("pt-BR") : "—"}</b></div>
-              <div className="pc-kv"><span>Gaps &gt;3min</span><b>{data?.dbStats ? data.dbStats.gaps3min : "—"}</b></div>
+              <div className="pc-kv"><span>Snapshots</span><b>{!PC_HISTORY_ENABLED ? HIST_PAUSADO : data?.dbStats ? data.dbStats.snapshots.toLocaleString("pt-BR") : "—"}</b></div>
+              <div className="pc-kv"><span>Gaps &gt;3min</span><b>{!PC_HISTORY_ENABLED ? HIST_PAUSADO : data?.dbStats ? data.dbStats.gaps3min : "—"}</b></div>
               <div className="pc-kv"><span>Idade dos dados</span><b>{live && data ? haQuanto(data.ts, now) : "—"}</b></div>
             </section>
           </div>
@@ -355,7 +363,9 @@ export function PainelColorido() {
           <section className="pc-card" id="pc-timeline">
             <span className="pc-label">TIMELINE DE EVENTOS</span>
             <div className="pc-tl">
-              {hist && hist.recent.length > 0 ? hist.recent.slice(0, 14).map((e, i) => (
+              {!PC_HISTORY_ENABLED ? (
+                <span className="pc-empty">{HIST_PAUSADO}.</span>
+              ) : hist && hist.recent.length > 0 ? hist.recent.slice(0, 14).map((e, i) => (
                 <div className="pc-tlitem" key={i}><b>{fmtHora(new Date(e.t).getTime())}</b><span>{acaoEvento(e.type) ?? e.type}</span><small>{rotuloDestinoEvento(e.type, e.to)}</small></div>
               )              ) : <span className="pc-empty">Aguardando histórico…</span>}
             </div>

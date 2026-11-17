@@ -19,6 +19,52 @@ let retries = 0;
 let marketRetries = 0;
 let handler: BinanceStreamHandler;
 
+// ── Métricas de observabilidade WS (P0 confiabilidade — só diagnóstico, sem
+// mudança de fonte/roteamento). Distingue as duas conexões: base + market/aggTrade.
+export type WsConnMetrics = {
+  lastConnectAt: number;
+  lastCloseAt: number;
+  lastErrorAt: number;
+  lastError: string;
+  reconnects: number;
+  lastCloseCode: number;
+  lastCloseReason: string;
+};
+
+export const wsMetrics = {
+  lastTradeAt: 0,
+  lastDepthAt: 0,
+  lastTickerAt: 0,
+  base: {
+    lastConnectAt: 0,
+    lastCloseAt: 0,
+    lastErrorAt: 0,
+    lastError: '',
+    reconnects: 0,
+    lastCloseCode: 0,
+    lastCloseReason: '',
+  } as WsConnMetrics,
+  market: {
+    lastConnectAt: 0,
+    lastCloseAt: 0,
+    lastErrorAt: 0,
+    lastError: '',
+    reconnects: 0,
+    lastCloseCode: 0,
+    lastCloseReason: '',
+  } as WsConnMetrics,
+};
+
+export function getWsMetrics(): typeof wsMetrics {
+  return {
+    lastTradeAt: wsMetrics.lastTradeAt,
+    lastDepthAt: wsMetrics.lastDepthAt,
+    lastTickerAt: wsMetrics.lastTickerAt,
+    base: { ...wsMetrics.base },
+    market: { ...wsMetrics.market },
+  };
+}
+
 // Duas conexões (verificado 26/08, auditoria §20/§21):
 //   - base `/stream`: depth20 + bookTicker (NÃO entregam em /market);
 //   - `/market/ws`: @aggTrade (só entregue em /market).
@@ -51,6 +97,7 @@ function doConnect() {
 
   ws.on('open', () => {
     retries = 0;
+    wsMetrics.base.lastConnectAt = Date.now();
     handler.onStatusChange('live');
     console.log('[Binance WS] Base conectado (depth + bookTicker)');
   });
@@ -65,12 +112,17 @@ function doConnect() {
     }
   });
 
-  ws.on('close', () => {
+  ws.on('close', (code: number, reason: Buffer) => {
+    wsMetrics.base.lastCloseAt = Date.now();
+    wsMetrics.base.lastCloseCode = code ?? 0;
+    try { wsMetrics.base.lastCloseReason = reason?.toString() ?? ''; } catch { wsMetrics.base.lastCloseReason = ''; }
     handler.onStatusChange('disconnected');
     scheduleReconnect();
   });
 
   ws.on('error', (err: Error) => {
+    wsMetrics.base.lastErrorAt = Date.now();
+    wsMetrics.base.lastError = err?.message ?? String(err);
     console.error('[Binance WS] Base error:', err.message);
     ws?.close();
   });
@@ -86,6 +138,7 @@ function doConnectMarket() {
 
   marketWs.on('open', () => {
     marketRetries = 0;
+    wsMetrics.market.lastConnectAt = Date.now();
     console.log('[Binance WS] Market (aggTrade) conectado');
   });
 
@@ -98,12 +151,17 @@ function doConnectMarket() {
     }
   });
 
-  marketWs.on('close', () => {
+  marketWs.on('close', (code: number, reason: Buffer) => {
+    wsMetrics.market.lastCloseAt = Date.now();
+    wsMetrics.market.lastCloseCode = code ?? 0;
+    try { wsMetrics.market.lastCloseReason = reason?.toString() ?? ''; } catch { wsMetrics.market.lastCloseReason = ''; }
     console.warn('[Binance WS] Market (aggTrade) desconectado — whale events pausados até reconectar');
     scheduleReconnectMarket();
   });
 
   marketWs.on('error', (err: Error) => {
+    wsMetrics.market.lastErrorAt = Date.now();
+    wsMetrics.market.lastError = err?.message ?? String(err);
     console.error('[Binance WS] Market error:', err.message);
     marketWs?.close();
   });
@@ -116,16 +174,19 @@ function handleEvent(msg: Record<string, unknown>) {
   switch (event) {
     case 'aggTrade':
     case 'trade': {
+      wsMetrics.lastTradeAt = Date.now();
       const trade = parseAggTrade(msg);
       if (trade) handler.onTrade(trade);
       break;
     }
     case 'depthUpdate': {
+      wsMetrics.lastDepthAt = Date.now();
       const depth = parseDepth(msg);
       if (depth) handler.onDepth(depth);
       break;
     }
     case 'bookTicker': {
+      wsMetrics.lastTickerAt = Date.now();
       const price = parseTicker(msg);
       if (price > 0) handler.onTicker(price);
       break;
@@ -136,6 +197,7 @@ function handleEvent(msg: Record<string, unknown>) {
 function scheduleReconnect() {
   const delay = backoffDelay(retries, CONFIG.backoff);
   retries++;
+  wsMetrics.base.reconnects = retries;
   console.log(`[Binance WS] Reconnecting base in ${delay}ms (attempt ${retries})`);
   reconnectTimer = setTimeout(doConnect, delay);
 }
@@ -143,6 +205,7 @@ function scheduleReconnect() {
 function scheduleReconnectMarket() {
   const delay = backoffDelay(marketRetries, CONFIG.backoff);
   marketRetries++;
+  wsMetrics.market.reconnects = marketRetries;
   console.log(`[Binance WS] Reconnecting market in ${delay}ms (attempt ${marketRetries})`);
   marketReconnectTimer = setTimeout(doConnectMarket, delay);
 }

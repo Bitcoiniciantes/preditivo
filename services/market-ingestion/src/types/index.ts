@@ -151,6 +151,9 @@ export interface MarketSnapshot {
   absorption_intensity: number;
   score: number;
   score_quality: number;
+  /** Global Long/Short Account Ratio (Binance FAPI) por período — estado volátil,
+   *  opcional para compatibilidade retroativa com payloads antigos. */
+  longShort?: Record<string, { ratio: number; longPct: number; shortPct: number; period: string; updatedAt: number; fetchedAt: number } | null> | null;
   events: MarketEvent[];
   dbStats?: {
     snapshots: number;

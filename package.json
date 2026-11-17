@@ -11,12 +11,13 @@
     "dev:daemon": "cd services/market-ingestion && npm run dev",
     "build": "next build",
     "start": "next start",
-    "test": "node --test tests/rendered-html.test.mjs tests/analysis.test.mjs tests/bitcoin-buy.test.mjs tests/confluence.test.mjs tests/chart.test.mjs tests/live-price.test.mjs tests/positions.test.mjs",
+    "test": "node --test tests/rendered-html.test.mjs tests/analysis.test.mjs tests/bitcoin-buy.test.mjs tests/confluence.test.mjs tests/chart.test.mjs tests/live-price.test.mjs tests/positions.test.mjs tests/longshort.test.mjs tests/homepage-panels.test.mjs tests/fase2-v1.test.mjs tests/brake-radar.test.mjs tests/top-radar.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "audit:scores": "node scripts/audit-score-distribution.mjs",
     "build:pages": "next build"
   },
   "dependencies": {
+    "lightweight-charts": "^5.2.1",
     "next": "^16.3.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"

@@ -16,7 +16,12 @@ export interface RegimeDetectorConfig {
   minSamples: number;
   baseThreshold: number;
   volatilityFactor: number;
+  /** @deprecated alias de compatibilidade — use confirmationEnter/confirmationExit. */
   confirmationThreshold: number;
+  /** Leituras consecutivas para ENTRAR num trend saindo de RANGE. */
+  confirmationEnter: number;
+  /** Leituras consecutivas para SAIR de um trend (→ RANGE ou BULL↔BEAR direto). */
+  confirmationExit: number;
 }
 
 const DEFAULT_CONFIG: RegimeDetectorConfig = {
@@ -30,6 +35,10 @@ const DEFAULT_CONFIG: RegimeDetectorConfig = {
   // piso nas volatilidades observadas. baseThreshold INTENCIONALMENTE mantido em 0.05.
   volatilityFactor: 5.0,
   confirmationThreshold: 3,
+  // Histerese assimétrica 3→5 (fase operacional — "bom o suficiente"):
+  // entrada RANGE→TREND exige 3; saída de TREND (→RANGE ou BULL↔BEAR direto) exige 5.
+  confirmationEnter: 3,
+  confirmationExit: 5,
 };
 
 export class RegimeDetector {
@@ -41,6 +50,12 @@ export class RegimeDetector {
 
   constructor(config?: Partial<RegimeDetectorConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+    // Compatibilidade: se o chamador passou só o alias antigo, ele vale para
+    // ambas as direções. Se passou enter/exit explícitos, eles prevalecem.
+    if (config?.confirmationThreshold !== undefined) {
+      if (config.confirmationEnter === undefined) this.config.confirmationEnter = config.confirmationThreshold;
+      if (config.confirmationExit === undefined) this.config.confirmationExit = config.confirmationThreshold;
+    }
   }
 
   evaluate(currentPrice: number, timestamp: number): RegimeResult {
@@ -123,7 +138,14 @@ export class RegimeDetector {
       this.confirmationCount = 1;
     }
 
-    if (this.confirmationCount >= this.config.confirmationThreshold) {
+    // Histerese assimétrica 3→5:
+    // - currentRegime === 'RANGE' → ENTRADA em trend exige confirmationEnter (3);
+    // - currentRegime !== 'RANGE' → SAÍDA (→ RANGE ou transição direta BULL↔BEAR)
+    //   exige confirmationExit (5). Transição direta BULL↔BEAR é saída e exige 5.
+    const required = this.currentRegime === 'RANGE'
+      ? this.config.confirmationEnter
+      : this.config.confirmationExit;
+    if (this.confirmationCount >= required) {
       this.currentRegime = this.candidateRegime;
     }
   }

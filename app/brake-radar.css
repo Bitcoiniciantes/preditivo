@@ -1,0 +1,368 @@
+/* app/brake-radar.css — estilos escopados do RADAR DE FREIO DA QUEDA.
+   Tema escuro do dashboard; nada é aplicado a outros cards. */
+
+.brakeRadar {
+  --br-tone: #94a3b8;
+  /* Lavagem de fundo por estado: parte do canto superior e dissolve no fundo
+     original. Estados neutros (gray) repetem a base e não alteram nada. */
+  --br-base: #0b1512;
+  --br-wash: #0b1512;
+  --br-edge: var(--line);
+  position: relative;
+  overflow: hidden;
+  padding: 0 0 14px;
+  background-color: var(--br-base);
+  background-image: radial-gradient(130% 120% at 0% 0%, var(--br-wash) 0%, #0b151200 58%);
+  border: 1px solid var(--br-edge);
+  color: var(--paper);
+  font-variant-numeric: tabular-nums;
+}
+.brakeRadar.tone-green { --br-tone: #10b981; --br-wash: #10291f; --br-edge: #10b981; }
+.brakeRadar.tone-amber { --br-tone: #f59e0b; --br-wash: #28200f; --br-edge: #f59e0b; }
+.brakeRadar.tone-red { --br-tone: #ef4444; --br-wash: #251116; --br-edge: #ef4444; }
+.brakeRadar.tone-cyan { --br-tone: #38bdf8; --br-wash: #0c2330; --br-edge: #38bdf8; }
+.brakeRadar.tone-gray { --br-tone: #94a3b8; --br-wash: #0b1512; --br-edge: var(--line); }
+
+.brHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid #1b2722;
+}
+.brHeadMain {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.brTitle {
+  margin: 0;
+  color: var(--paper);
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: -.01em;
+  line-height: 1.2;
+}
+.brKicker {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .16em;
+  line-height: 1.4;
+}
+.brState {
+  margin: 0;
+  color: var(--br-tone);
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -.01em;
+  line-height: 1.15;
+}
+.brHeadSide {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex: none;
+}
+.brBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--br-tone);
+  border-radius: 999px;
+  background: #0a110f;
+  color: var(--br-tone);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .12em;
+  white-space: nowrap;
+}
+.brBadge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--br-tone);
+  box-shadow: 0 0 8px var(--br-tone);
+}
+.brUpdated {
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+
+.brMetrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 12px 18px 0;
+}
+.brMetric {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 12px;
+  background: #0a110f;
+  border: 1px solid #1d2925;
+  border-radius: 8px;
+}
+.brMetric > span {
+  min-height: 2.5em;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  line-height: 1.25;
+  white-space: normal;
+}
+.brMetric b {
+  color: var(--paper);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  line-height: 1;
+}
+.brMetricSub {
+  display: block;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .01em;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.brPreserveTrack {
+  position: relative;
+  height: 4px;
+  margin-top: 1px;
+  overflow: hidden;
+  background: #1b2823;
+  border-radius: 999px;
+}
+.brPreserveTrack i {
+  display: block;
+  height: 100%;
+  background: var(--br-tone);
+  border-radius: 999px;
+  transition: width .35s ease;
+}
+.brPreserveTrack em {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: #ffffff66;
+}
+.brPositive { color: #10b981 !important; }
+.brNegative { color: #ef4444 !important; }
+.brCaution { color: #f59e0b !important; }
+.brMuted { color: #8a9892 !important; }
+
+.brBarArea { padding: 14px 18px 0; }
+.brBarHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 7px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.brBarHead b {
+  color: var(--br-tone);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+/* Sem métrica válida, a trilha é omitida e sobra só o rótulo — nunca 0% falso. */
+.brBarAreaEmpty { padding-bottom: 2px; }
+.brBarAreaEmpty .brBarHead { margin-bottom: 0; }
+.brBarAreaEmpty .brBarHead span { letter-spacing: .04em; }
+.brBarTrack {
+  position: relative;
+  height: 7px;
+  overflow: hidden;
+  background: #1b2823;
+  border-radius: 999px;
+}
+.brBarTrack i {
+  display: block;
+  height: 100%;
+  background: var(--br-tone);
+  border-radius: 999px;
+  transition: width .35s ease;
+}
+.brBarTrack em {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #ffffffdd;
+}
+
+.brContext {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px 16px;
+  margin: 12px 18px 0;
+  padding: 10px 0;
+  border-top: 1px solid #1b2722;
+  border-bottom: 1px solid #1b2722;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+.brContextRefs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 12px;
+  min-width: 0;
+}
+.brContextRefs span + span::before {
+  content: "·";
+  margin-right: 9px;
+  color: #3b4a44;
+}
+.brContext b {
+  color: #dbe5e0;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.brCurrentPrice {
+  display: flex;
+  align-items: flex-end;
+  min-width: 170px;
+  text-align: right;
+}
+.brQuoteLine {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 8px;
+  white-space: nowrap;
+}
+.brQuoteAsset {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+.brCurrentPrice b {
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: -.035em;
+  line-height: .98;
+  white-space: nowrap;
+}
+.brCurrentPrice b small {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+.brDailyChange {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .02em;
+  line-height: 1.1;
+}
+
+.brAction {
+  margin: 12px 18px 0;
+  padding: 11px 13px;
+  background: #0a110f;
+  border: 1px solid #1d2925;
+  border-left: 3px solid var(--br-tone);
+  border-radius: 6px;
+}
+.brActionLabel {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--br-tone);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .16em;
+}
+.brAction b {
+  display: block;
+  color: var(--br-tone);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.45;
+}
+.brAction p {
+  margin: 6px 0 0;
+  color: #95a29c;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.brNote {
+  margin: 10px 18px 0;
+  color: #5f6d66;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+  .brHead {
+    flex-direction: column;
+    gap: 9px;
+    padding: 13px 14px 11px;
+  }
+  .brHeadSide {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .brState { font-size: 19px; }
+  /* Três blocos continuam lado a lado no celular: leitura imediata e card curto. */
+  .brMetrics { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 10px 14px 0; }
+  .brMetric { gap: 5px; padding: 8px 9px; }
+  .brMetric > span { min-height: 2.6em; font-size: 7px; letter-spacing: .04em; }
+  .brMetric b { font-size: 17px; }
+  .brMetricSub {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    font-size: 8px;
+    white-space: normal;
+  }
+  .brBarArea { padding: 12px 14px 0; }
+  .brContext { grid-template-columns: 1fr; margin: 10px 14px 0; gap: 8px; }
+  .brCurrentPrice { align-items: flex-start; min-width: 0; text-align: left; }
+  .brQuoteLine { justify-content: flex-start; }
+  .brQuoteAsset { font-size: 12px; }
+  .brCurrentPrice b { font-size: 30px; }
+  .brAction { margin: 10px 14px 0; }
+  .brNote { margin: 9px 14px 0; }
+}
+
+@media (max-width: 400px) {
+  .brMetric { padding: 8px; }
+  .brMetric > span { font-size: 6.5px; }
+  .brMetric b { font-size: 15px; }
+  .brMetricSub { font-size: 7.5px; }
+  .brContext { font-size: 9px; }
+  .brQuoteLine { gap: 6px; }
+  .brCurrentPrice b { font-size: 28px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brBarTrack i { transition: none; }
+}
+
+/* O widget embutido mantém o escopo original (Radar Compra × Venda). */
+.widgetEmbed .brakeRadar { display: none !important; }

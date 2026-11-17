@@ -1,5 +1,5 @@
 import { CONFIG } from './config.js';
-import { connectBinance } from './exchanges/binance/websocket.js';
+import { connectBinance, getWsMetrics } from './exchanges/binance/websocket.js';
 import { OrderBookManager } from './orderbook/manager.js';
 import { ImbalanceTracker } from './orderbook/imbalance.js';
 import { processTradeForCvd, getCvdState, resetCvd } from './flow/cvd.js';
@@ -7,6 +7,7 @@ import { classifyTrade } from './flow/classification.js';
 import { isValidPrice, resolveAbsorption } from './flow/absorption-resolve.js';
 import { pollOi, getOiState } from './derivatives/oi.js';
 import { pollFunding, getFundingState } from './derivatives/funding.js';
+import { pollLongShortAccountRatios, getLongShortState } from './derivatives/long-short.js';
 import { RegimeDetector } from './engine/regime.js';
 import { FlowRegimeDetector } from './engine/flow-regime.js';
 import { AbsorptionDetector } from './engine/absorption.js';
@@ -15,8 +16,11 @@ import { broadcast, startBroadcastServer } from './broadcast/websocket-server.js
 import { getLastSnapshot, setLastSnapshot } from './ia/snapshot-store.js';
 import { startPainelIaServer } from './ia/server.js';
 import { Worker } from 'node:worker_threads';
+import net from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
+import fs from 'node:fs';
+import path from 'node:path';
 import { cleanup as cleanupPersistence } from './orderbook/persistence.js';
 import type { MarketSnapshot, MarketEvent, DataQuality, NormalizedTrade } from './types/index.js';
 
@@ -25,6 +29,7 @@ import type { MarketSnapshot, MarketEvent, DataQuality, NormalizedTrade } from '
 // só envia mensagens (postMessage) e NUNCA executa SQLite/DatabaseSync.
 const DB_WORKER_IS_TS = /\.ts$/.test(fileURLToPath(import.meta.url));
 const dbWorker = new Worker(fileURLToPath(new URL(DB_WORKER_IS_TS ? './storage/db-worker.ts' : './storage/db-worker.js', import.meta.url)));
+const PERSISTENCE_ENABLED = process.env.PC_DISABLE_SQLITE !== '1';
 
 // Métricas do worker (FASE 1 — só performance, nada muda no comportamento analítico)
 let snapshotsSent = 0;
@@ -36,6 +41,11 @@ let lastSnapshotConfirmedTs = 0;
 type DbStats = ReturnType<typeof import('./storage/sqlite.js').SQLiteStorage.prototype.getDbStats>;
 let lastDbStats: DbStats | null = null;
 
+// ── Observabilidade do DB Worker (P0 — só diagnóstico, arquitetura preservada) ──
+let dbWorkerAlive = true;
+let lastDbMsgSent = '';
+let lastDbWorkerError = '';
+
 dbWorker.on('message', (msg: { type?: string; timestamp?: number; writeMs?: number; stats?: DbStats; operation?: string; error?: string }) => {
   switch (msg?.type) {
     case 'snapshot_saved': { snapshotsSaved++; lastSnapWriteMs = msg.writeMs ?? 0; lastSnapshotConfirmedTs = msg.timestamp ?? 0; break; }
@@ -44,19 +54,37 @@ dbWorker.on('message', (msg: { type?: string; timestamp?: number; writeMs?: numb
     case 'error': console.error(`[DB Worker] erro em ${msg.operation}: ${msg.error}`); break;
   }
 });
-dbWorker.on('error', (err) => console.error('[DB Worker] erro fatal:', err.message));
+dbWorker.on('error', (err) => {
+  dbWorkerAlive = false;
+  lastDbWorkerError = err?.message ?? String(err);
+  console.error('[DB Worker] erro fatal:', lastDbWorkerError);
+  writeCrashLogSync('db_worker_error', err);
+});
+dbWorker.on('exit', (code) => {
+  dbWorkerAlive = false;
+  console.error(`[DB Worker] exit inesperado (code=${code}) — snapshots/eventos não serão mais persistidos até restart`);
+  writeCrashLogSync('db_worker_exit', new Error(`DB Worker exit code=${code}`));
+});
 
 function dbSnapshot(snapshot: Parameters<typeof import('./storage/sqlite.js').SQLiteStorage.prototype.saveSnapshot>[0]): void {
+  if (!PERSISTENCE_ENABLED) return;
   snapshotsSent++;
+  lastDbMsgSent = 'snapshot';
   dbWorker.postMessage({ type: 'snapshot', snapshot });
 }
 function dbEvent(event: Parameters<typeof import('./storage/sqlite.js').SQLiteStorage.prototype.saveEvent>[0]): void {
+  if (!PERSISTENCE_ENABLED) return;
+  lastDbMsgSent = 'event';
   dbWorker.postMessage({ type: 'event', event });
 }
 function dbRegimeEvent(regimeEvent: Parameters<typeof import('./storage/sqlite.js').SQLiteStorage.prototype.saveRegimeEvent>[0]): void {
+  if (!PERSISTENCE_ENABLED) return;
+  lastDbMsgSent = 'regime_event';
   dbWorker.postMessage({ type: 'regime_event', regimeEvent });
 }
 function reqDbStats(): void {
+  if (!PERSISTENCE_ENABLED) return;
+  lastDbMsgSent = 'db_stats';
   dbWorker.postMessage({ type: 'db_stats' });
 }
 
@@ -94,12 +122,80 @@ const flowRegimeDetector = new FlowRegimeDetector();
 const absorptionDetector = new AbsorptionDetector();
 const events: MarketEvent[] = [];
 
+// ── P0 confiabilidade: captura global de crash (só diagnóstico, sem mudança analítica) ──
+// Toda exceção não tratada / rejeição sem tratamento é registrada de forma síncrona em
+// logs/daemon-crash.log (sobrevive ao encerramento) e o processo sai com código != 0
+// para que o supervisor reinicie. O erro NUNCA é escondido.
+function resolveCrashLogPath(): string {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  // src → <root>/logs ; dist → <root>/logs
+  const logsDir = DB_WORKER_IS_TS ? path.join(here, '../../logs') : path.join(here, '../logs');
+  return path.join(logsDir, 'daemon-crash.log');
+}
+
+function writeCrashLogSync(type: string, error: unknown, extra = ''): void {
+  try {
+    const err = error instanceof Error ? error : new Error(String(error));
+    const lines = [
+      `===== CRASH ${type} @ ${new Date().toISOString()} pid=${process.pid} =====`,
+      `message: ${err.message}`,
+      `stack: ${err.stack ?? '(sem stack)'}`,
+      `state: price=${currentPrice} ws=${wsStatus} regime=${lastRegime} flow=${lastFlowRegime} divergence=${lastDivergence} absorption=${lastAbsorptionState} absorptionPending=${absorptionResolutionPending}`,
+      `snapshots: sent=${snapshotsSent} saved=${snapshotsSaved} errors=${snapshotErrors} lastConfirmed=${lastSnapshotConfirmedTs ? new Date(lastSnapshotConfirmedTs).toISOString() : '-'}`,
+      `dbWorker: alive=${dbWorkerAlive} lastMsgSent=${lastDbMsgSent || '-'} lastError=${lastDbWorkerError || '-'}`,
+      ...(extra ? [`extra: ${extra}`] : []),
+    ];
+    const file = resolveCrashLogPath();
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.appendFileSync(file, lines.join('\n') + '\n');
+  } catch {
+    try { console.error(`[CrashLog] falha ao registrar crash ${type}:`, error); } catch { /* último recurso: nada a fazer */ }
+  }
+}
+
+process.on('uncaughtException', (err) => {
+  try { console.error('[FATAL] uncaughtException:', err); } catch { /* ignore */ }
+  writeCrashLogSync('uncaughtException', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  const err = reason instanceof Error ? reason : new Error(String(reason));
+  try { console.error('[FATAL] unhandledRejection:', err); } catch { /* ignore */ }
+  writeCrashLogSync('unhandledRejection', err);
+  process.exit(1);
+});
+
 // ── Init ──
-function main() {
+// Pre-flight operacional (P0 confiabilidade — nada analítico): garante instância
+// única ANTES de abrir WS/conexões. Se a porta já está ocupada, outra instância do
+// daemon está ativa → aborta com exit 3 (contrato com o supervisor: 3 = "já existe
+// instância", NÃO reiniciar). Evita o EADDRINUSE após trabalho já iniciado.
+function assertPortFree(port: number): Promise<void> {
+  return new Promise((resolve) => {
+    const probe = net.createServer();
+    probe.once('error', (err: NodeJS.ErrnoException) => {
+      if (err?.code === 'EADDRINUSE') {
+        console.error(`[BOOT] porta ${port} em uso — outra instância do daemon já ativa? Abortando (exit 3, sem restart).`);
+        try { void dbWorker.terminate(); } catch { /* ignore */ }
+        process.exit(3);
+      }
+      console.error(`[BOOT] falha ao sondar porta ${port}: ${err?.message ?? err} (exit 1).`);
+      process.exit(1);
+    });
+    probe.listen(port, () => {
+      probe.close(() => resolve());
+    });
+  });
+}
+
+async function main() {
   console.log('[Daemon] Starting market ingestion daemon...');
   console.log(`[Daemon] Symbol: ${CONFIG.symbol}`);
   console.log(`[Daemon] Broadcast port: ${CONFIG.wsPort}`);
   console.log(`[Daemon] Broadcast interval: ${CONFIG.intervals.broadcastMs}ms`);
+
+  await assertPortFree(CONFIG.wsPort);
 
   startBroadcastServer();
 
@@ -119,9 +215,20 @@ function main() {
   });
 
   setInterval(broadcastLoop, CONFIG.intervals.broadcastMs);
-  setInterval(pollDerivatives, 1000);
-  scheduleSnapshot();          // snapshots self-correcting (deadline absoluto de 60s)
+  // P0: nenhuma rejeição de pollDerivatives pode ficar sem tratamento (frequência inalterada: 1s).
+  setInterval(() => {
+    pollDerivatives().catch((error) => {
+      writeCrashLogSync('pollDerivatives', error);
+      throw error;
+    });
+  }, 1000);
+  if (PERSISTENCE_ENABLED) {
+    scheduleSnapshot();        // snapshots self-correcting (deadline absoluto de 60s)
+  } else {
+    console.log('[Daemon] Persistencia SQLite desativada (PC_DISABLE_SQLITE=1).');
+  }
   startMonitoring();           // Event Loop p99 + métricas SQLite
+  startHeartbeat();            // P0: heartbeat operacional leve a cada 10s (só console, sem WS)
   (globalThis as { __stopBinance?: () => void }).__stopBinance = stopBinance;
 
   setInterval(() => {
@@ -228,20 +335,48 @@ function handleStatusChange(status: 'connecting' | 'live' | 'reconnecting' | 'di
 async function pollDerivatives(): Promise<void> {
   const now = Date.now();
 
+  // P0: falha temporária de REST nunca pode matar o daemon (rejeição tratada aqui).
   if (now - lastOiPoll >= CONFIG.intervals.oiPollMs) {
     lastOiPoll = now;
-    await pollOi();
-    oiStatus = 'LIVE';
+    try {
+      await pollOi();
+      oiStatus = 'LIVE';
+    } catch (error) {
+      console.error('[Derivatives] OI poll error:', error instanceof Error ? error.message : String(error));
+    }
   }
 
   if (now - lastFundingPoll >= CONFIG.intervals.fundingPollMs) {
     lastFundingPoll = now;
-    await pollFunding();
-    fundingStatus = 'LIVE';
+    try {
+      await pollFunding();
+      fundingStatus = 'LIVE';
+    } catch (error) {
+      console.error('[Derivatives] Funding poll error:', error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  // Long/Short Account Ratio: throttle de 60s por período vive dentro do
+  // módulo (no máximo ~6 requests/minuto); não altera a cadência de OI/funding.
+  try {
+    await pollLongShortAccountRatios(now);
+  } catch (error) {
+    console.error('[Derivatives] Long/Short poll error:', error instanceof Error ? error.message : String(error));
   }
 }
 
+// P0: wrapper de proteção — registra contexto completo e NÃO mascara a exceção
+// (rethrow → handler global registra estado operacional e sai com código != 0).
 function broadcastLoop(): void {
+  try {
+    broadcastLoopInner();
+  } catch (error) {
+    writeCrashLogSync('broadcastLoop', error);
+    throw error;
+  }
+}
+
+function broadcastLoopInner(): void {
   const now = Date.now();
   if (now - lastBroadcast < CONFIG.intervals.broadcastMs) return;
   lastBroadcast = now;
@@ -392,7 +527,7 @@ function broadcastLoop(): void {
 
   // Painel observacional (Fase 1): estatísticas de acumulação do SQLite, atualizadas
   // no máximo a cada 5s — via Worker (token de leitura é delegado; nada pesado na Main Thread).
-  if (now - lastDbStatsAt >= 5_000) {
+  if (PERSISTENCE_ENABLED && now - lastDbStatsAt >= 5_000) {
     lastDbStatsAt = now;
     reqDbStats();
   }
@@ -418,6 +553,7 @@ function broadcastLoop(): void {
     absorption_intensity: absorptionResult.intensity,
     score,
     score_quality: quality,
+    longShort: getLongShortState(),
     events: [...events],
     dbStats: lastDbStats ?? undefined,
     quality: {
@@ -459,8 +595,9 @@ function buildAndSendSnapshot(): void {
     priceChange: 0,
   });
 
-  // SQLite agora é no Worker — só postMessage.
-  dbSnapshot({
+  if (PERSISTENCE_ENABLED) {
+    // SQLite agora é no Worker — só postMessage.
+    dbSnapshot({
     timestamp: now,
     symbol: CONFIG.symbol,
     price: currentPrice,
@@ -474,7 +611,8 @@ function buildAndSendSnapshot(): void {
     regime: regimeResult.regime,
   });
 
-  console.log(`[SQLite] Snapshot enviado ao DB worker (${new Date(now).toISOString()})`);
+    console.log(`[SQLite] Snapshot enviado ao DB worker (${new Date(now).toISOString()})`);
+  }
 }
 
 function scheduleSnapshot(): void {
@@ -492,7 +630,15 @@ function runSnapshot(): void {
   if (missedCycles > 1) {
     console.error(`[SNAPSHOT GAP] drift=${drift}ms missed=${missedCycles - 1}`);
   }
-  buildAndSendSnapshot();
+  // P0: protege a criação/envio do snapshot — registra erro + deadline + drift +
+  // estado operacional e NÃO mascara a exceção (rethrow → handler global).
+  try {
+    buildAndSendSnapshot();
+  } catch (error) {
+    console.error(`[Snapshot] build/send error: deadline=${nextSnapshotDeadline} drift=${drift}ms`);
+    writeCrashLogSync('runSnapshot', error, `deadline=${new Date(nextSnapshotDeadline).toISOString()} driftMs=${drift} missedCycles=${missedCycles}`);
+    throw error;
+  }
   scheduleSnapshot();
 }
 
@@ -514,6 +660,22 @@ function startMonitoring(): void {
     }
     eventLoopLag.reset();
   }, 60_000).unref();
+}
+
+// ── Heartbeat operacional (P0 — leve: 1 linha de console a cada 10s, sem tráfego WS) ──
+const HEARTBEAT_INTERVAL_MS = 10_000;
+const fmtTs = (ts: number): string => (ts ? new Date(ts).toISOString() : '-');
+
+function startHeartbeat(): void {
+  setInterval(() => {
+    const m = getWsMetrics();
+    console.log(
+      `[Heartbeat] ts=${new Date().toISOString()} pid=${process.pid} price=${currentPrice} ws=${wsStatus} ` +
+      `lastTradeAt=${fmtTs(m.lastTradeAt)} lastDepthAt=${fmtTs(m.lastDepthAt)} lastTickerAt=${fmtTs(m.lastTickerAt)} ` +
+      `lastBroadcastAt=${fmtTs(lastBroadcast)} lastSnapshotConfirmed=${fmtTs(lastSnapshotConfirmedTs)} ` +
+      `snapshotsSent=${snapshotsSent} snapshotsSaved=${snapshotsSaved} dbWorkerAlive=${dbWorkerAlive}`,
+    );
+  }, HEARTBEAT_INTERVAL_MS);
 }
 
 // ── Graceful shutdown (drenar Worker antes de encerrar) ──

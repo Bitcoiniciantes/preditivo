@@ -58,6 +58,32 @@ export async function fetchOpenInterest(): Promise<{ oi: number; timestamp: numb
   return { oi, timestamp: data.time };
 }
 
+// Períodos do Global Long/Short Account Ratio utilizados pelo projeto.
+// Conjunto fechado: 2h/6h/12h existem na API mas não são coletados (sem
+// timeframe correspondente no gráfico).
+export type LongShortPeriod = '5m' | '15m' | '30m' | '1h' | '4h' | '1d';
+
+export async function fetchLongShortAccountRatio(
+  period: LongShortPeriod,
+): Promise<{ ratio: number; longAccount: number; shortAccount: number; timestamp: number } | null> {
+  if (isRateLimited()) return null;
+
+  const url = `${CONFIG.restUrl}/futures/data/globalLongShortAccountRatio?symbol=${CONFIG.symbol}&period=${period}&limit=1`;
+  const data = await fetchJson<
+    { longShortRatio: string; longAccount: string; shortAccount: string; timestamp: number }[]
+  >(url);
+  if (!data || data.length === 0) return null;
+
+  const row = data[0];
+  const ratio = Number(row.longShortRatio);
+  const longAccount = Number(row.longAccount);
+  const shortAccount = Number(row.shortAccount);
+  if (!isFinite(ratio) || !isFinite(longAccount) || !isFinite(shortAccount)) return null;
+
+  const timestamp = typeof row.timestamp === 'number' && isFinite(row.timestamp) ? row.timestamp : Date.now();
+  return { ratio, longAccount, shortAccount, timestamp };
+}
+
 export async function fetchFundingRate(): Promise<{ rate: number; timestamp: number } | null> {
   if (isRateLimited()) return null;
 
