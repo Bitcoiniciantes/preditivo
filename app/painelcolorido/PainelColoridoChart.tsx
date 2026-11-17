@@ -82,9 +82,11 @@ export function PainelColoridoChart({ price, priceTs, tf, onTfChange }: { price:
   const showMARef = useRef(showMA);
   const showVolRef = useRef(showVol);
   const showRSIRef = useRef(showRSI);
-  showMARef.current = showMA;
-  showVolRef.current = showVol;
-  showRSIRef.current = showRSI;
+  useEffect(() => {
+    showMARef.current = showMA;
+    showVolRef.current = showVol;
+    showRSIRef.current = showRSI;
+  }, [showMA, showVol, showRSI]);
 
   // Cria o gráfico uma vez; recria ao trocar de timeframe.
   useEffect(() => {
