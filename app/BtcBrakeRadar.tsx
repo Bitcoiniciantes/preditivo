@@ -148,14 +148,6 @@ function changeTone(value: number | null): string {
   return "brMuted";
 }
 
-function quoteTone(dailyChangePct: number | null, tickTrend: PriceTrend): string {
-  if (dailyChangePct !== null && Number.isFinite(dailyChangePct)) {
-    if (dailyChangePct > 0) return "brPositive";
-    if (dailyChangePct < 0) return "brCaution";
-  }
-  return priceTrendTone(tickTrend);
-}
-
 export function BtcBrakeRadar({
   livePrice = null,
   dailyChangePct = null,
@@ -245,7 +237,7 @@ export function BtcBrakeRadar({
   );
 
   const bar = barView(reading);
-  const displayedPrice = validLivePrice ?? reading.lastClose15m;
+  const referencePrice = reading.lastClose15m;
   const preservedText = formatPreservedMinutes(reading.preservedMinutes);
   const preservedMet = reading.preservedMinutes !== null
     && reading.preservedMinutes >= BRAKE_PRESERVED_REFERENCE_MIN;
@@ -319,19 +311,21 @@ export function BtcBrakeRadar({
 
       <div className="brContext">
         <div className="brContextRefs">
-          <span>Mínima: <b>{fmtPrice(reading.minimum12h)}</b></span>
-          <span>Nível 20%: <b>{fmtPrice(reading.targetDcaPrice)}</b></span>
+          <span>Mínima da queda: <b>{fmtPrice(reading.minimum12h)}</b></span>
+          <span>Máxima da amplitude: <b>{fmtPrice(reading.maximum12h)}</b></span>
+          <span>Recuperação: <b>{fmtPct(reading.retracementPct)}</b></span>
           <span>EMA9: <b>{fmtPrice(reading.ema9)}</b></span>
         </div>
-        <div className="brCurrentPrice" aria-label="Cotação atual do Bitcoin">
+        <div className="brCurrentPrice" aria-label="Fechamento de 15 minutos e cotação spot informativa do Bitcoin">
           <div className="brQuoteLine">
-            <span className="brQuoteAsset">BTC:</span>
-            <b className={quoteTone(dailyChangePct, priceTrend)}>{fmtCurrentPrice(displayedPrice)}</b>
-            {dailyChangePct !== null && Number.isFinite(dailyChangePct) ? (
-              <small className={`brDailyChange ${changeTone(dailyChangePct)}`}>
-                {fmtDailyChange(dailyChangePct)}
-              </small>
-            ) : null}
+            <span className="brQuoteAsset">BTC · fechamento 15m</span>
+            <b className={priceTrendTone(priceTrend)}>{fmtCurrentPrice(referencePrice)}</b>
+          </div>
+          <div className="brSpotReference">
+            <span>Spot ao vivo (informativo): US$ {fmtCurrentPrice(validLivePrice)}</span>
+            <small className={`brDailyChange ${changeTone(dailyChangePct)}`}>
+              · {fmtDailyChange(dailyChangePct)} em 24h
+            </small>
           </div>
         </div>
       </div>

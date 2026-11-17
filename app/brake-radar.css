@@ -277,6 +277,47 @@
   line-height: 1.1;
 }
 
+/* O Caça-Fundos usa o fechamento de 15m como referência matemática; o spot
+   ao vivo fica sempre abaixo, separado e explicitamente informativo. */
+.brakeRadar:not(.topRadar) .brCurrentPrice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+.brakeRadar:not(.topRadar) .brQuoteLine {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  max-width: 100%;
+  white-space: normal;
+}
+.brakeRadar:not(.topRadar) .brQuoteAsset {
+  font-size: 11px;
+  letter-spacing: .04em;
+  text-transform: none;
+}
+.brakeRadar:not(.topRadar) .brQuoteLine > b {
+  font-size: clamp(24px, 3.3vw, 34px);
+  line-height: 1.05;
+}
+.brSpotReference {
+  max-width: 100%;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.brSpotReference small {
+  font-size: inherit;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .brAction {
   margin: 12px 18px 0;
   padding: 11px 13px;
@@ -346,6 +387,9 @@
   .brQuoteLine { justify-content: flex-start; }
   .brQuoteAsset { font-size: 12px; }
   .brCurrentPrice b { font-size: 30px; }
+  .brakeRadar:not(.topRadar) .brCurrentPrice,
+  .brakeRadar:not(.topRadar) .brQuoteLine { align-items: flex-start; text-align: left; }
+  .brakeRadar:not(.topRadar) .brSpotReference { text-align: left; }
   .brAction { margin: 10px 14px 0; }
   .brNote { margin: 9px 14px 0; }
 }
@@ -358,6 +402,7 @@
   .brContext { font-size: 9px; }
   .brQuoteLine { gap: 6px; }
   .brCurrentPrice b { font-size: 28px; }
+  .brSpotReference { font-size: 9px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
