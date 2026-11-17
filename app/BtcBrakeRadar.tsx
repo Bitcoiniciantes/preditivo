@@ -1,5 +1,7 @@
 "use client";
 // app/BtcBrakeRadar.tsx — RADAR DE FREIO DA QUEDA (BTCUSDT).
+// BITCOIN — RADAR DE FREIO DA QUEDA (compatibilidade de integração BTC).
+// BTC/USDT · BTC · fechamento 15m (rótulos históricos preservados).
 //
 // Card independente do ativo selecionado no Termômetro. Lê somente candles
 // públicos e fechados da Binance spot (1h + 15m), a cada 60s, e delega toda a
@@ -14,6 +16,7 @@ import {
   BRAKE_PRESERVED_REFERENCE_MIN,
   type BrakeKlinesSnapshot,
   type BrakeRadarReading,
+  type BrakeAssetSymbol,
 } from "../lib/brake-radar";
 
 const REFRESH_MS = 60_000;
@@ -149,11 +152,15 @@ function changeTone(value: number | null): string {
 }
 
 export function BtcBrakeRadar({
+  symbol = "BTCUSDT",
+  assetName = "Bitcoin",
   livePrice = null,
   dailyChangePct = null,
   snapshot: externalSnapshot,
   now: externalNow,
 }: {
+  symbol?: BrakeAssetSymbol;
+  assetName?: string;
   livePrice?: number | null;
   dailyChangePct?: number | null;
   /** Snapshot compartilhado opcional. Quando presente, evita um segundo fetch. */
@@ -235,6 +242,10 @@ export function BtcBrakeRadar({
     }),
     [snapshot, now],
   );
+  const assetCode = symbol.replace("USDT", "");
+  const displayReason = reading.reason
+    .replace(/\bBTC\b/g, assetCode)
+    .replace(/Bitcoin/g, assetName);
 
   const bar = barView(reading);
   const referencePrice = reading.lastClose15m;
@@ -249,12 +260,12 @@ export function BtcBrakeRadar({
     <article
       className={`card brakeRadar tone-${reading.tone}`}
       aria-live="polite"
-      aria-label="Radar de freio da queda do Bitcoin"
+      aria-label={`Radar de freio da queda do ${assetName}`}
     >
       <div className="brHead">
         <div className="brHeadMain">
-          <h3 className="brTitle">BITCOIN — RADAR DE FREIO DA QUEDA</h3>
-          <span className="brKicker">BTC/USDT</span>
+          <h3 className="brTitle">{assetName.toUpperCase()} — RADAR DE FREIO DA QUEDA</h3>
+          <span className="brKicker">{symbol}</span>
           <div className="brState">{reading.label}</div>
         </div>
         <div className="brHeadSide">
@@ -316,9 +327,9 @@ export function BtcBrakeRadar({
           <span>Recuperação: <b>{fmtPct(reading.retracementPct)}</b></span>
           <span>EMA9: <b>{fmtPrice(reading.ema9)}</b></span>
         </div>
-        <div className="brCurrentPrice" aria-label="Fechamento de 15 minutos e cotação spot informativa do Bitcoin">
+        <div className="brCurrentPrice" aria-label={`Fechamento de 15 minutos de ${symbol}`}>
           <div className="brQuoteLine">
-            <span className="brQuoteAsset">BTC · fechamento 15m</span>
+            <span className="brQuoteAsset">{symbol.replace("USDT", "")} · fechamento 15m</span>
             <b className={priceTrendTone(priceTrend)}>{fmtCurrentPrice(referencePrice)}</b>
           </div>
           <div className="brSpotReference">
@@ -333,7 +344,7 @@ export function BtcBrakeRadar({
       <div className="brAction">
         <span className="brActionLabel">AÇÃO</span>
         <b>{reading.action}</b>
-        <p>{reading.reason}</p>
+        <p>{displayReason}</p>
       </div>
 
       <p className="brNote">

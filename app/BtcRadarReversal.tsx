@@ -9,9 +9,10 @@
 // as duas abas. Nenhum endpoint novo é usado e nenhuma ordem é executada.
 
 import { useEffect, useState } from "react";
-import { fetchBrakeKlines, type BrakeKlinesSnapshot } from "../lib/brake-radar";
+import { fetchBrakeKlines, BRAKE_ASSETS, type BrakeAssetSymbol, type BrakeKlinesSnapshot } from "../lib/brake-radar";
 import { BtcBrakeRadar } from "./BtcBrakeRadar";
 import { BtcTopRadar } from "./BtcTopRadar";
+import { MultiAssetFundMonitor } from "./MultiAssetFundMonitor";
 
 const REFRESH_MS = 60_000;
 
@@ -27,6 +28,8 @@ export function BtcRadarReversal({
   // A página sempre abre no Caça-Fundos, preservando a leitura principal.
   const [tab, setTab] = useState<RadarTab>("fundos");
   const [snapshot, setSnapshot] = useState<BrakeKlinesSnapshot | null>(null);
+  const [selectedSymbol, setSelectedSymbol] = useState<BrakeAssetSymbol>("BTCUSDT");
+  const [selectedSnapshot, setSelectedSnapshot] = useState<BrakeKlinesSnapshot | null>(null);
   const [now, setNow] = useState(0);
 
   useEffect(() => {
@@ -34,6 +37,12 @@ export function BtcRadarReversal({
     setNow(Date.now());
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (snapshot && selectedSymbol === "BTCUSDT") setSelectedSnapshot(snapshot);
+  }, [snapshot, selectedSymbol]);
+
+  const selectedAsset = BRAKE_ASSETS.find(({ symbol }) => symbol === selectedSymbol) ?? BRAKE_ASSETS[0];
 
   useEffect(() => {
     let active = true;
@@ -103,6 +112,13 @@ export function BtcRadarReversal({
             CAÇA-TOPOS
           </button>
         </div>
+        <MultiAssetFundMonitor
+          btcSnapshot={snapshot}
+          onSelect={(symbol, nextSnapshot) => {
+            setSelectedSymbol(symbol);
+            setSelectedSnapshot(nextSnapshot);
+          }}
+        />
       </div>
 
       <div
@@ -113,7 +129,9 @@ export function BtcRadarReversal({
         hidden={tab !== "fundos"}
       >
         <BtcBrakeRadar
-          snapshot={snapshot}
+          symbol={selectedSymbol}
+          assetName={selectedAsset.name}
+          snapshot={selectedSnapshot}
           now={now}
           livePrice={livePrice}
           dailyChangePct={dailyChangePct}

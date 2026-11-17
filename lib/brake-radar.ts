@@ -636,7 +636,23 @@ const BINANCE_BASES = [
   "https://api.binance.com/api/v3/klines",
 ];
 
+export const BRAKE_ASSETS = [
+  { symbol: "BTCUSDT", name: "Bitcoin" },
+  { symbol: "ETHUSDT", name: "Ethereum" },
+  { symbol: "SOLUSDT", name: "Solana" },
+  { symbol: "LINKUSDT", name: "Chainlink" },
+  { symbol: "AVAXUSDT", name: "Avalanche" },
+] as const;
+
+export type BrakeAssetSymbol = (typeof BRAKE_ASSETS)[number]["symbol"];
+const BRAKE_SYMBOLS = new Set<string>(BRAKE_ASSETS.map(({ symbol }) => symbol));
+
+export function isBrakeAssetSymbol(symbol: string): symbol is BrakeAssetSymbol {
+  return BRAKE_SYMBOLS.has(symbol);
+}
+
 async function fetchKlines(
+  symbol: BrakeAssetSymbol,
   interval: string,
   limit: number,
   minimum: number,
@@ -645,7 +661,7 @@ async function fetchKlines(
   let lastError: unknown = null;
   for (const base of BINANCE_BASES) {
     try {
-      const url = `${base}?symbol=BTCUSDT&interval=${interval}&limit=${limit}`;
+      const url = `${base}?symbol=${symbol}&interval=${interval}&limit=${limit}`;
       const response = await fetch(url, { cache: "no-store", signal });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const now = Date.now();
@@ -667,10 +683,14 @@ export type BrakeKlinesSnapshot = {
 };
 
 /** 25 candles de 1h e 49 de 15m: um extra descarta o candle em formação. */
-export async function fetchBrakeKlines(signal?: AbortSignal): Promise<BrakeKlinesSnapshot> {
+export async function fetchBrakeKlines(
+  signal?: AbortSignal,
+  symbol: BrakeAssetSymbol = "BTCUSDT",
+): Promise<BrakeKlinesSnapshot> {
+  if (!isBrakeAssetSymbol(symbol)) throw new Error("símbolo não permitido");
   const [h1, m15] = await Promise.all([
-    fetchKlines("1h", BRAKE_H1_COUNT + 1, BRAKE_H1_COUNT, signal),
-    fetchKlines("15m", BRAKE_M15_COUNT + 1, BRAKE_M15_COUNT, signal),
+    fetchKlines(symbol, "1h", BRAKE_H1_COUNT + 1, BRAKE_H1_COUNT, signal),
+    fetchKlines(symbol, "15m", BRAKE_M15_COUNT + 1, BRAKE_M15_COUNT, signal),
   ]);
   return { h1, m15, fetchedAt: Date.now() };
 }
