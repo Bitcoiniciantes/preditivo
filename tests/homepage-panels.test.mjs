@@ -19,7 +19,7 @@ test("componentes clássicos importados na home", async () => {
     assert.ok(page.includes(name), `import/uso ausente: ${name}`);
   }
   for (const name of ["MarketObservatory", "PredictiveStatusCard", "flowWidgetsRow"]) {
-    assert.ok(!page.includes(name), `removido da home: ${name}`);
+    assert.ok(page.includes(name), `ausente da home: ${name}`);
   }
   assert.match(page, /buildConfluence/, "confluence calculada");
   assert.match(page, /TIMEFRAME_MINUTES/, "duração real por período");

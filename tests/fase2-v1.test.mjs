@@ -273,7 +273,7 @@ test("avaliação executa com gate atingido e trava a segunda (mecanismo, pool s
   const resultPath = path.join(dir, "fase2-result.json");
   const reportPath = path.join(dir, "FASE2_RELATORIO.md");
   seedPool(f2Path);
-  const r = evaluateOnce({ f2Path, resultPath, reportPath });
+  const r = evaluateOnce({ f2Path, resultPath, reportPath, nowMs: Date.parse("2026-09-10T00:00:00.000Z") });
   assert.equal(r.n, 140);
   assert.ok(typeof r.p === "number" && r.p >= 0 && r.p <= 1);
   assert.ok(fs.existsSync(resultPath) && fs.existsSync(reportPath));
