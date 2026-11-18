@@ -8,7 +8,7 @@
 // A aquisição de candles é compartilhada: um único fetch de 1h + 15m alimenta
 // as duas abas. Nenhum endpoint novo é usado e nenhuma ordem é executada.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { fetchBrakeKlines, BRAKE_ASSETS, type BrakeAssetSymbol, type BrakeKlinesSnapshot } from "../lib/brake-radar";
 import { BtcBrakeRadar } from "./BtcBrakeRadar";
 import { BtcTopRadar } from "./BtcTopRadar";
@@ -31,6 +31,11 @@ export function BtcRadarReversal({
   const [selectedSymbol, setSelectedSymbol] = useState<BrakeAssetSymbol>("BTCUSDT");
   const [selectedSnapshot, setSelectedSnapshot] = useState<BrakeKlinesSnapshot | null>(null);
   const [now, setNow] = useState(0);
+
+  const handleAssetSelect = useCallback((symbol: BrakeAssetSymbol, nextSnapshot: BrakeKlinesSnapshot | null) => {
+    setSelectedSymbol(symbol);
+    setSelectedSnapshot(nextSnapshot);
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -114,10 +119,9 @@ export function BtcRadarReversal({
         </div>
         <MultiAssetFundMonitor
           btcSnapshot={snapshot}
-          onSelect={(symbol, nextSnapshot) => {
-            setSelectedSymbol(symbol);
-            setSelectedSnapshot(nextSnapshot);
-          }}
+          now={now}
+          radar={tab}
+          onSelect={handleAssetSelect}
         />
       </div>
 
@@ -146,10 +150,12 @@ export function BtcRadarReversal({
         hidden={tab !== "topos"}
       >
         <BtcTopRadar
-          snapshot={snapshot}
+          symbol={selectedSymbol}
+          assetName={selectedAsset.name}
+          snapshot={selectedSnapshot}
           now={now}
-          livePrice={livePrice}
-          dailyChangePct={dailyChangePct}
+          livePrice={selectedSymbol === "BTCUSDT" ? livePrice : null}
+          dailyChangePct={selectedSymbol === "BTCUSDT" ? dailyChangePct : null}
         />
       </div>
     </section>

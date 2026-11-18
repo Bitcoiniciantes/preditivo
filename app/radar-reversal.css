@@ -89,11 +89,16 @@
 }
 
 .rrAssetTabs { display: flex; gap: 6px; padding: 0 16px 12px; }
-.rrAssetTabs button { flex: 1; min-height: 34px; border: 1px solid #31413a; border-radius: 6px; background: #0a110f; color: #9ba8a2; font-size: 10px; font-weight: 900; letter-spacing: .1em; cursor: pointer; }
-.rrAssetTabs button:hover, .rrAssetTabs button:focus-visible { border-color: var(--cyan); color: var(--paper); }
-.rrAssetTabs button.active { border-color: var(--lime); background: #54b85a18; color: #7ad881; box-shadow: inset 0 -2px 0 var(--lime); }
+.rrAssetPill { --pill-tone: #7f8d86; display: inline-flex; flex: 1 1 0; align-items: flex-start; justify-content: center; gap: 5px; min-width: 0; min-height: 34px; padding: 6px 5px; border: 1px solid transparent; border-radius: 999px; background: #111a17; color: #dbe5e0; cursor: pointer; }
+.rrAssetPill > i { width: 7px; height: 7px; flex: none; margin-top: 4px; border-radius: 50%; background: var(--pill-tone); }
+.rrAssetPill > span { display: grid; gap: 1px; min-width: 0; line-height: 1; }
+.rrAssetPill b { font-size: 11px; font-weight: 900; letter-spacing: .04em; }
+.rrAssetPill small { color: var(--pill-tone); font-size: 7px; font-weight: 900; letter-spacing: .03em; white-space: nowrap; }
+.rrAssetPill.tone-green { --pill-tone: #23b88a; }.rrAssetPill.tone-amber { --pill-tone: #f4bd32; }.rrAssetPill.tone-red { --pill-tone: #ef5d67; }.rrAssetPill.tone-cyan { --pill-tone: #38bdf8; }.rrAssetPill.tone-gray { --pill-tone: #7f8d86; }
+.rrAssetPill:hover, .rrAssetPill:focus-visible { border-color: #42534b; background: #17221e; outline: none; }
+.rrAssetPill.active { border-color: #4c6257; background: #1b2923; }
 @media (max-width: 720px) { .rrAssetTabs { padding: 0 14px 10px; } }
-@media (max-width: 400px) { .rrAssetTabs { gap: 3px; }.rrAssetTabs button { padding: 7px 3px; font-size: 8px; letter-spacing: .04em; } }
+@media (max-width: 400px) { .rrAssetTabs { gap: 3px; }.rrAssetPill { gap: 3px; padding: 6px 3px; }.rrAssetPill > i { width: 6px; height: 6px; }.rrAssetPill b { font-size: 9px; }.rrAssetPill small { font-size: 6px; } }
 
 /* ── Caça-Topos ─────────────────────────────────────────────────────────── */
 

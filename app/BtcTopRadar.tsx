@@ -15,7 +15,7 @@ import {
   TOP_MIN_NO_NEW_HIGH_MINUTES,
   type TopRadarReading,
 } from "../lib/top-radar";
-import { formatPreservedMinutes, type BrakeKlinesSnapshot } from "../lib/brake-radar";
+import { formatPreservedMinutes, type BrakeAssetSymbol, type BrakeKlinesSnapshot } from "../lib/brake-radar";
 
 function fmtPct(value: number | null, signed = false): string {
   if (value === null || !Number.isFinite(value)) return "—";
@@ -113,11 +113,15 @@ function peakEligibilityTone(reading: TopRadarReading): string {
 }
 
 export function BtcTopRadar({
+  symbol = "BTCUSDT",
+  assetName = "Bitcoin",
   snapshot,
   now,
   livePrice = null,
   dailyChangePct = null,
 }: {
+  symbol?: BrakeAssetSymbol;
+  assetName?: string;
   snapshot: BrakeKlinesSnapshot | null;
   now: number;
   livePrice?: number | null;
@@ -147,12 +151,12 @@ export function BtcTopRadar({
     <article
       className={`card brakeRadar topRadar tone-${reading.tone}`}
       aria-live="polite"
-      aria-label="Caça-Topos: radar de exaustão de alta do Bitcoin"
+      aria-label={`Caça-Topos: radar de exaustão de alta de ${assetName}`}
     >
       <div className="brHead">
         <div className="brHeadMain">
-          <h3 className="brTitle">BITCOIN — CAÇA-TOPOS</h3>
-          <span className="brKicker">BTC/USDT · EXAUSTÃO DE ALTA</span>
+          <h3 className="brTitle">{assetName.toUpperCase()} — CAÇA-TOPOS</h3>
+          <span className="brKicker">{symbol} · EXAUSTÃO DE ALTA</span>
           <div className="brState">{reading.label}</div>
         </div>
         <div className="brHeadSide">
@@ -220,9 +224,9 @@ export function BtcTopRadar({
           <span>EMA9 15m: <b>{fmtPrice(reading.ema9_15m)}</b></span>
           <span>EMA9 1H: <b>{fmtPrice(reading.ema9_1h)}</b></span>
         </div>
-        <div className="brCurrentPrice" aria-label="Preço de fechamento do último candle de 15 minutos do Bitcoin">
+        <div className="brCurrentPrice" aria-label={`Preço de fechamento do último candle de 15 minutos de ${symbol}`}>
           <div className="brQuoteLine">
-            <span className="brQuoteAsset">BTC · fechamento 15m:</span>
+            <span className="brQuoteAsset">{symbol.replace("USDT", "")} · fechamento 15m:</span>
             <b>{fmtCurrentPrice(referencePrice)}</b>
           </div>
           {validLivePrice !== null && (
