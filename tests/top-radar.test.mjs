@@ -617,7 +617,7 @@ test("Integração: wrapper preserva Caça-Fundos e adiciona Caça-Topos", async
   assert.ok(nexus >= 0 && radar > nexus && position > radar, "ordem NEXUS → Radar de Reversão → PositionPanel");
 
   const wrapper = await readFile(new URL("../app/BtcRadarReversal.tsx", import.meta.url), "utf8");
-  assert.match(wrapper, /BITCOIN — RADAR DE REVERSÃO/);
+  assert.match(wrapper, /rrTitle">RADAR DE REVERSÃO/);
   assert.match(wrapper, /CAÇA-FUNDOS/);
   assert.match(wrapper, /CAÇA-TOPOS/);
   assert.match(wrapper, /<BtcBrakeRadar/);
@@ -633,7 +633,7 @@ test("Integração: wrapper preserva Caça-Fundos e adiciona Caça-Topos", async
   assert.match(top, /Alta até o topo/);
   assert.match(top, /peakAgeText\(reading\)/);
   assert.doesNotMatch(top, /Fechamento 15m \(base do recuo\)/);
-  assert.match(top, /Spot ao vivo \(informativo\)/);
+  assert.match(top, /brQuoteValue/);
   assert.match(top, /referencePrice = reading\.lastClose15m/);
   assert.match(top, /EMA9 15m/);
   assert.match(top, /DIAGNÓSTICO TÉCNICO/);

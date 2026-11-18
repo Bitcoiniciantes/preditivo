@@ -432,8 +432,8 @@ test("integração: card renderizado abaixo do NEXUS na home", async () => {
   assert.match(component, /Mínima da queda/);
   assert.match(component, /Máxima da amplitude/);
   assert.match(component, /Recuperação:/);
-  assert.match(component, /BTC · fechamento 15m/);
-  assert.match(component, /Spot ao vivo \(informativo\): US\$ \{fmtCurrentPrice\(validLivePrice\)\}/);
+  assert.match(component, /Cotação spot de \$\{symbol\}/);
+  assert.match(component, /brQuoteValue/);
   assert.match(component, /referencePrice = reading\.lastClose15m/);
   assert.doesNotMatch(component, /displayedPrice = validLivePrice/);
   assert.match(component, /fmtCurrentPrice/);
@@ -444,8 +444,8 @@ test("integração: card renderizado abaixo do NEXUS na home", async () => {
   assert.match(component, /validLivePrice/);
   assert.match(component, /fmtDailyChange/);
   assert.match(component, /brDailyChange/);
-  assert.match(component, /brQuoteAsset/);
-  assert.match(component, /brSpotReference/);
+  assert.match(component, /brQuoteValue/);
+  assert.match(component, /brQuoteRef/);
   assert.match(component, /RECUPERAÇÃO DA AMPLITUDE \(%\)/);
   assert.match(component, /FREIO DA QUEDA \(%\)/);
   assert.match(component, /FREIO NÃO APLICÁVEL/);
