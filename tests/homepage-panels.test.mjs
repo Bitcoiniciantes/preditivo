@@ -10,19 +10,19 @@ const PAGE = new URL("../app/page.tsx", import.meta.url);
 
 test("componentes clássicos importados na home", async () => {
   const page = await readFile(PAGE, "utf8");
-  for (const name of [
-    "ConfluencePanel",
-    "MarketPanel",
-    "ConfluenceCard",
-    "AlertPanel",
-  ]) {
+  for (const name of ["ConfluencePanel", "AlertPanel"]) {
     assert.ok(page.includes(name), `import/uso ausente: ${name}`);
   }
-  for (const name of ["MarketObservatory", "PredictiveStatusCard", "flowWidgetsRow"]) {
-    assert.ok(page.includes(name), `ausente da home: ${name}`);
+  for (const name of [
+    "MarketPanel",
+    "ConfluenceCard",
+    "MarketObservatory",
+    "PredictiveStatusCard",
+    "flowWidgetsRow",
+  ]) {
+    assert.ok(!page.includes(name), `não deveria estar na home: ${name}`);
   }
   assert.match(page, /buildConfluence/, "confluence calculada");
-  assert.match(page, /TIMEFRAME_MINUTES/, "duração real por período");
 });
 
 test("barra Viés Rápido presente", async () => {
@@ -37,7 +37,7 @@ test("Radar + Plano Técnico + seções presentes", async () => {
   assert.match(page, /function RadarBoard/, "RadarBoard definido");
   assert.match(page, /PLANO TÉCNICO/, "card de níveis");
   assert.match(page, /alertPanelSection/, "seção de alertas");
-  assert.match(page, /handleFlowData/, "wiring MarketPanel → ConfluenceCard");
+  assert.ok(!page.includes("handleFlowData"), "wiring MarketPanel → ConfluenceCard removido");
   assert.match(page, /removeAsset/, "remoção de ativo do radar");
   assert.match(page, /compact \/>/, "faixa original (RadarBoard compact) presente");
   assert.ok(!page.includes("QuickAssetStrip"), "faixa duplicata removida");
