@@ -30,7 +30,13 @@ const topPillLabel: Record<string, string> = {
   UNAVAILABLE: "SEM DADOS",
 };
 
-const EMPTY_SNAPSHOT: BrakeKlinesSnapshot = { h1: [], m15: [], fetchedAt: null };
+// O snapshot vazio não é um BrakeKlinesSnapshot (cujo fetchedAt é sempre
+// number), mas sim uma entrada de análise sem leitura válida.
+const EMPTY_SNAPSHOT: {
+  h1: BrakeKlinesSnapshot["h1"];
+  m15: BrakeKlinesSnapshot["m15"];
+  fetchedAt: number | null;
+} = { h1: [], m15: [], fetchedAt: null };
 
 export function MultiAssetFundMonitor({ btcSnapshot, now, radar, onSelect }: { btcSnapshot: BrakeKlinesSnapshot | null; now: number; radar: "fundos" | "topos"; onSelect: (symbol: BrakeAssetSymbol, snapshot: BrakeKlinesSnapshot | null) => void }) {
   const [snapshots, setSnapshots] = useState<Partial<Record<BrakeAssetSymbol, BrakeKlinesSnapshot>>>({});
