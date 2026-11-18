@@ -239,36 +239,31 @@
   font-weight: 800;
   white-space: nowrap;
 }
+/* Cotação spot compacta: preço grande com a variação de 24h ao lado. O tom do
+   preço segue o último movimento do ativo; a variação tem cor pelo próprio
+   sinal. A referência de cálculo fica discreta, sem se passar por cotação. */
 .brCurrentPrice {
   display: flex;
+  flex-direction: column;
   align-items: flex-end;
-  min-width: 170px;
+  gap: 2px;
+  min-width: 0;
   text-align: right;
 }
 .brQuoteLine {
   display: flex;
   align-items: baseline;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 7px;
   white-space: nowrap;
 }
-.brQuoteAsset {
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: .02em;
-}
-.brCurrentPrice b {
-  font-size: 34px;
+.brQuoteValue {
+  color: var(--paper);
+  font-size: clamp(24px, 3.1vw, 32px);
   font-weight: 900;
   letter-spacing: -.035em;
-  line-height: .98;
+  line-height: 1;
   white-space: nowrap;
-}
-.brCurrentPrice b small {
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0;
 }
 .brDailyChange {
   font-size: 11px;
@@ -276,46 +271,19 @@
   letter-spacing: .02em;
   line-height: 1.1;
 }
-
-/* O Caça-Fundos usa o fechamento de 15m como referência matemática; o spot
-   ao vivo fica sempre abaixo, separado e explicitamente informativo. */
-.brakeRadar:not(.topRadar) .brCurrentPrice {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-  min-width: 0;
-  max-width: 100%;
-}
-.brakeRadar:not(.topRadar) .brQuoteLine {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  max-width: 100%;
-  white-space: normal;
-}
-.brakeRadar:not(.topRadar) .brQuoteAsset {
-  font-size: 11px;
-  letter-spacing: .04em;
-  text-transform: none;
-}
-.brakeRadar:not(.topRadar) .brQuoteLine > b {
-  font-size: clamp(24px, 3.3vw, 34px);
-  line-height: 1.05;
-}
-.brSpotReference {
-  max-width: 100%;
+.brQuoteRef {
   color: var(--muted);
-  font-size: 10px;
-  line-height: 1.35;
-  text-align: right;
-  overflow-wrap: anywhere;
-}
-.brSpotReference small {
-  font-size: inherit;
-  font-weight: 800;
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  line-height: 1.2;
   white-space: nowrap;
+}
+.brQuoteValue.brQuoteUnavailable {
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: .02em;
 }
 
 .brAction {
@@ -385,11 +353,7 @@
   .brContext { grid-template-columns: 1fr; margin: 10px 14px 0; gap: 8px; }
   .brCurrentPrice { align-items: flex-start; min-width: 0; text-align: left; }
   .brQuoteLine { justify-content: flex-start; }
-  .brQuoteAsset { font-size: 12px; }
-  .brCurrentPrice b { font-size: 30px; }
-  .brakeRadar:not(.topRadar) .brCurrentPrice,
-  .brakeRadar:not(.topRadar) .brQuoteLine { align-items: flex-start; text-align: left; }
-  .brakeRadar:not(.topRadar) .brSpotReference { text-align: left; }
+  .brQuoteValue { font-size: 28px; }
   .brAction { margin: 10px 14px 0; }
   .brNote { margin: 9px 14px 0; }
 }
@@ -401,8 +365,7 @@
   .brMetricSub { font-size: 7.5px; }
   .brContext { font-size: 9px; }
   .brQuoteLine { gap: 6px; }
-  .brCurrentPrice b { font-size: 28px; }
-  .brSpotReference { font-size: 9px; }
+  .brQuoteValue { font-size: 26px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

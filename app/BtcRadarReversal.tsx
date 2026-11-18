@@ -9,7 +9,7 @@
 // as duas abas. Nenhum endpoint novo é usado e nenhuma ordem é executada.
 
 import { useCallback, useEffect, useState } from "react";
-import { fetchBrakeKlines, BRAKE_ASSETS, type BrakeAssetSymbol, type BrakeKlinesSnapshot } from "../lib/brake-radar";
+import { fetchBrakeKlines, fetchBrakeSpotQuote, BRAKE_ASSETS, type BrakeAssetSymbol, type BrakeKlinesSnapshot, type BrakeSpotQuote } from "../lib/brake-radar";
 import { BtcBrakeRadar } from "./BtcBrakeRadar";
 import { BtcTopRadar } from "./BtcTopRadar";
 import { MultiAssetFundMonitor } from "./MultiAssetFundMonitor";
@@ -30,6 +30,7 @@ export function BtcRadarReversal({
   const [snapshot, setSnapshot] = useState<BrakeKlinesSnapshot | null>(null);
   const [selectedSymbol, setSelectedSymbol] = useState<BrakeAssetSymbol>("BTCUSDT");
   const [selectedSnapshot, setSelectedSnapshot] = useState<BrakeKlinesSnapshot | null>(null);
+  const [quote, setQuote] = useState<BrakeSpotQuote | null>(null);
   const [now, setNow] = useState(0);
 
   const handleAssetSelect = useCallback((symbol: BrakeAssetSymbol, nextSnapshot: BrakeKlinesSnapshot | null) => {
@@ -80,13 +81,54 @@ export function BtcRadarReversal({
     };
   }, []);
 
+  // Cotação spot exclusiva do ativo selecionado: uma chamada ao ticker público
+  // do próprio par. O BTC, quando a página já mantém o stream ao vivo, usa esse
+  // valor mais recente por cima; jamais reaproveita a cotação de outro ticker.
+  useEffect(() => {
+    setQuote(null);
+    let active = true;
+    let running = false;
+    const controller = new AbortController();
+    const load = async () => {
+      if (running) return;
+      running = true;
+      try {
+        const next = await fetchBrakeSpotQuote(selectedSymbol, controller.signal);
+        if (active) setQuote(next);
+      } catch (error) {
+        if ((error as Error)?.name !== "AbortError" && active) {
+          setQuote({ symbol: selectedSymbol, price: null, changePct24h: null });
+        }
+      } finally {
+        running = false;
+      }
+    };
+    load();
+    const timer = window.setInterval(load, REFRESH_MS);
+    return () => {
+      active = false;
+      controller.abort();
+      window.clearInterval(timer);
+    };
+  }, [selectedSymbol]);
+
+  const selectedQuote = quote?.symbol === selectedSymbol ? quote : null;
+  const parentLivePrice = selectedSymbol === "BTCUSDT" && livePrice !== null && Number.isFinite(livePrice) && livePrice > 0
+    ? livePrice
+    : null;
+  const parentDailyChange = selectedSymbol === "BTCUSDT" && dailyChangePct !== null && Number.isFinite(dailyChangePct)
+    ? dailyChangePct
+    : null;
+  const quotePrice = parentLivePrice ?? selectedQuote?.price ?? null;
+  const quoteChangePct = parentDailyChange ?? selectedQuote?.changePct24h ?? null;
+
   return (
     <section className="radarReversal" aria-label="Bitcoin — Radar de Reversão">
       <div className="rrShell">
         <div className="rrHead">
           <div className="rrHeadMain">
-            <span className="rrKicker">BTC/USDT · CANDLES FECHADOS</span>
-            <h3 className="rrTitle">BITCOIN — RADAR DE REVERSÃO</h3>
+            <span className="rrKicker">CANDLES FECHADOS</span>
+            <h3 className="rrTitle">RADAR DE REVERSÃO</h3>
           </div>
           <span className="rrSource">BINANCE SPOT · 15M + 1H</span>
         </div>
@@ -137,8 +179,8 @@ export function BtcRadarReversal({
           assetName={selectedAsset.name}
           snapshot={selectedSnapshot}
           now={now}
-          livePrice={livePrice}
-          dailyChangePct={dailyChangePct}
+          livePrice={quotePrice}
+          dailyChangePct={quoteChangePct}
         />
       </div>
 
@@ -154,8 +196,8 @@ export function BtcRadarReversal({
           assetName={selectedAsset.name}
           snapshot={selectedSnapshot}
           now={now}
-          livePrice={selectedSymbol === "BTCUSDT" ? livePrice : null}
-          dailyChangePct={selectedSymbol === "BTCUSDT" ? dailyChangePct : null}
+          livePrice={quotePrice}
+          dailyChangePct={quoteChangePct}
         />
       </div>
     </section>

@@ -35,7 +35,14 @@ function fmtPct(value: number | null, signed = false): string {
 
 function fmtPrice(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "—";
-  return `$${value.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
+  // Mínimo de duas casas; ativos de preço baixo ganham casas extras para não
+  // perder a ordem de grandeza (ex.: 0,00421). Nunca arredonda 9,24 para 9.
+  const magnitude = Math.floor(Math.log10(Math.abs(value) || 1));
+  const digits = Math.max(2, Math.min(8, 2 - magnitude));
+  return `$${value.toLocaleString("pt-BR", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })}`;
 }
 
 function fmtCurrentPrice(value: number | null): string {
@@ -140,7 +147,7 @@ type PriceTrend = "up" | "down" | "flat";
 
 function priceTrendTone(trend: PriceTrend): string {
   if (trend === "up") return "brPositive";
-  if (trend === "down") return "brCaution";
+  if (trend === "down") return "brNegative";
   return "brMuted";
 }
 
@@ -175,21 +182,28 @@ export function BtcBrakeRadar({
   const snapshot = shared ? externalSnapshot : internalSnapshot;
   const now = externalNow ?? internalNow;
   const [priceTrend, setPriceTrend] = useState<PriceTrend>("flat");
-  const [trackedPrice, setTrackedPrice] = useState<number | null>(null);
+  const [trackedQuote, setTrackedQuote] = useState<{ symbol: BrakeAssetSymbol; price: number } | null>(null);
   const validLivePrice = livePrice !== null && Number.isFinite(livePrice) && livePrice > 0
     ? livePrice
     : null;
+  const validDailyChange = dailyChangePct !== null && Number.isFinite(dailyChangePct)
+    ? dailyChangePct
+    : null;
 
   // Atualização condicionada durante o render, conforme a versão remota.
-  // Evita setState dentro de efeito e mantém a tendência entre cotações válidas.
-  if (validLivePrice !== null && validLivePrice !== trackedPrice) {
-    if (trackedPrice !== null && trackedPrice > 0) {
-      const delta = (validLivePrice / trackedPrice - 1) * 100;
+  // A referência é sempre do MESMO símbolo: ao trocar de ativo o rastreio
+  // recomeça, sem comparar preços de tickers diferentes. A primeira leitura de
+  // um símbolo usa o sinal de 24h; depois vale o movimento entre cotações.
+  if (validLivePrice !== null && (trackedQuote?.symbol !== symbol || trackedQuote.price !== validLivePrice)) {
+    if (trackedQuote !== null && trackedQuote.symbol === symbol && trackedQuote.price > 0) {
+      const delta = (validLivePrice / trackedQuote.price - 1) * 100;
       setPriceTrend(Math.abs(delta) < 0.01 ? "flat" : delta > 0 ? "up" : "down");
+    } else if (validDailyChange !== null && validDailyChange !== 0) {
+      setPriceTrend(validDailyChange > 0 ? "up" : "down");
     } else {
       setPriceTrend("flat");
     }
-    setTrackedPrice(validLivePrice);
+    setTrackedQuote({ symbol, price: validLivePrice });
   }
 
   useEffect(() => {
@@ -248,6 +262,8 @@ export function BtcBrakeRadar({
     .replace(/Bitcoin/g, assetName);
 
   const bar = barView(reading);
+  // Referência fechada de 15m usada somente nos cálculos; a cotação exibida é
+  // o spot atual do próprio ativo.
   const referencePrice = reading.lastClose15m;
   const preservedText = formatPreservedMinutes(reading.preservedMinutes);
   const preservedMet = reading.preservedMinutes !== null
@@ -327,17 +343,26 @@ export function BtcBrakeRadar({
           <span>Recuperação: <b>{fmtPct(reading.retracementPct)}</b></span>
           <span>EMA9: <b>{fmtPrice(reading.ema9)}</b></span>
         </div>
-        <div className="brCurrentPrice" aria-label={`Fechamento de 15 minutos de ${symbol}`}>
+        <div className="brCurrentPrice" aria-label={`Cotação spot de ${symbol}`}>
           <div className="brQuoteLine">
-            <span className="brQuoteAsset">{symbol.replace("USDT", "")} · fechamento 15m</span>
-            <b className={priceTrendTone(priceTrend)}>{fmtCurrentPrice(referencePrice)}</b>
+            {validLivePrice !== null ? (
+              <>
+                <b className={`brQuoteValue ${priceTrendTone(priceTrend)}`}>
+                  US$ {fmtCurrentPrice(validLivePrice)}
+                </b>
+                {validDailyChange !== null && (
+                  <small className={`brDailyChange ${changeTone(validDailyChange)}`}>
+                    {fmtDailyChange(validDailyChange)}
+                  </small>
+                )}
+              </>
+            ) : (
+              <b className="brQuoteValue brQuoteUnavailable">Indisponível</b>
+            )}
           </div>
-          <div className="brSpotReference">
-            <span>Spot ao vivo (informativo): US$ {fmtCurrentPrice(validLivePrice)}</span>
-            <small className={`brDailyChange ${changeTone(dailyChangePct)}`}>
-              · {fmtDailyChange(dailyChangePct)} em 24h
-            </small>
-          </div>
+          {referencePrice !== null && Number.isFinite(referencePrice) && (
+            <small className="brQuoteRef">ref. cálculo: {fmtCurrentPrice(referencePrice)}</small>
+          )}
         </div>
       </div>
 

@@ -694,3 +694,54 @@ export async function fetchBrakeKlines(
   ]);
   return { h1, m15, fetchedAt: Date.now() };
 }
+
+// ── Cotação spot do ativo selecionado (informativa) ────────────────────────
+//
+// Uma única chamada por ativo selecionado, no mesmo host público dos candles.
+// A resposta nunca é reaproveitada para outro símbolo: se o payload não trouxer
+// a cotação do ativo pedido, os campos ficam nulos e a UI mostra "Indisponível".
+
+export type BrakeSpotQuote = {
+  symbol: BrakeAssetSymbol;
+  price: number | null;
+  changePct24h: number | null;
+};
+
+const BINANCE_TICKER_BASES = [
+  "https://data-api.binance.vision/api/v3/ticker/24hr",
+  "https://api.binance.com/api/v3/ticker/24hr",
+];
+
+function parseBrakeSpotQuote(payload: unknown, symbol: BrakeAssetSymbol): BrakeSpotQuote {
+  if (!payload || typeof payload !== "object") return { symbol, price: null, changePct24h: null };
+  const body = payload as { symbol?: unknown; lastPrice?: unknown; priceChangePercent?: unknown };
+  if (typeof body.symbol === "string" && body.symbol.toUpperCase() !== symbol) {
+    return { symbol, price: null, changePct24h: null };
+  }
+  const price = Number(body.lastPrice);
+  const changePct24h = Number(body.priceChangePercent);
+  return {
+    symbol,
+    price: Number.isFinite(price) && price > 0 ? price : null,
+    changePct24h: Number.isFinite(changePct24h) ? changePct24h : null,
+  };
+}
+
+export async function fetchBrakeSpotQuote(
+  symbol: BrakeAssetSymbol,
+  signal?: AbortSignal,
+): Promise<BrakeSpotQuote> {
+  if (!isBrakeAssetSymbol(symbol)) throw new Error("símbolo não permitido");
+  let lastError: unknown = null;
+  for (const base of BINANCE_TICKER_BASES) {
+    try {
+      const response = await fetch(`${base}?symbol=${symbol}`, { cache: "no-store", signal });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return parseBrakeSpotQuote(await response.json(), symbol);
+    } catch (error) {
+      if ((error as Error)?.name === "AbortError") throw error;
+      lastError = error;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("cotação indisponível");
+}

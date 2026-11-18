@@ -6,7 +6,7 @@
 // Não executa ordens, não calcula quantidade de venda e não afirma reversão
 // definitiva da tendência.
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   analyzeTopRadar,
   TOP_MAX_CONFIRM_AGE_HOURS,
@@ -30,7 +30,14 @@ function fmtPct(value: number | null, signed = false): string {
 
 function fmtPrice(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "—";
-  return `$${value.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
+  // Mínimo de duas casas; preços baixos preservam mais casas para manter a
+  // precisão da referência. Nunca arredonda 9,24 para 9.
+  const magnitude = Math.floor(Math.log10(Math.abs(value) || 1));
+  const digits = Math.max(2, Math.min(8, 2 - magnitude));
+  return `$${value.toLocaleString("pt-BR", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })}`;
 }
 
 function fmtCurrentPrice(value: number | null): string {
@@ -92,6 +99,14 @@ function changeTone(value: number | null): string {
   return "brMuted";
 }
 
+type PriceTrend = "up" | "down" | "flat";
+
+function priceTrendTone(trend: PriceTrend): string {
+  if (trend === "up") return "brPositive";
+  if (trend === "down") return "brNegative";
+  return "brMuted";
+}
+
 function barWidth(reading: TopRadarReading): number {
   if (reading.drawdownPct === null) return 0;
   return clampPct((reading.drawdownPct / TOP_MAX_WATCH_DRAWDOWN_PCT) * 100);
@@ -140,7 +155,28 @@ export function BtcTopRadar({
   const validLivePrice = livePrice !== null && Number.isFinite(livePrice) && livePrice > 0
     ? livePrice
     : null;
-  // O preço principal é sempre a mesma referência dos cálculos de recuo.
+  const validDailyChange = dailyChangePct !== null && Number.isFinite(dailyChangePct)
+    ? dailyChangePct
+    : null;
+  const [priceTrend, setPriceTrend] = useState<PriceTrend>("flat");
+  const [trackedQuote, setTrackedQuote] = useState<{ symbol: BrakeAssetSymbol; price: number } | null>(null);
+
+  // Mesma leitura do Caça-Fundos: o tom do preço segue o último movimento do
+  // MESMO símbolo. Ao trocar de ativo o rastreio recomeça; na primeira leitura
+  // o sinal de 24h serve de ponto de partida.
+  if (validLivePrice !== null && (trackedQuote?.symbol !== symbol || trackedQuote.price !== validLivePrice)) {
+    if (trackedQuote !== null && trackedQuote.symbol === symbol && trackedQuote.price > 0) {
+      const delta = (validLivePrice / trackedQuote.price - 1) * 100;
+      setPriceTrend(Math.abs(delta) < 0.01 ? "flat" : delta > 0 ? "up" : "down");
+    } else if (validDailyChange !== null && validDailyChange !== 0) {
+      setPriceTrend(validDailyChange > 0 ? "up" : "down");
+    } else {
+      setPriceTrend("flat");
+    }
+    setTrackedQuote({ symbol, price: validLivePrice });
+  }
+  // Referência fechada de 15m usada apenas nos cálculos de recuo; a cotação
+  // exibida acima é o spot atual e não altera nenhum critério.
   const referencePrice = reading.lastClose15m;
   const bar = barWidth(reading);
   const barMark = (TOP_MIN_DRAWDOWN_PCT / TOP_MAX_WATCH_DRAWDOWN_PCT) * 100;
@@ -224,18 +260,25 @@ export function BtcTopRadar({
           <span>EMA9 15m: <b>{fmtPrice(reading.ema9_15m)}</b></span>
           <span>EMA9 1H: <b>{fmtPrice(reading.ema9_1h)}</b></span>
         </div>
-        <div className="brCurrentPrice" aria-label={`Preço de fechamento do último candle de 15 minutos de ${symbol}`}>
+        <div className="brCurrentPrice" aria-label={`Cotação spot de ${symbol}`}>
           <div className="brQuoteLine">
-            <span className="brQuoteAsset">{symbol.replace("USDT", "")} · fechamento 15m:</span>
-            <b>{fmtCurrentPrice(referencePrice)}</b>
+            {validLivePrice !== null ? (
+              <>
+                <b className={`brQuoteValue ${priceTrendTone(priceTrend)}`}>
+                  US$ {fmtCurrentPrice(validLivePrice)}
+                </b>
+                {validDailyChange !== null && (
+                  <small className={`brDailyChange ${changeTone(validDailyChange)}`}>
+                    {fmtDailyChange(validDailyChange)}
+                  </small>
+                )}
+              </>
+            ) : (
+              <b className="brQuoteValue brQuoteUnavailable">Indisponível</b>
+            )}
           </div>
-          {validLivePrice !== null && (
-            <div className="brSpotReference">
-              <span>Spot ao vivo (informativo): ${fmtCurrentPrice(validLivePrice)}</span>
-              {dailyChangePct !== null && Number.isFinite(dailyChangePct) && (
-                <small className={changeTone(dailyChangePct)}> {fmtDailyChange(dailyChangePct)} em 24h</small>
-              )}
-            </div>
+          {referencePrice !== null && Number.isFinite(referencePrice) && (
+            <small className="brQuoteRef">ref. cálculo: {fmtCurrentPrice(referencePrice)}</small>
           )}
         </div>
       </div>

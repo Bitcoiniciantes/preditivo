@@ -12,17 +12,17 @@ import { analyzeTopRadar } from "../lib/top-radar";
 
 const REFRESH_MS = 60_000;
 const fundPillLabel: Record<string, string> = {
-  REACTION: "COMPRA",
+  REACTION: "CONFIRMADA",
   REBOUND: "OBSERVAR",
-  SLOWING: "OBSERVAR",
+  SLOWING: "DESACELERANDO",
   ACCELERATING: "QUEDA",
   UNSTABLE: "QUEDA",
-  NO_DROP: "NEUTRO",
+  NO_DROP: "STAND-BY",
   UNAVAILABLE: "SEM DADOS",
 };
 const topPillLabel: Record<string, string> = {
   EXHAUSTION_CONFIRMED: "EXAUSTÃO",
-  TOP_WATCH: "TOPO",
+  TOP_WATCH: "OBSERVAR",
   DECELERATING: "DESACELERA",
   STRONG_UPTREND: "ALTA",
   ORIGIN_LOST: "ORIGEM",
@@ -90,8 +90,8 @@ export function MultiAssetFundMonitor({ btcSnapshot, now, radar, onSelect }: { b
       {BRAKE_ASSETS.map(({ symbol }) => {
         const reading = readings[symbol];
         return <button type="button" role="tab" key={symbol} aria-selected={selected === symbol} className={`rrAssetPill tone-${reading.tone} ${selected === symbol ? "active" : ""}`} onClick={() => setSelected(symbol)}>
-          <i aria-hidden="true" />
-          <span><b>{symbol.replace("USDT", "")}</b><small>{labels[reading.state] ?? "—"}</small></span>
+          <span className="rrPillTop"><i aria-hidden="true" /><b>{symbol.replace("USDT", "")}</b></span>
+          <small>{labels[reading.state] ?? "—"}</small>
         </button>;
       })}
   </div>;
