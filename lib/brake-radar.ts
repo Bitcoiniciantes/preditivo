@@ -644,15 +644,43 @@ export const BRAKE_ASSETS = [
   { symbol: "AVAXUSDT", name: "Avalanche" },
 ] as const;
 
-export type BrakeAssetSymbol = (typeof BRAKE_ASSETS)[number]["symbol"];
+export type BrakeBaseAssetSymbol = (typeof BRAKE_ASSETS)[number]["symbol"];
+export type BrakeAssetSymbol = string;
+export const BRAKE_EXTRA_STORAGE_KEY = "radar-reversao-extra-assets";
+export const BRAKE_MAX_EXTRA_ASSETS = 3;
 const BRAKE_SYMBOLS = new Set<string>(BRAKE_ASSETS.map(({ symbol }) => symbol));
 
-export function isBrakeAssetSymbol(symbol: string): symbol is BrakeAssetSymbol {
+export function isBaseBrakeAssetSymbol(symbol: string): symbol is BrakeBaseAssetSymbol {
   return BRAKE_SYMBOLS.has(symbol);
 }
 
+export function isBrakeAssetSymbol(symbol: string): symbol is BrakeBaseAssetSymbol {
+  return BRAKE_SYMBOLS.has(symbol);
+}
+
+export function isValidBrakeRadarSymbol(symbol: string): boolean {
+  return /^[A-Z0-9]{2,20}USDT$/.test(symbol);
+}
+
+export function cleanBrakeTicker(value: string): string {
+  return value.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9.-]/g, "");
+}
+
+export function toBrakeSpotSymbol(ticker: string): string | null {
+  const clean = cleanBrakeTicker(ticker);
+  if (!clean) return null;
+  const symbol = clean.endsWith("USDT") ? clean : `${clean}USDT`;
+  return isValidBrakeRadarSymbol(symbol) ? symbol : null;
+}
+
+export function brakeAssetName(symbol: string): string {
+  const base = BRAKE_ASSETS.find((asset) => asset.symbol === symbol);
+  if (base) return base.name;
+  return symbol.endsWith("USDT") ? symbol.slice(0, -4) : symbol;
+}
+
 async function fetchKlines(
-  symbol: BrakeAssetSymbol,
+  symbol: string,
   interval: string,
   limit: number,
   minimum: number,
@@ -685,9 +713,9 @@ export type BrakeKlinesSnapshot = {
 /** 25 candles de 1h e 49 de 15m: um extra descarta o candle em formação. */
 export async function fetchBrakeKlines(
   signal?: AbortSignal,
-  symbol: BrakeAssetSymbol = "BTCUSDT",
+  symbol: string = "BTCUSDT",
 ): Promise<BrakeKlinesSnapshot> {
-  if (!isBrakeAssetSymbol(symbol)) throw new Error("símbolo não permitido");
+  if (!isValidBrakeRadarSymbol(symbol)) throw new Error("símbolo não permitido");
   const [h1, m15] = await Promise.all([
     fetchKlines(symbol, "1h", BRAKE_H1_COUNT + 1, BRAKE_H1_COUNT, signal),
     fetchKlines(symbol, "15m", BRAKE_M15_COUNT + 1, BRAKE_M15_COUNT, signal),
@@ -702,7 +730,7 @@ export async function fetchBrakeKlines(
 // a cotação do ativo pedido, os campos ficam nulos e a UI mostra "Indisponível".
 
 export type BrakeSpotQuote = {
-  symbol: BrakeAssetSymbol;
+  symbol: string;
   price: number | null;
   changePct24h: number | null;
 };
@@ -712,7 +740,7 @@ const BINANCE_TICKER_BASES = [
   "https://api.binance.com/api/v3/ticker/24hr",
 ];
 
-function parseBrakeSpotQuote(payload: unknown, symbol: BrakeAssetSymbol): BrakeSpotQuote {
+function parseBrakeSpotQuote(payload: unknown, symbol: string): BrakeSpotQuote {
   if (!payload || typeof payload !== "object") return { symbol, price: null, changePct24h: null };
   const body = payload as { symbol?: unknown; lastPrice?: unknown; priceChangePercent?: unknown };
   if (typeof body.symbol === "string" && body.symbol.toUpperCase() !== symbol) {
@@ -728,10 +756,10 @@ function parseBrakeSpotQuote(payload: unknown, symbol: BrakeAssetSymbol): BrakeS
 }
 
 export async function fetchBrakeSpotQuote(
-  symbol: BrakeAssetSymbol,
+  symbol: string,
   signal?: AbortSignal,
 ): Promise<BrakeSpotQuote> {
-  if (!isBrakeAssetSymbol(symbol)) throw new Error("símbolo não permitido");
+  if (!isValidBrakeRadarSymbol(symbol)) throw new Error("símbolo não permitido");
   let lastError: unknown = null;
   for (const base of BINANCE_TICKER_BASES) {
     try {

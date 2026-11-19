@@ -9,7 +9,17 @@
 // as duas abas. Nenhum endpoint novo é usado e nenhuma ordem é executada.
 
 import { useCallback, useEffect, useState } from "react";
-import { fetchBrakeKlines, fetchBrakeSpotQuote, BRAKE_ASSETS, type BrakeAssetSymbol, type BrakeKlinesSnapshot, type BrakeSpotQuote } from "../lib/brake-radar";
+import {
+  BRAKE_ASSETS,
+  BRAKE_EXTRA_STORAGE_KEY,
+  BRAKE_MAX_EXTRA_ASSETS,
+  brakeAssetName,
+  fetchBrakeKlines,
+  fetchBrakeSpotQuote,
+  isValidBrakeRadarSymbol,
+  type BrakeKlinesSnapshot,
+  type BrakeSpotQuote,
+} from "../lib/brake-radar";
 import { BtcBrakeRadar } from "./BtcBrakeRadar";
 import { BtcTopRadar } from "./BtcTopRadar";
 import { MultiAssetFundMonitor } from "./MultiAssetFundMonitor";
@@ -17,6 +27,27 @@ import { MultiAssetFundMonitor } from "./MultiAssetFundMonitor";
 const REFRESH_MS = 60_000;
 
 type RadarTab = "fundos" | "topos";
+
+function readExtraSymbols(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(BRAKE_EXTRA_STORAGE_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+    const base = new Set<string>(BRAKE_ASSETS.map((a) => a.symbol));
+    const out: string[] = [];
+    for (const item of parsed) {
+      if (typeof item !== "string") continue;
+      const symbol = item.toUpperCase();
+      if (!isValidBrakeRadarSymbol(symbol) || base.has(symbol) || out.includes(symbol)) continue;
+      out.push(symbol);
+      if (out.length >= BRAKE_MAX_EXTRA_ASSETS) break;
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
 
 export function BtcRadarReversal({
   livePrice = null,
@@ -28,12 +59,37 @@ export function BtcRadarReversal({
   // A página sempre abre no Caça-Fundos, preservando a leitura principal.
   const [tab, setTab] = useState<RadarTab>("fundos");
   const [snapshot, setSnapshot] = useState<BrakeKlinesSnapshot | null>(null);
-  const [selectedSymbol, setSelectedSymbol] = useState<BrakeAssetSymbol>("BTCUSDT");
+  const [selectedSymbol, setSelectedSymbol] = useState<string>("BTCUSDT");
   const [selectedSnapshot, setSelectedSnapshot] = useState<BrakeKlinesSnapshot | null>(null);
   const [quote, setQuote] = useState<BrakeSpotQuote | null>(null);
   const [now, setNow] = useState(0);
+  const [extraSymbols, setExtraSymbols] = useState<string[]>([]);
 
-  const handleAssetSelect = useCallback((symbol: BrakeAssetSymbol, nextSnapshot: BrakeKlinesSnapshot | null) => {
+  useEffect(() => {
+    setExtraSymbols(readExtraSymbols());
+  }, []);
+
+  const handleAddExtra = useCallback((symbol: string) => {
+    setExtraSymbols((current) => {
+      if (current.includes(symbol) || BRAKE_ASSETS.some((a) => a.symbol === symbol)) return current;
+      if (current.length >= BRAKE_MAX_EXTRA_ASSETS) return current;
+      const next = [...current, symbol];
+      try { window.localStorage.setItem(BRAKE_EXTRA_STORAGE_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
+
+  const handleRemoveExtra = useCallback((symbol: string) => {
+    if (BRAKE_ASSETS.some((a) => a.symbol === symbol)) return;
+    setExtraSymbols((current) => {
+      if (!current.includes(symbol)) return current;
+      const next = current.filter((s) => s !== symbol);
+      try { window.localStorage.setItem(BRAKE_EXTRA_STORAGE_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
+
+  const handleAssetSelect = useCallback((symbol: string, nextSnapshot: BrakeKlinesSnapshot | null) => {
     setSelectedSymbol(symbol);
     setSelectedSnapshot(nextSnapshot);
   }, []);
@@ -48,7 +104,7 @@ export function BtcRadarReversal({
     if (snapshot && selectedSymbol === "BTCUSDT") setSelectedSnapshot(snapshot);
   }, [snapshot, selectedSymbol]);
 
-  const selectedAsset = BRAKE_ASSETS.find(({ symbol }) => symbol === selectedSymbol) ?? BRAKE_ASSETS[0];
+  const selectedAssetName = brakeAssetName(selectedSymbol);
 
   useEffect(() => {
     let active = true;
@@ -163,7 +219,10 @@ export function BtcRadarReversal({
           btcSnapshot={snapshot}
           now={now}
           radar={tab}
+          extraSymbols={extraSymbols}
           onSelect={handleAssetSelect}
+          onAddExtra={handleAddExtra}
+          onRemoveExtra={handleRemoveExtra}
         />
       </div>
 
@@ -176,7 +235,7 @@ export function BtcRadarReversal({
       >
         <BtcBrakeRadar
           symbol={selectedSymbol}
-          assetName={selectedAsset.name}
+          assetName={selectedAssetName}
           snapshot={selectedSnapshot}
           now={now}
           livePrice={quotePrice}
@@ -193,7 +252,7 @@ export function BtcRadarReversal({
       >
         <BtcTopRadar
           symbol={selectedSymbol}
-          assetName={selectedAsset.name}
+          assetName={selectedAssetName}
           snapshot={selectedSnapshot}
           now={now}
           livePrice={quotePrice}
