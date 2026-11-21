@@ -93,7 +93,7 @@ export default function PositionPanel({ asset, currentPrice, assets }: { asset: 
     setAveragePrice(""); setQuantity(""); setFormOpen(false);
   };
 
-  return <article className="card positionPanel">
+  return <article className="card positionPanel" id="posicoes">
     <div className="cardTitle positionTitle"><div className="positionTitleRow"><button type="button" className="positionToggle" onClick={() => setFormOpen((open) => !open)} aria-expanded={formOpen}>{formOpen ? "CANCELAR" : "+ INCLUIR"}</button><span>{"POSI\u00c7\u00d5ES EM ABERTO \u2022 TODOS OS ATIVOS"}</span></div><span className="positionQuote">{positions.length}{" POSI\u00c7\u00c3O(\u00d5ES)"}</span></div>
     {formOpen && <div className="positionForm">
       <label><span>ATIVO</span><select value={positionAsset} onChange={(event) => setPositionAsset(event.target.value)}>{positionAssets.map((item) => <option key={item} value={item}>{displayAsset(item)}</option>)}</select></label>

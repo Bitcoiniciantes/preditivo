@@ -338,10 +338,22 @@ export function BtcBrakeRadar({
 
       <div className="brContext">
         <div className="brContextRefs">
-          <span>Mínima da queda: <b>{fmtPrice(reading.minimum12h)}</b></span>
-          <span>Máxima da amplitude: <b>{fmtPrice(reading.maximum12h)}</b></span>
-          <span>Recuperação: <b>{fmtPct(reading.retracementPct)}</b></span>
-          <span>EMA9: <b>{fmtPrice(reading.ema9)}</b></span>
+          <div className="brContextRef brRefMinima">
+            <span>Mínima da queda</span>
+            <b className="brNegative">{fmtPrice(reading.minimum12h)}</b>
+          </div>
+          <div className="brContextRef">
+            <span>Máxima da amplitude</span>
+            <b>{fmtPrice(reading.maximum12h)}</b>
+          </div>
+          <div className="brContextRef">
+            <span>Recuperação</span>
+            <b>{fmtPct(reading.retracementPct)}</b>
+          </div>
+          <div className="brContextRef">
+            <span>EMA9</span>
+            <b>{fmtPrice(reading.ema9)}</b>
+          </div>
         </div>
         <div className="brCurrentPrice" aria-label={`Cotação spot de ${symbol}`}>
           <div className="brQuoteLine">

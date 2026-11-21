@@ -224,21 +224,34 @@
   line-height: 1.45;
 }
 .brContextRefs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px 16px;
+  min-width: 0;
+  width: 100%;
+}
+.brContextRef {
   display: flex;
-  flex-wrap: wrap;
-  gap: 7px 12px;
+  flex-direction: column;
+  gap: 3px;
   min-width: 0;
 }
-.brContextRefs span + span::before {
-  content: "·";
-  margin-right: 9px;
-  color: #3b4a44;
-}
-.brContext b {
-  color: #dbe5e0;
-  font-weight: 800;
+.brContextRef span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .03em;
+  line-height: 1.25;
   white-space: nowrap;
 }
+.brContextRef b {
+  color: #dbe5e0;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.brRefMinima span { font-size: 10.8px; }
 /* Cotação spot compacta: preço grande com a variação de 24h ao lado. O tom do
    preço segue o último movimento do ativo; a variação tem cor pelo próprio
    sinal. A referência de cálculo fica discreta, sem se passar por cotação. */
@@ -350,7 +363,11 @@
     white-space: normal;
   }
   .brBarArea { padding: 12px 14px 0; }
-  .brContext { grid-template-columns: 1fr; margin: 10px 14px 0; gap: 8px; }
+  .brContext { grid-template-columns: 1fr; margin: 10px 14px 0; gap: 10px; }
+  .brContextRefs { gap: 8px 10px; }
+  .brContextRef span { font-size: 8px; }
+  .brRefMinima span { font-size: 9.6px; }
+  .brContextRef b { font-size: 14px; }
   .brCurrentPrice { align-items: flex-start; min-width: 0; text-align: left; }
   .brQuoteLine { justify-content: flex-start; }
   .brQuoteValue { font-size: 28px; }
@@ -364,6 +381,10 @@
   .brMetric b { font-size: 15px; }
   .brMetricSub { font-size: 7.5px; }
   .brContext { font-size: 9px; }
+  .brContextRefs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+  .brContextRef span { font-size: 8px; white-space: normal; }
+  .brRefMinima span { font-size: 9.6px; }
+  .brContextRef b { font-size: 14px; }
   .brQuoteLine { gap: 6px; }
   .brQuoteValue { font-size: 26px; }
 }

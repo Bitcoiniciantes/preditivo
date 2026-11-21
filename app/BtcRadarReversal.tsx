@@ -179,7 +179,7 @@ export function BtcRadarReversal({
   const quoteChangePct = parentDailyChange ?? selectedQuote?.changePct24h ?? null;
 
   return (
-    <section className="radarReversal" aria-label="Bitcoin — Radar de Reversão">
+    <section className="radarReversal" id="radar-reversao" aria-label="Bitcoin — Radar de Reversão">
       <div className="rrShell">
         <div className="rrHead">
           <div className="rrHeadMain">
