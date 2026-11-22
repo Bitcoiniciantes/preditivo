@@ -16,6 +16,7 @@ import {
   type TopRadarReading,
 } from "../lib/top-radar";
 import { formatPreservedMinutes, type BrakeAssetSymbol, type BrakeKlinesSnapshot } from "../lib/brake-radar";
+import { RadarMiniChart } from "./RadarMiniChart";
 
 function fmtPct(value: number | null, signed = false): string {
   if (value === null || !Number.isFinite(value)) return "—";
@@ -106,6 +107,7 @@ function priceTrendTone(trend: PriceTrend): string {
   if (trend === "down") return "brNegative";
   return "brMuted";
 }
+void priceTrendTone;
 
 function barWidth(reading: TopRadarReading): number {
   if (reading.drawdownPct === null) return 0;
@@ -160,6 +162,7 @@ export function BtcTopRadar({
     : null;
   const [priceTrend, setPriceTrend] = useState<PriceTrend>("flat");
   const [trackedQuote, setTrackedQuote] = useState<{ symbol: BrakeAssetSymbol; price: number } | null>(null);
+  void priceTrend;
 
   // Mesma leitura do Caça-Fundos: o tom do preço segue o último movimento do
   // MESMO símbolo. Ao trocar de ativo o rastreio recomeça; na primeira leitura
@@ -178,6 +181,21 @@ export function BtcTopRadar({
   // Referência fechada de 15m usada apenas nos cálculos de recuo; a cotação
   // exibida acima é o spot atual e não altera nenhum critério.
   const referencePrice = reading.lastClose15m;
+  // Máxima 24h para a coluna de referências (somente exibição; não altera cálculos).
+  const maximum24h = (() => {
+    const bars = (snapshot?.m15 ?? []).slice(-96);
+    let max: number | null = null;
+    for (const bar of bars) {
+      const high = Number(bar.high);
+      if (!Number.isFinite(high) || high <= 0) continue;
+      if (max === null || high > max) max = high;
+    }
+    return max;
+  })();
+  const distanceBase = validLivePrice ?? reading.lastClose15m ?? null;
+  const maximum24hDistancePct = maximum24h !== null && distanceBase !== null && distanceBase > 0
+    ? ((maximum24h / distanceBase) - 1) * 100
+    : null;
   const bar = barWidth(reading);
   const barMark = (TOP_MIN_DRAWDOWN_PCT / TOP_MAX_WATCH_DRAWDOWN_PCT) * 100;
   const hasDrawdown = reading.drawdownPct !== null;
@@ -251,35 +269,75 @@ export function BtcTopRadar({
         )}
       </div>
 
-      <div className="brContext">
-        <div className="brContextRefs">
-          <span>Mínima de origem: <b>{fmtPrice(reading.originLow)}</b></span>
-          <span>Máxima monitorada: <b>{fmtPrice(reading.maximum)}</b></span>
-          <span>Alta até o topo: <b>{fmtPct(reading.riseToPeakPct, true)}</b></span>
-          <span>Janela do topo: <b className={peakEligibilityTone(reading)}>{peakEligibilityText(reading)}</b></span>
-          <span>EMA9 15m: <b>{fmtPrice(reading.ema9_15m)}</b></span>
-          <span>EMA9 1H: <b>{fmtPrice(reading.ema9_1h)}</b></span>
-        </div>
-        <div className="brCurrentPrice" aria-label={`Cotação spot de ${symbol}`}>
-          <div className="brQuoteLine">
-            {validLivePrice !== null ? (
-              <>
-                <b className={`brQuoteValue ${priceTrendTone(priceTrend)}`}>
-                  US$ {fmtCurrentPrice(validLivePrice)}
-                </b>
-                {validDailyChange !== null && (
-                  <small className={`brDailyChange ${changeTone(validDailyChange)}`}>
-                    {fmtDailyChange(validDailyChange)}
-                  </small>
-                )}
-              </>
-            ) : (
-              <b className="brQuoteValue brQuoteUnavailable">Indisponível</b>
+      <div className="brContext brFundContext">
+        <div className="brFundLeft">
+          <div className="brCurrentPrice" aria-label={`Cotação spot de ${symbol}`}>
+            <div className="brQuoteLine">
+              {validLivePrice !== null ? (
+                <>
+                  <b className={`brQuoteValue ${changeTone(validDailyChange)}`}>
+                    US$ {fmtCurrentPrice(validLivePrice)}
+                  </b>
+                  {validDailyChange !== null && (
+                    <small className={`brDailyChange ${changeTone(validDailyChange)}`}>
+                      {fmtDailyChange(validDailyChange)}
+                      <span className="brChangeWindow">24H</span>
+                    </small>
+                  )}
+                </>
+              ) : (
+                <b className="brQuoteValue brQuoteUnavailable">Indisponível</b>
+              )}
+            </div>
+            {referencePrice !== null && Number.isFinite(referencePrice) && (
+              <small className="brQuoteRef">ref. cálculo (fech. 15M): {fmtCurrentPrice(referencePrice)}</small>
             )}
           </div>
-          {referencePrice !== null && Number.isFinite(referencePrice) && (
-            <small className="brQuoteRef">ref. cálculo: {fmtCurrentPrice(referencePrice)}</small>
-          )}
+          <div className="brContextRefs">
+            <div className="brContextRef brRefMaxima24">
+              <span>
+                Máx. 24h
+                {maximum24hDistancePct !== null ? (
+                  <small className="brRefLabelPct"> ({fmtPct(maximum24hDistancePct, true)}):</small>
+                ) : (
+                  ":"
+                )}
+              </span>
+              <b className="brNegative">{fmtPrice(maximum24h)}</b>
+            </div>
+            <div className="brContextRef">
+              <span>Mínima de origem:</span>
+              <b>{fmtPrice(reading.originLow)}</b>
+            </div>
+            <div className="brContextRef">
+              <span>Máxima monitorada:</span>
+              <b>{fmtPrice(reading.maximum)}</b>
+            </div>
+            <div className="brContextRef">
+              <span>Alta até o topo:</span>
+              <b>{fmtPct(reading.riseToPeakPct, true)}</b>
+            </div>
+            <div className="brContextRef">
+              <span>EMA9 15m:</span>
+              <b>{fmtPrice(reading.ema9_15m)}</b>
+            </div>
+            <div className="brContextRef">
+              <span>EMA9 1H:</span>
+              <b>{fmtPrice(reading.ema9_1h)}</b>
+            </div>
+            <div className="brContextRef">
+              <span>Janela do topo:</span>
+              <b className={peakEligibilityTone(reading)}>{peakEligibilityText(reading)}</b>
+            </div>
+          </div>
+        </div>
+        <div className="brFundChart">
+          <RadarMiniChart
+            candles={snapshot?.m15 ?? []}
+            symbol={symbol}
+            maximum={reading.maximum}
+            ema9={reading.ema9_15m}
+          />
         </div>
       </div>
 

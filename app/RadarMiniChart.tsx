@@ -117,12 +117,15 @@ export function RadarMiniChart({
   candles,
   symbol,
   minimum = null,
+  maximum = null,
   ema9 = null,
 }: {
   candles: BrakeKline[];
   symbol?: string;
   /** Mínima da queda 12h informada pelo Radar (referência horizontal). */
   minimum?: number | null;
+  /** Máxima monitorada informada pelo Radar (referência horizontal). */
+  maximum?: number | null;
   /** EMA9 de 15m já calculada pelo Radar (referência horizontal). */
   ema9?: number | null;
 }) {
@@ -175,12 +178,15 @@ export function RadarMiniChart({
     const lastClose = points[points.length - 1].close;
     const emaValid = ema9 !== null && Number.isFinite(ema9) && ema9 > 0;
     const min12Valid = minimum !== null && Number.isFinite(minimum) && minimum > 0;
-    const min24Valid = minimum24h !== null && Number.isFinite(minimum24h) && minimum24h > 0;
+    const maxValid = maximum !== null && Number.isFinite(maximum) && maximum > 0;
+    const min24Valid = !maxValid && minimum24h !== null && Number.isFinite(minimum24h) && minimum24h > 0;
     const sameMin = min12Valid && min24Valid && Math.abs(minimum - minimum24h) <= Math.max(minimum, minimum24h) * 0.00001;
 
     const min12DistancePct = min12Valid && lastClose > 0 ? ((minimum - lastClose) / lastClose) * 100 : null;
+    const maxDistancePct = maxValid && lastClose > 0 ? ((maximum - lastClose) / lastClose) * 100 : null;
     const min24DistancePct = min24Valid && lastClose > 0 ? ((minimum24h - lastClose) / lastClose) * 100 : null;
     const min12Near = min12DistancePct !== null && Math.abs(min12DistancePct) <= MIN_VISIBLE_DISTANCE_PCT;
+    const maxNear = maxDistancePct !== null && Math.abs(maxDistancePct) <= MIN_VISIBLE_DISTANCE_PCT;
 
     // Escala por percentis 3/97 dos preços da janela (high/low), + EMA9, com margem ~8%.
     // Faixa mínima: 0,6% do preço para evitar zoom excessivo em microvariações.
@@ -188,10 +194,8 @@ export function RadarMiniChart({
     for (const p of points) scaleValues.push(p.high, p.low);
     const p3 = percentile(scaleValues, 0.03);
     const p97 = percentile(scaleValues, 0.97);
-    let min = Math.min(p3, ...scaleValues.length ? [p3] : [lastClose]);
-    let max = Math.max(p97, p97);
-    min = p3;
-    max = p97;
+    let min = p3;
+    let max = p97;
     if (emaValid) {
       min = Math.min(min, ema9);
       max = Math.max(max, ema9);
@@ -214,6 +218,7 @@ export function RadarMiniChart({
     }
 
     const showMin12Line = min12Valid && ((minimum >= min && minimum <= max) || min12Near);
+    const showMaxLine = maxValid && ((maximum >= min && maximum <= max) || maxNear);
     const showMin24Line = min24Valid && !sameMin && (minimum24h >= min && minimum24h <= max);
 
     const span = max - min || 1;
@@ -227,10 +232,6 @@ export function RadarMiniChart({
 
     const bars = points.map((p, index) => {
       const cx = PAD_X + (index + 0.5) * step;
-      const highRaw = yRaw(p.high);
-      const lowRaw = yRaw(p.low);
-      const openRaw = yRaw(p.open);
-      const closeRaw = yRaw(p.close);
       const clipTop = p.high > max;
       const clipBottom = p.low < min;
       const clipCloseTop = p.close > max;
@@ -238,10 +239,10 @@ export function RadarMiniChart({
       return {
         key: index,
         cx,
-        openY: clampY(openRaw),
-        closeY: clampY(closeRaw),
-        highY: clampY(highRaw),
-        lowY: clampY(lowRaw),
+        openY: y(p.open),
+        closeY: y(p.close),
+        highY: y(p.high),
+        lowY: y(p.low),
         clipTop,
         clipBottom,
         clipCloseTop,
@@ -259,16 +260,20 @@ export function RadarMiniChart({
       lastBar: bars[bars.length - 1],
       candleW,
       min12Y: showMin12Line ? y(minimum) : null,
+      maxY: showMaxLine ? y(maximum) : null,
       min24Y: showMin24Line ? y(minimum24h) : null,
       emaY: emaValid ? y(ema9) : null,
       min12DistancePct,
+      maxDistancePct,
       min24DistancePct,
       showMin12Line,
+      showMaxLine,
       showMin24Line,
       sameMin,
       min24Value: min24Valid ? minimum24h : null,
+      maxValue: maxValid ? maximum : null,
     };
-  }, [available, points, minimum, minimum24h, ema9]);
+  }, [available, points, minimum, maximum, minimum24h, ema9]);
 
   const windowText = formatWindow(available ? points.length : limit);
 
@@ -276,6 +281,11 @@ export function RadarMiniChart({
     if (minimum === null || !Number.isFinite(minimum) || minimum <= 0) return null;
     return `Mín. queda ${formatUsd(minimum)}`;
   }, [minimum]);
+
+  const maxRefLabel = useMemo(() => {
+    if (maximum === null || !Number.isFinite(maximum) || maximum <= 0) return null;
+    return `Máx. monitorada ${formatUsd(maximum)}`;
+  }, [maximum]);
 
   const ema9Label = useMemo(() => {
     if (ema9 === null || !Number.isFinite(ema9) || ema9 <= 0) return null;
@@ -324,6 +334,9 @@ export function RadarMiniChart({
               )}
               {geometry.min12Y !== null && (
                 <line x1={PAD_X} x2={VIEW_W - PAD_X} y1={geometry.min12Y} y2={geometry.min12Y} stroke="#ef4444" strokeWidth={0.8} opacity={0.55} vectorEffect="non-scaling-stroke" />
+              )}
+              {geometry.maxY !== null && (
+                <line x1={PAD_X} x2={VIEW_W - PAD_X} y1={geometry.maxY} y2={geometry.maxY} stroke="#ef4444" strokeWidth={0.8} opacity={0.55} vectorEffect="non-scaling-stroke" />
               )}
               {geometry.emaY !== null && (
                 <line x1={PAD_X} x2={VIEW_W - PAD_X} y1={geometry.emaY} y2={geometry.emaY} stroke="#f5c542" strokeWidth={0.7} opacity={0.45} strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />
@@ -374,6 +387,24 @@ export function RadarMiniChart({
                       : (() => {
                           const pct = geometry.min12DistancePct;
                           if (pct === null || !Number.isFinite(pct)) return formatUsd(minimum as number);
+                          const sign = pct > 0 ? "+" : pct < 0 ? "−" : "";
+                          const abs = Math.abs(pct).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+                          const arrow = pct < 0 ? "↓" : pct > 0 ? "↑" : "•";
+                          return `${sign}${abs}% ${arrow}`;
+                        })()}
+                  </span>
+                </span>
+              )}
+              {maxRefLabel && (
+                <span className={`brMiniLegendItem ${geometry.showMaxLine ? "brMiniLegendMin" : "brMiniLegendMinAway"}`}>
+                  {geometry.showMaxLine && <i />}
+                  <span className="brMiniLegendLabel">Máx. monitorada</span>
+                  <span className="brMiniLegendValue">
+                    {geometry.showMaxLine
+                      ? formatUsd(maximum as number)
+                      : (() => {
+                          const pct = geometry.maxDistancePct;
+                          if (pct === null || !Number.isFinite(pct)) return formatUsd(maximum as number);
                           const sign = pct > 0 ? "+" : pct < 0 ? "−" : "";
                           const abs = Math.abs(pct).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
                           const arrow = pct < 0 ? "↓" : pct > 0 ? "↑" : "•";

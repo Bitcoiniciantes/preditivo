@@ -431,14 +431,14 @@
 
 
 /* LAYOUT_CACA_TOPOS_V2 */
-/* Cotação spot compacta: mesmo modelo do Caça-Fundos (preço + 24h na linha). */
-.topRadar .brContext {
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
+/* Caça-Topos usa o mesmo layout do Caça-Fundos: cotação+refs à esquerda, gráfico à direita. */
+.topRadar .brContext.brFundContext {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  align-items: stretch;
 }
 
 @media (max-width: 720px) {
-  .topRadar .brContext { grid-template-columns: minmax(0, 1fr); }
+  .topRadar .brContext.brFundContext { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* ── Controles + ATIVO / COMPARAR e painéis integrados (Radar de Reversão) ── */
