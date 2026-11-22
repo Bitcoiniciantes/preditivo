@@ -162,6 +162,8 @@
   width: 1px;
   background: #ffffff66;
 }
+/* Meta atingida: a barra acompanha o texto positivo, sem mudar o cálculo. */
+.brPreserveTrackMet i { background: #10b981; }
 .brPositive { color: #10b981 !important; }
 .brNegative { color: #ef4444 !important; }
 .brCaution { color: #f59e0b !important; }
@@ -214,9 +216,9 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px 16px;
+  gap: 9px 14px;
   margin: 12px 18px 0;
-  padding: 10px 0;
+  padding: 9px 0;
   border-top: 1px solid #1b2722;
   border-bottom: 1px solid #1b2722;
   color: var(--muted);
@@ -226,7 +228,8 @@
 .brContextRefs {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px 16px;
+  align-items: start;
+  gap: 6px 14px;
   min-width: 0;
   width: 100%;
 }
@@ -238,7 +241,7 @@
 }
 .brContextRef span {
   color: var(--muted);
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: .03em;
   line-height: 1.25;
@@ -251,7 +254,70 @@
   line-height: 1.15;
   white-space: nowrap;
 }
-.brRefMinima span { font-size: 10.8px; }
+.brRefLabelPct {
+  font-size: 11px;
+  font-weight: 700;
+  color: #8a9892;
+  letter-spacing: .01em;
+}
+/* Todos os rótulos de referência usam a mesma escala e o mesmo respiro. */
+.brContextRef span { letter-spacing: .03em; }
+/* Caça-Fundos: duas colunas 40/60 — cotação+referências à esquerda, gráfico à direita. */
+.brFundContext {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  align-items: stretch;
+  gap: 10px 16px;
+}
+.brFundLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.brFundContext .brCurrentPrice {
+  align-items: flex-start;
+  text-align: left;
+}
+.brFundContext .brQuoteLine {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+.brFundContext .brQuoteValue {
+  font-size: clamp(22px, 2.4vw, 30px);
+}
+.brFundContext .brContextRefs {
+  grid-template-columns: 1fr;
+  gap: 5px;
+  margin-top: auto;
+}
+.brFundContext .brContextRef {
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.brFundChart {
+  min-width: 0;
+  display: flex;
+}
+.brFundChart .brMiniChart {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+}
+.brFundChart .brMiniBody {
+  flex: 1;
+  min-height: 0;
+}
+.brFundChart .brMiniSvg {
+  height: 120px;
+  min-height: 110px;
+  flex: 1;
+}
 /* Cotação spot compacta: preço grande com a variação de 24h ao lado. O tom do
    preço segue o último movimento do ativo; a variação tem cor pelo próprio
    sinal. A referência de cálculo fica discreta, sem se passar por cotação. */
@@ -284,6 +350,14 @@
   letter-spacing: .02em;
   line-height: 1.1;
 }
+.brChangeWindow {
+  margin-left: 4px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  vertical-align: 1px;
+}
 .brQuoteRef {
   color: var(--muted);
   font-size: 8.5px;
@@ -296,6 +370,197 @@
   color: var(--muted);
   font-size: 15px;
   font-weight: 800;
+  letter-spacing: .02em;
+}
+
+/* ── Minigráfico de 15M (cartão compacto, somente informativo) ───────────── */
+.brMiniChart {
+  width: 404px;
+  max-width: 100%;
+  margin-top: 8px;
+  padding: 7px 11px 7px;
+  border: 1px solid #1e5c47;
+  border-radius: 8px;
+  background: #0a110f;
+  text-align: left;
+}
+.brMiniHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.brMiniHeadLeft {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.brMiniLastHead {
+  color: #5f6d66;
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+.brMiniLastFoot { display: none; }
+.brMiniTf {
+  color: #7ad881;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .16em;
+  line-height: 1;
+}
+.brMiniTf em {
+  color: var(--muted);
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: .08em;
+}
+.brMiniModes {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid #22302a;
+  border-radius: 6px;
+  background: #0d1714;
+}
+.brMiniModeBtn {
+  padding: 3px 7px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #8a9892;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  line-height: 1;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+.brMiniModeBtn:hover {
+  color: #dbe5e0;
+}
+.brMiniModeBtn[aria-pressed="true"] {
+  background: #10291f;
+  color: #7ad881;
+}
+.brMiniModeBtn:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 1px;
+}
+.brMiniModeDivider {
+  width: 1px;
+  height: 10px;
+  background: #22302a;
+}
+.brMiniBody {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.brMiniChange {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  flex: none;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .01em;
+  line-height: 1;
+  white-space: nowrap;
+}
+.brMiniChangeMain {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.brMiniChange i {
+  font-size: 8px;
+  font-style: normal;
+  line-height: 1;
+}
+.brMiniChangeWindow {
+  color: #6f7f78;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+.brMiniSvg {
+  display: block;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  height: 68px;
+}
+.brMiniTrend {
+  flex: none;
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1;
+}
+.brMini-up { color: #10b981; }
+.brMini-down { color: #ef4444; }
+.brMini-flat { color: #8a9892; }
+.brMiniFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-top: 3px;
+  min-width: 0;
+}
+.brMiniLegend {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  min-width: 0;
+}
+.brMiniLegendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  line-height: 1.2;
+}
+.brMiniLegendItem i {
+  display: inline-block;
+  width: 14px;
+  height: 0;
+  border-top: 1.5px solid currentColor;
+  flex: none;
+}
+.brMiniLegendLabel { color: #b7c3bd; }
+.brMiniLegendValue { color: #ffffff; font-weight: 800; }
+.brMiniLegendMin { color: #ef4444; }
+.brMiniLegendMin i { border-top-style: solid; }
+.brMiniLegendMinAway { color: #ef4444; opacity: .7; }
+.brMiniLegendMin24 { color: #ef4444; opacity: .5; }
+.brMiniLegendMin24 i { border-top-style: dashed; }
+.brMiniLegendMin24Away { color: #a56e6e; opacity: .85; letter-spacing: .01em; font-size: 8px; }
+.brMiniLegendEma { color: #f5c542; }
+.brMiniLegendEma i { border-top-style: dashed; }
+.brMiniLast {
+  flex: none;
+  color: #5f6d66;
+  white-space: nowrap;
+}
+.brMiniUnavailable {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 68px;
+  margin-top: 4px;
+  color: #8a9892;
+  font-size: 10px;
+  font-weight: 700;
   letter-spacing: .02em;
 }
 
@@ -365,12 +630,28 @@
   .brBarArea { padding: 12px 14px 0; }
   .brContext { grid-template-columns: 1fr; margin: 10px 14px 0; gap: 10px; }
   .brContextRefs { gap: 8px 10px; }
-  .brContextRef span { font-size: 8px; }
-  .brRefMinima span { font-size: 9.6px; }
+  .brFundContext { grid-template-columns: 1fr; gap: 10px; }
+  .brFundLeft { gap: 8px; }
+  .brFundContext .brContextRefs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 10px;
+    margin-top: 0;
+  }
+  .brFundContext .brContextRef {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 3px;
+  }
+  .brFundChart .brMiniSvg { height: 96px; min-height: 96px; }
+  .brMiniLastHead { display: none; }
+  .brMiniLastFoot { display: inline; margin-left: auto; }
+  .brContextRef span { font-size: 10px; }
   .brContextRef b { font-size: 14px; }
   .brCurrentPrice { align-items: flex-start; min-width: 0; text-align: left; }
   .brQuoteLine { justify-content: flex-start; }
-  .brQuoteValue { font-size: 28px; }
+  .brQuoteValue, .brFundContext .brQuoteValue { font-size: 28px; }
+  .brMiniChart { width: 100%; }
   .brAction { margin: 10px 14px 0; }
   .brNote { margin: 9px 14px 0; }
 }
@@ -382,11 +663,11 @@
   .brMetricSub { font-size: 7.5px; }
   .brContext { font-size: 9px; }
   .brContextRefs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
-  .brContextRef span { font-size: 8px; white-space: normal; }
-  .brRefMinima span { font-size: 9.6px; }
+  .brContextRef span { font-size: 10px; white-space: normal; }
+  .brRefLabelPct { display: block; font-size: 11px; }
   .brContextRef b { font-size: 14px; }
   .brQuoteLine { gap: 6px; }
-  .brQuoteValue { font-size: 26px; }
+  .brQuoteValue, .brFundContext .brQuoteValue { font-size: 26px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

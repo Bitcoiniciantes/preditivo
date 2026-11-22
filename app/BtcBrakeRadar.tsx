@@ -18,6 +18,7 @@ import {
   type BrakeRadarReading,
   type BrakeAssetSymbol,
 } from "../lib/brake-radar";
+import { RadarMiniChart } from "./RadarMiniChart";
 
 const REFRESH_MS = 60_000;
 
@@ -150,6 +151,7 @@ function priceTrendTone(trend: PriceTrend): string {
   if (trend === "down") return "brNegative";
   return "brMuted";
 }
+void priceTrendTone;
 
 function changeTone(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "brMuted";
@@ -182,6 +184,7 @@ export function BtcBrakeRadar({
   const snapshot = shared ? externalSnapshot : internalSnapshot;
   const now = externalNow ?? internalNow;
   const [priceTrend, setPriceTrend] = useState<PriceTrend>("flat");
+  void priceTrend;
   const [trackedQuote, setTrackedQuote] = useState<{ symbol: BrakeAssetSymbol; price: number } | null>(null);
   const validLivePrice = livePrice !== null && Number.isFinite(livePrice) && livePrice > 0
     ? livePrice
@@ -271,6 +274,21 @@ export function BtcBrakeRadar({
   const preservedTrack = reading.preservedMinutes === null
     ? 0
     : Math.max(0, Math.min(100, (reading.preservedMinutes / (BRAKE_PRESERVED_REFERENCE_MIN * 2)) * 100));
+  // Mínima 24h para a coluna de referências (somente exibição; não altera cálculos).
+  const minimum24h = (() => {
+    const bars = (snapshot?.m15 ?? []).slice(-96);
+    let min: number | null = null;
+    for (const bar of bars) {
+      const low = Number(bar.low);
+      if (!Number.isFinite(low) || low <= 0) continue;
+      if (min === null || low < min) min = low;
+    }
+    return min;
+  })();
+  const distanceBase = validLivePrice ?? reading.lastClose15m ?? null;
+  const minimum24hDistancePct = minimum24h !== null && distanceBase !== null && distanceBase > 0
+    ? ((minimum24h / distanceBase) - 1) * 100
+    : null;
 
   return (
     <article
@@ -308,7 +326,7 @@ export function BtcBrakeRadar({
         <div className="brMetric">
           <span>FUNDO PRESERVADO</span>
           <b className={preservedTone(reading)}>{preservedText}</b>
-          <div className="brPreserveTrack" aria-hidden="true">
+          <div className={`brPreserveTrack${preservedMet ? " brPreserveTrackMet" : ""}`} aria-hidden="true">
             <i style={{ width: `${preservedTrack}%` }} />
             <em title="Referência de 60 minutos" />
           </div>
@@ -336,45 +354,63 @@ export function BtcBrakeRadar({
         )}
       </div>
 
-      <div className="brContext">
-        <div className="brContextRefs">
-          <div className="brContextRef brRefMinima">
-            <span>Mínima da queda</span>
-            <b className="brNegative">{fmtPrice(reading.minimum12h)}</b>
-          </div>
-          <div className="brContextRef">
-            <span>Máxima da amplitude</span>
-            <b>{fmtPrice(reading.maximum12h)}</b>
-          </div>
-          <div className="brContextRef">
-            <span>Recuperação</span>
-            <b>{fmtPct(reading.retracementPct)}</b>
-          </div>
-          <div className="brContextRef">
-            <span>EMA9</span>
-            <b>{fmtPrice(reading.ema9)}</b>
-          </div>
-        </div>
-        <div className="brCurrentPrice" aria-label={`Cotação spot de ${symbol}`}>
-          <div className="brQuoteLine">
-            {validLivePrice !== null ? (
-              <>
-                <b className={`brQuoteValue ${priceTrendTone(priceTrend)}`}>
-                  US$ {fmtCurrentPrice(validLivePrice)}
-                </b>
-                {validDailyChange !== null && (
-                  <small className={`brDailyChange ${changeTone(validDailyChange)}`}>
-                    {fmtDailyChange(validDailyChange)}
-                  </small>
-                )}
-              </>
-            ) : (
-              <b className="brQuoteValue brQuoteUnavailable">Indisponível</b>
+      <div className="brContext brFundContext">
+        <div className="brFundLeft">
+          <div className="brCurrentPrice" aria-label={`Cotação spot de ${symbol}`}>
+            <div className="brQuoteLine">
+              {validLivePrice !== null ? (
+                <>
+                  <b className={`brQuoteValue ${changeTone(validDailyChange)}`}>
+                    US$ {fmtCurrentPrice(validLivePrice)}
+                  </b>
+                  {validDailyChange !== null && (
+                    <small className={`brDailyChange ${changeTone(validDailyChange)}`}>
+                      {fmtDailyChange(validDailyChange)}
+                      <span className="brChangeWindow">24H</span>
+                    </small>
+                  )}
+                </>
+              ) : (
+                <b className="brQuoteValue brQuoteUnavailable">Indisponível</b>
+              )}
+            </div>
+            {referencePrice !== null && Number.isFinite(referencePrice) && (
+              <small className="brQuoteRef">ref. cálculo: {fmtCurrentPrice(referencePrice)}</small>
             )}
           </div>
-          {referencePrice !== null && Number.isFinite(referencePrice) && (
-            <small className="brQuoteRef">ref. cálculo: {fmtCurrentPrice(referencePrice)}</small>
-          )}
+          <div className="brContextRefs">
+            <div className="brContextRef brRefMinima">
+              <span>
+                Mín. 24h
+                {minimum24hDistancePct !== null ? (
+                  <small className="brRefLabelPct"> ({fmtPct(minimum24hDistancePct, true)}):</small>
+                ) : (
+                  ":"
+                )}
+              </span>
+              <b className="brNegative">{fmtPrice(minimum24h)}</b>
+            </div>
+            <div className="brContextRef">
+              <span>Máxima da amplitude:</span>
+              <b>{fmtPrice(reading.maximum12h)}</b>
+            </div>
+            <div className="brContextRef">
+              <span>Recuperação:</span>
+              <b>{fmtPct(reading.retracementPct)}</b>
+            </div>
+            <div className="brContextRef">
+              <span>EMA9:</span>
+              <b>{fmtPrice(reading.ema9)}</b>
+            </div>
+          </div>
+        </div>
+        <div className="brFundChart">
+          <RadarMiniChart
+            candles={snapshot?.m15 ?? []}
+            symbol={symbol}
+            minimum={reading.minimum12h}
+            ema9={reading.ema9}
+          />
         </div>
       </div>
 

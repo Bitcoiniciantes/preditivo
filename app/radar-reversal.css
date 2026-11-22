@@ -118,14 +118,14 @@
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: flex-start;
-  gap: 8px;
+  gap: 7px;
   max-width: 100%;
   padding: 0 16px 12px;
 }
 .rrAssetPillWrap {
   position: relative;
-  flex: 0 0 103px;
-  width: 103px;
+  flex: 0 0 97px;
+  width: 97px;
   height: 46px;
 }
 .rrAssetPill {
@@ -211,7 +211,7 @@
 }
 .rrPillRemove:focus-visible { outline: 2px solid var(--cyan); outline-offset: 0; }
 @media (max-width: 720px) { .rrAssetTabs { padding: 0 14px 10px; } }
-@media (max-width: 400px) { .rrAssetPillWrap { flex: 0 1 103px; max-width: 100%; } .rrPillRemove { width: 24px; height: 24px; opacity: .75; } }
+@media (max-width: 400px) { .rrAssetPillWrap { flex: 0 1 97px; max-width: 100%; } .rrPillRemove { width: 24px; height: 24px; opacity: .75; } }
 
 /* ── Caça-Topos ─────────────────────────────────────────────────────────── */
 
@@ -442,12 +442,20 @@
 }
 
 /* ── Controles + ATIVO / COMPARAR e painéis integrados (Radar de Reversão) ── */
+/* O grupo mantém os dois controles juntos: se faltar espaço, ambos descem
+   para a linha seguinte em vez de isolar o COMPARAR. */
+.rrActionGroup {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-left: auto;
+}
 .rrActionPill {
   display: inline-flex;
-  flex: 0 0 103px;
+  flex: 0 0 92px;
   align-items: center;
   justify-content: center;
-  width: 103px;
+  width: 92px;
   height: 46px;
   min-width: 0;
   padding: 0 5px;
@@ -493,6 +501,16 @@
   color: #6f8078;
 }
 .rrComparePill { border-style: solid; border-color: #22302a; }
+@media (max-width: 560px) {
+  .rrActionGroup {
+    flex: 1 0 100%;
+    margin-left: 0;
+  }
+  .rrActionGroup .rrActionPill {
+    flex: 1 1 0;
+    width: auto;
+  }
+}
 .rrLimitNotice {
   margin: -4px 16px 10px;
   color: #F59E0B;

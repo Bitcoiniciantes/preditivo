@@ -364,27 +364,29 @@ export function MultiAssetFundMonitor({
             </div>
           );
         })}
-        <button
-          type="button"
-          className={`rrActionPill rrAddPill ${addOpen ? "active" : ""}`}
-          onClick={() => { if (addDisabled) return; setAddOpen((v) => !v); setAddError(""); if (compareOpen) setCompareOpen(false); }}
-          aria-expanded={addOpen}
-          aria-label="Adicionar ativo ao radar"
-          title={addDisabled ? "Limite de 3 ativos adicionais atingido" : "Buscar e incluir ativo compatível"}
-          disabled={addDisabled}
-        >
-          <b>+ ATIVO</b>
-        </button>
-        <button
-          type="button"
-          className={`rrActionPill rrComparePill ${compareOpen ? "active" : ""}`}
-          onClick={() => { setCompareOpen((v) => !v); if (!compareOpen) setAddOpen(false); }}
-          aria-expanded={compareOpen}
-          aria-label="Comparar ativos"
-          title="Comparar dois ativos no modo técnico atual"
-        >
-          <b>COMPARAR</b>
-        </button>
+        <div className="rrActionGroup">
+          <button
+            type="button"
+            className={`rrActionPill rrAddPill ${addOpen ? "active" : ""}`}
+            onClick={() => { if (addDisabled) return; setAddOpen((v) => !v); setAddError(""); if (compareOpen) setCompareOpen(false); }}
+            aria-expanded={addOpen}
+            aria-label="Adicionar ativo ao radar"
+            title={addDisabled ? "Limite de 3 ativos adicionais atingido" : "Buscar e incluir ativo compatível"}
+            disabled={addDisabled}
+          >
+            <b>+ ATIVO</b>
+          </button>
+          <button
+            type="button"
+            className={`rrActionPill rrComparePill ${compareOpen ? "active" : ""}`}
+            onClick={() => { setCompareOpen((v) => !v); if (!compareOpen) setAddOpen(false); }}
+            aria-expanded={compareOpen}
+            aria-label="Comparar ativos"
+            title="Comparar dois ativos no modo técnico atual"
+          >
+            <b>COMPARAR</b>
+          </button>
+        </div>
       </div>
       {addDisabled && (
         <p className="rrLimitNotice" role="status">

@@ -34,6 +34,8 @@ export const BRAKE_RECENT_NEW_LOW_CANDLES = 2;
 export const BRAKE_MIN_PREVIOUS_DECLINE_PCT = 0.5;
 export const BRAKE_H1_COUNT = 24;
 export const BRAKE_M15_COUNT = 48;
+/** Janela ampliada apenas para visualização no minigráfico (24h em 15m). */
+export const BRAKE_M15_DISPLAY_COUNT = 96;
 
 const EPSILON = 1e-9;
 
@@ -710,7 +712,9 @@ export type BrakeKlinesSnapshot = {
   fetchedAt: number;
 };
 
-/** 25 candles de 1h e 49 de 15m: um extra descarta o candle em formação. */
+/** 25 candles de 1h e 97 de 15m: um extra descarta o candle em formação.
+ *  Os 96 de 15m (24h) alimentam o minigráfico; os cálculos do radar continuam
+ *  usando apenas os últimos BRAKE_M15_COUNT (48) candles fechados. */
 export async function fetchBrakeKlines(
   signal?: AbortSignal,
   symbol: string = "BTCUSDT",
@@ -718,7 +722,7 @@ export async function fetchBrakeKlines(
   if (!isValidBrakeRadarSymbol(symbol)) throw new Error("símbolo não permitido");
   const [h1, m15] = await Promise.all([
     fetchKlines(symbol, "1h", BRAKE_H1_COUNT + 1, BRAKE_H1_COUNT, signal),
-    fetchKlines(symbol, "15m", BRAKE_M15_COUNT + 1, BRAKE_M15_COUNT, signal),
+    fetchKlines(symbol, "15m", BRAKE_M15_DISPLAY_COUNT + 1, BRAKE_M15_COUNT, signal),
   ]);
   return { h1, m15, fetchedAt: Date.now() };
 }
