@@ -19,7 +19,7 @@ const REFRESH_MS = 60_000;
 const fundPillLabel: Record<string, string> = {
   REACTION: "CONFIRMADA",
   REBOUND: "OBSERVAR",
-  SLOWING: "DESACELERANDO",
+  SLOWING: "DESACELERA",
   ACCELERATING: "QUEDA",
   UNSTABLE: "QUEDA",
   NO_DROP: "STAND-BY",
