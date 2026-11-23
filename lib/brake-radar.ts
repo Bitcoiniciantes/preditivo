@@ -13,6 +13,7 @@
 
 export const BRAKE_H1_INTERVAL_MS = 60 * 60_000;
 export const BRAKE_M15_INTERVAL_MS = 15 * 60_000;
+export const BRAKE_M5_INTERVAL_MS = 5 * 60_000;
 export const BRAKE_STALE_MS = 2 * 60_000;
 export const BRAKE_DROP_THRESHOLD_PCT = 1.5;
 export const BRAKE_MIN_BRAKE_PCT = 25;
@@ -696,7 +697,7 @@ async function fetchKlines(
   const intervalMs =
     interval === "1d" ? BRAKE_D1_INTERVAL_MS
       : interval === "1h" ? BRAKE_H1_INTERVAL_MS
-        : BRAKE_M15_INTERVAL_MS;
+        : interval === "5m" ? BRAKE_M5_INTERVAL_MS : BRAKE_M15_INTERVAL_MS;
   for (const base of BINANCE_BASES) {
     try {
       const url = `${base}?symbol=${symbol}&interval=${interval}&limit=${limit}`;
@@ -717,6 +718,8 @@ async function fetchKlines(
 export type BrakeKlinesSnapshot = {
   h1: BrakeKline[];
   m15: BrakeKline[];
+  /** Exclusivo do gatilho rápido; não alimenta o gráfico nem o motor 15M/1H. */
+  m5?: BrakeKline[];
   fetchedAt: number;
 };
 
@@ -728,11 +731,12 @@ export async function fetchBrakeKlines(
   symbol: string = "BTCUSDT",
 ): Promise<BrakeKlinesSnapshot> {
   if (!isValidBrakeRadarSymbol(symbol)) throw new Error("símbolo não permitido");
-  const [h1, m15] = await Promise.all([
+  const [h1, m15, m5] = await Promise.all([
     fetchKlines(symbol, "1h", BRAKE_H1_COUNT + 1, BRAKE_H1_COUNT, signal),
     fetchKlines(symbol, "15m", BRAKE_M15_DISPLAY_COUNT + 1, BRAKE_M15_COUNT, signal),
+    fetchKlines(symbol, "5m", 101, 2, signal).catch(() => []),
   ]);
-  return { h1, m15, fetchedAt: Date.now() };
+  return { h1, m15, m5, fetchedAt: Date.now() };
 }
 
 export type BrakeDailyReference = {

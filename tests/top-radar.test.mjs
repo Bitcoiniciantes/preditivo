@@ -613,8 +613,9 @@ test("Integração: wrapper preserva Caça-Fundos e adiciona Caça-Topos", async
   assert.match(page, /import "\.\/radar-reversal\.css"/);
   const nexus = page.indexOf("<ConfluencePanel");
   const radar = page.indexOf("<BtcRadarReversal");
-  const position = page.indexOf("<PositionPanel");
-  assert.ok(nexus >= 0 && radar > nexus && position > radar, "ordem NEXUS → Radar de Reversão → PositionPanel");
+  assert.ok(nexus >= 0 && radar > nexus, "Radar de Reversão vem após o NEXUS");
+  const css = await readFile(new URL("../app/radar-reversal.css", import.meta.url), "utf8");
+  assert.match(css, /\.radarReversal\s*\{[\s\S]*?grid-column:\s*1\s*\/\s*-1/);
 
   const wrapper = await readFile(new URL("../app/BtcRadarReversal.tsx", import.meta.url), "utf8");
   assert.match(wrapper, /rrTitle">RADAR DE REVERSÃO/);
@@ -640,7 +641,6 @@ test("Integração: wrapper preserva Caça-Fundos e adiciona Caça-Topos", async
   assert.match(top, /Confirmação estrutural 1H/);
   assert.match(top, /TOP_MAX_CONFIRM_AGE_HOURS/);
 
-  const css = await readFile(new URL("../app/radar-reversal.css", import.meta.url), "utf8");
   assert.match(css, /\.rrTabs/);
   assert.match(css, /\.trDiag/);
   assert.match(css, /@media \(max-width: 720px\)/);

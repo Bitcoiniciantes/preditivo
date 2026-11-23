@@ -27,6 +27,7 @@ import { MultiAssetFundMonitor } from "./MultiAssetFundMonitor";
 const REFRESH_MS = 60_000;
 
 type RadarTab = "fundos" | "topos";
+type RadarMode = "fast" | "conservative";
 type RemoteState = "loading" | "ready" | "failed" | "stale";
 
 function readExtraSymbols(): string[] {
@@ -59,6 +60,7 @@ export function BtcRadarReversal({
 }) {
   // A página sempre abre no Caça-Fundos, preservando a leitura principal.
   const [tab, setTab] = useState<RadarTab>("fundos");
+  const [mode, setMode] = useState<RadarMode>("conservative");
   const [snapshot, setSnapshot] = useState<BrakeKlinesSnapshot | null>(null);
   const [selectedSymbol, setSelectedSymbol] = useState<string>("BTCUSDT");
   const [selectedSnapshot, setSelectedSnapshot] = useState<BrakeKlinesSnapshot | null>(null);
@@ -241,6 +243,8 @@ export function BtcRadarReversal({
           >
             CAÇA-TOPOS
           </button>
+          <button type="button" className={`rrModeTab ${mode === "fast" ? "active" : ""}`} onClick={() => setMode("fast")}>RÁPIDO</button>
+          <button type="button" className={`rrModeTab ${mode === "conservative" ? "active" : ""}`} onClick={() => setMode("conservative")}>CONSERVADOR</button>
         </div>
         <MultiAssetFundMonitor
           btcSnapshot={snapshot}
@@ -270,6 +274,7 @@ export function BtcRadarReversal({
           quoteState={effectiveQuoteState}
           quoteUpdatedAt={quoteUpdatedAt}
           chartState={effectiveChartState}
+          mode={mode}
         />
       </div>
 

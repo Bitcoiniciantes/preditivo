@@ -98,6 +98,7 @@
   gap: 6px;
   flex: none;
 }
+.brEvolution{padding:12px 18px 0;border-bottom:1px solid #1b2722}.brModeSwitch{display:flex;gap:7px;margin:0 0 10px}.brModeSwitch button{border:1px solid #31413a;border-radius:8px;background:#0a110f;color:#9ba8a2;padding:9px 13px;font-size:10px;font-weight:900;letter-spacing:.08em;cursor:pointer}.brModeSwitch button.active{border-color:#10b981;background:#10291f;color:#52e8b3}.brOperationalGrid{display:grid;grid-template-columns:1.25fr .88fr 1.2fr;gap:10px}.brOpCard,.brOpStats>div{border:1px solid #294039;border-radius:10px;background:#0a110f;padding:12px}.brOpCard>span,.brOpStats span{display:block;color:#b8c8c0;font-size:9px;font-weight:900;letter-spacing:.08em}.brMap{position:relative;border-color:#10b981}.brMap dl{display:grid;gap:5px;margin:10px 92px 0 0}.brMap dl div{display:flex;justify-content:space-between;gap:8px}.brMap dt{color:#aebbb4;font-size:10px}.brMap dd{margin:0;color:#e9eee8;font-size:12px;font-weight:800}.brRr{position:absolute;right:12px;top:50%;transform:translateY(-20%);display:grid;place-items:center;min-height:62px;min-width:76px;border:1px solid #10b981;border-radius:8px;color:#38e8ba;font-size:13px}.brTrigger{display:flex;flex-direction:column;gap:12px}.brTrigger>b{font-size:13px}.brTrigger p{margin:0;color:#8a9892;font-size:10px;line-height:1.4}.brCheckList{display:grid;gap:7px;margin:0;padding:0;list-style:none;color:#b5c0bb;font-size:10px}.brCheckList .ok{color:#59d797}.brCheckList .waiting{color:#f5ba43}.brOpStats{display:grid;grid-template-columns:1fr 1fr;gap:8px}.brOpStats>div{padding:10px}.brOpStats b{display:block;margin-top:6px;font-size:22px;line-height:1}.brDiagnostics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:10px 0 12px}.brDiagnostics span{border:1px solid #294039;border-radius:8px;padding:9px 12px;color:#8a9892;font-size:8px;font-weight:900;letter-spacing:.08em}.brDiagnostics b{display:block;margin-top:3px;color:#bcefe0;font-size:13px;letter-spacing:0}.brakeRadar .brMetrics{padding-top:12px}@media(max-width:960px){.brOperationalGrid{grid-template-columns:1fr 1fr}.brOpStats{grid-column:1/-1}.brDiagnostics{grid-template-columns:1fr}.brEvolution{padding-inline:14px}}@media(max-width:560px){.brOperationalGrid{grid-template-columns:1fr}.brOpStats{grid-column:auto}.brModeSwitch button{flex:1;padding:8px 5px;font-size:8px}.brMap dl{margin-right:0}.brRr{position:static;transform:none;margin-top:10px}.brDiagnostics{gap:6px}}
 .brBadge {
   display: inline-flex;
   align-items: center;
@@ -770,3 +771,17 @@
 
 /* O widget embutido mantém o escopo original (Radar Compra × Venda). */
 .widgetEmbed .brakeRadar { display: none !important; }
+
+.brCheckList .confirmed { color: #59d797; }
+.brCheckList .invalid { color: #ef6b72; }
+.brCheckList .unavailable { color: #8a9892; }
+
+/* Sem R:R: as referências do mapa ocupam toda a largura disponível. */
+.brMap dl { margin-right: 0; }
+.brMapHypothetical { opacity: .55; }
+.brOpStats small { display:block; margin-top:4px; color:#c4d0ca; font-size:9px; line-height:1.25; }
+.brMetricSub { font-size:12px; color:#b7c3bd; }
+.brNote { color:#aebbb4; font-size:11px; }
+
+/* O seletor ocupa a faixa dos ativos no desktop; a evolução não reserva mais
+   uma linha própria para ele. */

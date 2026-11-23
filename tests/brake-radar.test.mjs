@@ -409,13 +409,14 @@ test("DADOS INDISPONÍVEIS: dados velhos, insuficientes, desalinhados ou em form
   assert.equal(analyzeBrakeRadar({ h1: [], m15: [], fetchedAt: null, now: NOW }).state, "UNAVAILABLE");
 });
 
-test("integração: card renderizado abaixo do NEXUS na home", async () => {
+test("integração: card ocupa a largura total da mesa na home", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   assert.match(page, /import \{ BtcRadarReversal \} from "\.\/BtcRadarReversal"/);
   const nexus = page.indexOf("<ConfluencePanel");
   const radar = page.indexOf("<BtcRadarReversal");
-  const position = page.indexOf("<PositionPanel");
-  assert.ok(nexus >= 0 && radar > nexus && position > radar, "ordem NEXUS → Radar de Reversão → PositionPanel");
+  assert.ok(nexus >= 0 && radar > nexus, "Radar de Reversão vem após o NEXUS");
+  const css = await readFile(new URL("../app/radar-reversal.css", import.meta.url), "utf8");
+  assert.match(css, /\.radarReversal\s*\{[\s\S]*?grid-column:\s*1\s*\/\s*-1/);
 
   const wrapper = await readFile(new URL("../app/BtcRadarReversal.tsx", import.meta.url), "utf8");
   assert.match(wrapper, /<BtcBrakeRadar/);
@@ -427,11 +428,11 @@ test("integração: card renderizado abaixo do NEXUS na home", async () => {
   assert.match(component, /brTitle/);
   assert.match(component, /BTC\/USDT/);
   assert.match(component, /MOVIMENTO RECENTE \(3H\)/);
-  assert.match(component, /RECUPERAÇÃO DA QUEDA/);
+  assert.match(component, /ESTRUTURA DA AMPLITUDE/);
   assert.match(component, /FUNDO PRESERVADO/);
   assert.match(component, /Mín\. 30d/);
-  assert.match(component, /Máxima da amplitude/);
-  assert.match(component, /Recuperação:/);
+  assert.match(component, /Máx\. da amplitude/);
+  assert.match(component, /Mín\. da queda/);
   assert.match(component, /Cotação spot de \$\{symbol\}/);
   assert.match(component, /brQuoteValue/);
   assert.match(component, /referencePrice = reading\.lastClose15m/);
@@ -454,13 +455,13 @@ test("integração: card renderizado abaixo do NEXUS na home", async () => {
   assert.match(component, /brBarAreaEmpty/);
   assert.match(component, /brPreserveTrack/);
 
-  const css = await readFile(new URL("../app/brake-radar.css", import.meta.url), "utf8");
-  assert.match(css, /tone-cyan/);
-  assert.match(css, /#38bdf8/);
-  assert.match(css, /#94a3b8/);
-  assert.match(css, /--br-wash: #251116/);
-  assert.match(css, /--br-wash: #28200f/);
-  assert.match(css, /--br-wash: #0c2330/);
-  assert.match(css, /--br-wash: #10291f/);
+  const brakeCss = await readFile(new URL("../app/brake-radar.css", import.meta.url), "utf8");
+  assert.match(brakeCss, /tone-cyan/);
+  assert.match(brakeCss, /#38bdf8/);
+  assert.match(brakeCss, /#94a3b8/);
+  assert.match(brakeCss, /--br-wash: #251116/);
+  assert.match(brakeCss, /--br-wash: #28200f/);
+  assert.match(brakeCss, /--br-wash: #0c2330/);
+  assert.match(brakeCss, /--br-wash: #10291f/);
   assert.match(page, /dailyChangePct=\{ticker === "BTC" \? change24h : null\}/);
 });

@@ -197,6 +197,9 @@ export function MultiAssetFundMonitor({
   );
   const readings = radar === "fundos" ? fundReadings : topReadings;
   const labels = radar === "fundos" ? fundPillLabel : topPillLabel;
+  const fallingAssets = radar === "fundos"
+    ? allSymbols.filter((symbol) => ["ACCELERATING", "UNSTABLE"].includes(fundReadings[symbol]?.state ?? "")).length
+    : 0;
 
   useEffect(() => {
     if (addOpen) window.setTimeout(() => addInputRef.current?.focus(), 0);
