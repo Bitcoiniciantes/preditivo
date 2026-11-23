@@ -165,6 +165,9 @@ export function BtcBrakeRadar({
   assetName = "Bitcoin",
   livePrice = null,
   dailyChangePct = null,
+  quoteState = "loading",
+  quoteUpdatedAt = null,
+  chartState = "loading",
   snapshot: externalSnapshot,
   now: externalNow,
 }: {
@@ -172,6 +175,9 @@ export function BtcBrakeRadar({
   assetName?: string;
   livePrice?: number | null;
   dailyChangePct?: number | null;
+  quoteState?: "loading" | "ready" | "failed" | "stale";
+  quoteUpdatedAt?: number | null;
+  chartState?: "loading" | "ready" | "failed" | "stale";
   /** Snapshot compartilhado opcional. Quando presente, evita um segundo fetch. */
   snapshot?: BrakeKlinesSnapshot | null;
   /** Relógio compartilhado opcional com o wrapper de abas. */
@@ -192,6 +198,13 @@ export function BtcBrakeRadar({
   const validDailyChange = dailyChangePct !== null && Number.isFinite(dailyChangePct)
     ? dailyChangePct
     : null;
+  const quoteView = quoteState === "loading" && validLivePrice === null
+    ? "loading"
+    : quoteState === "failed" && validLivePrice === null
+      ? "failed"
+      : quoteState === "stale" && validLivePrice !== null
+        ? "stale"
+        : "ready";
 
   // Atualização condicionada durante o render, conforme a versão remota.
   // A referência é sempre do MESMO símbolo: ao trocar de ativo o rastreio
@@ -302,6 +315,33 @@ export function BtcBrakeRadar({
           <span className="brKicker">{symbol}</span>
           <div className="brState">{reading.label}</div>
         </div>
+        <div className={`brCurrentPrice brHeadQuote brHeadQuote-${quoteView === "ready" || quoteView === "stale" ? changeTone(validDailyChange) : "brMuted"}`} aria-label={`Cotação spot de ${symbol}`}>
+          <div className="brQuoteLine">
+            {quoteView === "loading" ? (
+              <b className="brQuoteValue brQuoteLoading">Atualizando<span className="brLoadingDots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></b>
+            ) : quoteView === "failed" ? (
+              <b className="brQuoteValue brQuoteUnavailable">Sem conexão</b>
+            ) : validLivePrice !== null ? (
+              <>
+                <b className={`brQuoteValue ${changeTone(validDailyChange)}`}>
+                  ${fmtCurrentPrice(validLivePrice)}
+                </b>
+                {validDailyChange !== null && (
+                  <small className={`brDailyChange ${changeTone(validDailyChange)}`}>
+                    {fmtDailyChange(validDailyChange)}
+                    <span className="brChangeWindow">24H</span>
+                  </small>
+                )}
+              </>
+            ) : null}
+          </div>
+          {quoteView === "loading" ? <small className="brQuoteRef">buscando Binance spot</small>
+            : quoteView === "failed" ? <small className="brQuoteRef">nova tentativa em 60s</small>
+              : quoteView === "stale" ? <small className="brQuoteRef">desatualizada · última às {fmtTime(quoteUpdatedAt)}</small>
+                : referencePrice !== null && Number.isFinite(referencePrice) && (
+            <small className="brQuoteRef">ref. cálculo (fech. 15M): {fmtCurrentPrice(referencePrice)}</small>
+          )}
+        </div>
         <div className="brHeadSide">
           <span className="brBadge">{reading.badge}</span>
           <small className="brUpdated">Atualizado às {fmtTime(reading.updatedAt)}</small>
@@ -356,28 +396,6 @@ export function BtcBrakeRadar({
 
       <div className="brContext brFundContext">
         <div className="brFundLeft">
-          <div className="brCurrentPrice" aria-label={`Cotação spot de ${symbol}`}>
-            <div className="brQuoteLine">
-              {validLivePrice !== null ? (
-                <>
-                  <b className={`brQuoteValue ${changeTone(validDailyChange)}`}>
-                    US$ {fmtCurrentPrice(validLivePrice)}
-                  </b>
-                  {validDailyChange !== null && (
-                    <small className={`brDailyChange ${changeTone(validDailyChange)}`}>
-                      {fmtDailyChange(validDailyChange)}
-                      <span className="brChangeWindow">24H</span>
-                    </small>
-                  )}
-                </>
-              ) : (
-                <b className="brQuoteValue brQuoteUnavailable">Indisponível</b>
-              )}
-            </div>
-            {referencePrice !== null && Number.isFinite(referencePrice) && (
-              <small className="brQuoteRef">ref. cálculo: {fmtCurrentPrice(referencePrice)}</small>
-            )}
-          </div>
           <div className="brContextRefs">
             <div className="brContextRef brRefMinima">
               <span>
@@ -410,6 +428,7 @@ export function BtcBrakeRadar({
             symbol={symbol}
             minimum={reading.minimum12h}
             ema9={reading.ema9}
+            state={chartState}
           />
         </div>
       </div>

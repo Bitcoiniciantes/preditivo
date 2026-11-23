@@ -119,6 +119,7 @@ export function RadarMiniChart({
   minimum = null,
   maximum = null,
   ema9 = null,
+  state = "ready",
 }: {
   candles: BrakeKline[];
   symbol?: string;
@@ -128,6 +129,7 @@ export function RadarMiniChart({
   maximum?: number | null;
   /** EMA9 de 15m já calculada pelo Radar (referência horizontal). */
   ema9?: number | null;
+  state?: "loading" | "ready" | "failed" | "stale";
 }) {
   const [mode, setMode] = useState<ChartMode>("line");
   const [limit, setLimit] = useState(MAX_CANDLES);
@@ -292,7 +294,8 @@ export function RadarMiniChart({
     return `EMA9 ${formatUsd(ema9)}`;
   }, [ema9]);
 
-  const label = available && variation !== null
+  const hasChart = available && variation !== null;
+  const label = hasChart
     ? `Minigráfico 15M de ${symbol ?? "ativo"}: ${points.length} candles fechados (${windowText}), variação de ${formatVariation(variation)} em ${windowText}.`
     : `Gráfico de 15M indisponível para ${symbol ?? "ativo"}.`;
 
@@ -312,7 +315,7 @@ export function RadarMiniChart({
         </div>
       </div>
 
-      {available && geometry && variation !== null ? (
+      {hasChart && geometry ? (
         <>
           <div className="brMiniBody">
             <span className={`brMiniChange brMini-${tone}`}>
@@ -375,6 +378,7 @@ export function RadarMiniChart({
             </svg>
             <span className={`brMiniTrend brMini-${tone}`} aria-hidden="true">{trendGlyph(tone)}</span>
           </div>
+          {state === "stale" && <small className="brMiniStale">desatualizado</small>}
           <div className="brMiniFoot">
             <span className="brMiniLegend" aria-hidden="true">
               {minQuedaLabel && (
@@ -425,7 +429,7 @@ export function RadarMiniChart({
           </div>
         </>
       ) : (
-        <div className="brMiniUnavailable">Gráfico indisponível</div>
+        <div className="brMiniUnavailable" aria-live="polite">{state === "loading" ? "Carregando gráfico…" : "Gráfico indisponível"}</div>
       )}
     </div>
   );

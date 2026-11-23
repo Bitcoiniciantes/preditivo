@@ -24,9 +24,9 @@
 .brakeRadar.tone-gray { --br-tone: #94a3b8; --br-wash: #0b1512; --br-edge: var(--line); }
 
 .brHead {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(340px, max-content) minmax(0, 1fr) max-content;
   align-items: flex-start;
-  justify-content: space-between;
   gap: 16px;
   padding: 14px 18px 12px;
   border-bottom: 1px solid #1b2722;
@@ -37,6 +37,36 @@
   gap: 6px;
   min-width: 0;
 }
+.brHeadQuote {
+  --br-quote-border: rgba(138, 152, 146, .26);
+  --br-quote-fill: rgba(138, 152, 146, .035);
+  align-items: center;
+  align-self: center;
+  justify-self: center;
+  width: min(100%, 260px);
+  min-height: 54px;
+  box-sizing: border-box;
+  padding: 7px 12px;
+  border: 1px solid var(--br-quote-border);
+  border-radius: 10px;
+  background: var(--br-quote-fill);
+  text-align: center;
+  min-width: 0;
+}
+.brHeadQuote-brPositive {
+  --br-quote-border: rgba(16, 185, 129, .28);
+  --br-quote-fill: rgba(16, 185, 129, .035);
+}
+.brHeadQuote-brNegative {
+  --br-quote-border: rgba(239, 68, 68, .28);
+  --br-quote-fill: rgba(239, 68, 68, .035);
+}
+.brHeadQuote-brMuted {
+  --br-quote-border: rgba(138, 152, 146, .26);
+  --br-quote-fill: rgba(138, 152, 146, .035);
+}
+.brHeadQuote .brQuoteLine { justify-content: center; gap: 5px; }
+.brHeadQuote .brQuoteValue { font-size: clamp(14px, 2.2vw, 28px); }
 .brTitle {
   margin: 0;
   color: var(--paper);
@@ -44,6 +74,7 @@
   font-weight: 900;
   letter-spacing: -.01em;
   line-height: 1.2;
+  white-space: nowrap;
 }
 .brKicker {
   color: var(--muted);
@@ -262,29 +293,17 @@
 }
 /* Todos os rótulos de referência usam a mesma escala e o mesmo respiro. */
 .brContextRef span { letter-spacing: .03em; }
-/* Caça-Fundos: duas colunas 40/60 — cotação+referências à esquerda, gráfico à direita. */
+/* Referências e gráfico usam 30/70, sem cotação duplicada na coluna esquerda. */
 .brFundContext {
-  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  grid-template-columns: minmax(0, 3fr) minmax(0, 7fr);
   align-items: stretch;
   gap: 10px 16px;
 }
 .brFundLeft {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  justify-content: flex-end;
   min-width: 0;
-}
-.brFundContext .brCurrentPrice {
-  align-items: flex-start;
-  text-align: left;
-}
-.brFundContext .brQuoteLine {
-  justify-content: flex-start;
-  flex-wrap: wrap;
-  row-gap: 2px;
-}
-.brFundContext .brQuoteValue {
-  font-size: clamp(22px, 2.4vw, 30px);
 }
 .brFundContext .brContextRefs {
   grid-template-columns: 1fr;
@@ -365,12 +384,37 @@
   letter-spacing: .02em;
   line-height: 1.2;
   white-space: nowrap;
+  min-height: 1.2em;
 }
 .brQuoteValue.brQuoteUnavailable {
   color: var(--muted);
   font-size: 15px;
   font-weight: 800;
   letter-spacing: .02em;
+}
+.brQuoteValue.brQuoteLoading {
+  color: #8fa3bd;
+  font-size: clamp(18px, 1.55vw, 20px);
+  font-weight: 600;
+  letter-spacing: -.015em;
+  text-shadow: none;
+}
+.brLoadingDots {
+  display: inline-flex;
+  width: 1.15em;
+  justify-content: space-between;
+  margin-left: .08em;
+  vertical-align: baseline;
+}
+.brLoadingDots i {
+  font-style: normal;
+  animation: brLoadingDot 1.2s ease-in-out infinite;
+}
+.brLoadingDots i:nth-child(2) { animation-delay: .16s; }
+.brLoadingDots i:nth-child(3) { animation-delay: .32s; }
+@keyframes brLoadingDot {
+  0%, 65%, 100% { opacity: .28; }
+  30% { opacity: 1; }
 }
 
 /* ── Minigráfico de 15M (cartão compacto, somente informativo) ───────────── */
@@ -563,6 +607,15 @@
   font-weight: 700;
   letter-spacing: .02em;
 }
+.brMiniStale {
+  display: block;
+  margin-top: 2px;
+  color: #8a9892;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .03em;
+  text-align: right;
+}
 
 .brAction {
   margin: 12px 18px 0;
@@ -603,10 +656,13 @@
 
 @media (max-width: 720px) {
   .brHead {
-    flex-direction: column;
+    grid-template-columns: minmax(0, 1fr);
     gap: 9px;
     padding: 13px 14px 11px;
   }
+  .brHeadQuote { align-self: auto; justify-self: start; width: fit-content; min-width: 205px; max-width: 100%; }
+  .brHeadQuote .brQuoteLine { justify-content: flex-start; }
+  .brTitle { white-space: normal; }
   .brHeadSide {
     width: 100%;
     flex-direction: row;
@@ -631,7 +687,6 @@
   .brContext { grid-template-columns: 1fr; margin: 10px 14px 0; gap: 10px; }
   .brContextRefs { gap: 8px 10px; }
   .brFundContext { grid-template-columns: 1fr; gap: 10px; }
-  .brFundLeft { gap: 8px; }
   .brFundContext .brContextRefs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px 10px;
@@ -650,7 +705,7 @@
   .brContextRef b { font-size: 14px; }
   .brCurrentPrice { align-items: flex-start; min-width: 0; text-align: left; }
   .brQuoteLine { justify-content: flex-start; }
-  .brQuoteValue, .brFundContext .brQuoteValue { font-size: 28px; }
+  .brQuoteValue { font-size: 28px; }
   .brMiniChart { width: 100%; }
   .brAction { margin: 10px 14px 0; }
   .brNote { margin: 9px 14px 0; }
@@ -667,11 +722,17 @@
   .brRefLabelPct { display: block; font-size: 11px; }
   .brContextRef b { font-size: 14px; }
   .brQuoteLine { gap: 6px; }
-  .brQuoteValue, .brFundContext .brQuoteValue { font-size: 26px; }
+  .brQuoteValue { font-size: 26px; }
+}
+
+@media (max-width: 960px) and (min-width: 721px) {
+  .brHead { gap: 12px; }
+  .brHeadQuote .brQuoteRef { display: none; }
+  .brHeadQuote .brQuoteValue { font-size: clamp(14px, 2vw, 20px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .brBarTrack i { transition: none; }
+  .brBarTrack i, .brLoadingDots, .brLoadingDots i { transition: none; animation: none; }
 }
 
 /* O widget embutido mantém o escopo original (Radar Compra × Venda). */

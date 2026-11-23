@@ -431,9 +431,9 @@
 
 
 /* LAYOUT_CACA_TOPOS_V2 */
-/* Caça-Topos usa o mesmo layout do Caça-Fundos: cotação+refs à esquerda, gráfico à direita. */
+/* Caça-Topos acompanha a proporção 30/70: referências à esquerda e gráfico ampliado. */
 .topRadar .brContext.brFundContext {
-  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  grid-template-columns: minmax(0, 3fr) minmax(0, 7fr);
   align-items: stretch;
 }
 

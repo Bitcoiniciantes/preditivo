@@ -8,7 +8,7 @@
 // A aquisição de candles é compartilhada: um único fetch de 1h + 15m alimenta
 // as duas abas. Nenhum endpoint novo é usado e nenhuma ordem é executada.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BRAKE_ASSETS,
   BRAKE_EXTRA_STORAGE_KEY,
@@ -27,6 +27,7 @@ import { MultiAssetFundMonitor } from "./MultiAssetFundMonitor";
 const REFRESH_MS = 60_000;
 
 type RadarTab = "fundos" | "topos";
+type RemoteState = "loading" | "ready" | "failed" | "stale";
 
 function readExtraSymbols(): string[] {
   if (typeof window === "undefined") return [];
@@ -62,6 +63,11 @@ export function BtcRadarReversal({
   const [selectedSymbol, setSelectedSymbol] = useState<string>("BTCUSDT");
   const [selectedSnapshot, setSelectedSnapshot] = useState<BrakeKlinesSnapshot | null>(null);
   const [quote, setQuote] = useState<BrakeSpotQuote | null>(null);
+  const [quoteState, setQuoteState] = useState<RemoteState>("loading");
+  const [quoteUpdatedAt, setQuoteUpdatedAt] = useState<number | null>(null);
+  const [snapshotState, setSnapshotState] = useState<RemoteState>("loading");
+  const snapshotRef = useRef<BrakeKlinesSnapshot | null>(null);
+  const quoteRef = useRef<BrakeSpotQuote | null>(null);
   const [now, setNow] = useState(0);
   const [extraSymbols, setExtraSymbols] = useState<string[]>([]);
 
@@ -116,12 +122,16 @@ export function BtcRadarReversal({
       running = true;
       try {
         const next = await fetchBrakeKlines(controller.signal);
-        if (active) setSnapshot(next);
+        if (active) {
+          snapshotRef.current = next;
+          setSnapshot(next);
+          setSnapshotState("ready");
+        }
       } catch (error) {
         // Mantém a última leitura válida. O analisador bloqueia sinais quando
         // os dados envelhecem além de 2 minutos.
-        if ((error as Error)?.name !== "AbortError") {
-          /* sem dados novos; o estado de staleness cuida do bloqueio */
+        if ((error as Error)?.name !== "AbortError" && active) {
+          setSnapshotState(snapshotRef.current ? "stale" : "failed");
         }
       } finally {
         running = false;
@@ -142,6 +152,9 @@ export function BtcRadarReversal({
   // valor mais recente por cima; jamais reaproveita a cotação de outro ticker.
   useEffect(() => {
     setQuote(null);
+    quoteRef.current = null;
+    setQuoteState("loading");
+    setQuoteUpdatedAt(null);
     let active = true;
     let running = false;
     const controller = new AbortController();
@@ -150,10 +163,20 @@ export function BtcRadarReversal({
       running = true;
       try {
         const next = await fetchBrakeSpotQuote(selectedSymbol, controller.signal);
-        if (active) setQuote(next);
+        if (active) {
+          quoteRef.current = next;
+          setQuote(next);
+          if (next.price !== null && Number.isFinite(next.price) && next.price > 0) {
+            setQuoteState("ready");
+            setQuoteUpdatedAt(Date.now());
+          } else {
+            setQuoteState("failed");
+          }
+        }
       } catch (error) {
         if ((error as Error)?.name !== "AbortError" && active) {
-          setQuote({ symbol: selectedSymbol, price: null, changePct24h: null });
+          const previous = quoteRef.current;
+          setQuoteState(previous?.symbol === selectedSymbol && previous.price !== null && previous.price > 0 ? "stale" : "failed");
         }
       } finally {
         running = false;
@@ -177,6 +200,10 @@ export function BtcRadarReversal({
     : null;
   const quotePrice = parentLivePrice ?? selectedQuote?.price ?? null;
   const quoteChangePct = parentDailyChange ?? selectedQuote?.changePct24h ?? null;
+  const effectiveQuoteState: RemoteState = parentLivePrice !== null ? "ready" : quoteState;
+  const effectiveChartState: RemoteState = selectedSymbol === "BTCUSDT"
+    ? snapshotState
+    : selectedSnapshot ? "ready" : snapshotState;
 
   return (
     <section className="radarReversal" id="radar-reversao" aria-label="Bitcoin — Radar de Reversão">
@@ -240,6 +267,9 @@ export function BtcRadarReversal({
           now={now}
           livePrice={quotePrice}
           dailyChangePct={quoteChangePct}
+          quoteState={effectiveQuoteState}
+          quoteUpdatedAt={quoteUpdatedAt}
+          chartState={effectiveChartState}
         />
       </div>
 
@@ -257,6 +287,9 @@ export function BtcRadarReversal({
           now={now}
           livePrice={quotePrice}
           dailyChangePct={quoteChangePct}
+          quoteState={effectiveQuoteState}
+          quoteUpdatedAt={quoteUpdatedAt}
+          chartState={effectiveChartState}
         />
       </div>
     </section>

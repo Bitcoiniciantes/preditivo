@@ -136,6 +136,9 @@ export function BtcTopRadar({
   now,
   livePrice = null,
   dailyChangePct = null,
+  quoteState = "loading",
+  quoteUpdatedAt = null,
+  chartState = "loading",
 }: {
   symbol?: BrakeAssetSymbol;
   assetName?: string;
@@ -143,6 +146,9 @@ export function BtcTopRadar({
   now: number;
   livePrice?: number | null;
   dailyChangePct?: number | null;
+  quoteState?: "loading" | "ready" | "failed" | "stale";
+  quoteUpdatedAt?: number | null;
+  chartState?: "loading" | "ready" | "failed" | "stale";
 }) {
   const reading = useMemo(
     () => analyzeTopRadar({
@@ -160,6 +166,13 @@ export function BtcTopRadar({
   const validDailyChange = dailyChangePct !== null && Number.isFinite(dailyChangePct)
     ? dailyChangePct
     : null;
+  const quoteView = quoteState === "loading" && validLivePrice === null
+    ? "loading"
+    : quoteState === "failed" && validLivePrice === null
+      ? "failed"
+      : quoteState === "stale" && validLivePrice !== null
+        ? "stale"
+        : "ready";
   const [priceTrend, setPriceTrend] = useState<PriceTrend>("flat");
   const [trackedQuote, setTrackedQuote] = useState<{ symbol: BrakeAssetSymbol; price: number } | null>(null);
   void priceTrend;
@@ -212,6 +225,33 @@ export function BtcTopRadar({
           <h3 className="brTitle">{assetName.toUpperCase()} — CAÇA-TOPOS</h3>
           <span className="brKicker">{symbol} · EXAUSTÃO DE ALTA</span>
           <div className="brState">{reading.label}</div>
+        </div>
+        <div className={`brCurrentPrice brHeadQuote brHeadQuote-${quoteView === "ready" || quoteView === "stale" ? changeTone(validDailyChange) : "brMuted"}`} aria-label={`Cotação spot de ${symbol}`}>
+          <div className="brQuoteLine">
+            {quoteView === "loading" ? (
+              <b className="brQuoteValue brQuoteLoading">Atualizando<span className="brLoadingDots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></b>
+            ) : quoteView === "failed" ? (
+              <b className="brQuoteValue brQuoteUnavailable">Sem conexão</b>
+            ) : validLivePrice !== null ? (
+              <>
+                <b className={`brQuoteValue ${changeTone(validDailyChange)}`}>
+                  ${fmtCurrentPrice(validLivePrice)}
+                </b>
+                {validDailyChange !== null && (
+                  <small className={`brDailyChange ${changeTone(validDailyChange)}`}>
+                    {fmtDailyChange(validDailyChange)}
+                    <span className="brChangeWindow">24H</span>
+                  </small>
+                )}
+              </>
+            ) : null}
+          </div>
+          {quoteView === "loading" ? <small className="brQuoteRef">buscando Binance spot</small>
+            : quoteView === "failed" ? <small className="brQuoteRef">nova tentativa em 60s</small>
+              : quoteView === "stale" ? <small className="brQuoteRef">desatualizada · última às {fmtTime(quoteUpdatedAt)}</small>
+                : referencePrice !== null && Number.isFinite(referencePrice) && (
+            <small className="brQuoteRef">ref. cálculo (fech. 15M): {fmtCurrentPrice(referencePrice)}</small>
+          )}
         </div>
         <div className="brHeadSide">
           <span className="brBadge">{reading.badge}</span>
@@ -271,28 +311,6 @@ export function BtcTopRadar({
 
       <div className="brContext brFundContext">
         <div className="brFundLeft">
-          <div className="brCurrentPrice" aria-label={`Cotação spot de ${symbol}`}>
-            <div className="brQuoteLine">
-              {validLivePrice !== null ? (
-                <>
-                  <b className={`brQuoteValue ${changeTone(validDailyChange)}`}>
-                    US$ {fmtCurrentPrice(validLivePrice)}
-                  </b>
-                  {validDailyChange !== null && (
-                    <small className={`brDailyChange ${changeTone(validDailyChange)}`}>
-                      {fmtDailyChange(validDailyChange)}
-                      <span className="brChangeWindow">24H</span>
-                    </small>
-                  )}
-                </>
-              ) : (
-                <b className="brQuoteValue brQuoteUnavailable">Indisponível</b>
-              )}
-            </div>
-            {referencePrice !== null && Number.isFinite(referencePrice) && (
-              <small className="brQuoteRef">ref. cálculo (fech. 15M): {fmtCurrentPrice(referencePrice)}</small>
-            )}
-          </div>
           <div className="brContextRefs">
             <div className="brContextRef brRefMaxima24">
               <span>
@@ -337,6 +355,7 @@ export function BtcTopRadar({
             symbol={symbol}
             maximum={reading.maximum}
             ema9={reading.ema9_15m}
+            state={chartState}
           />
         </div>
       </div>
