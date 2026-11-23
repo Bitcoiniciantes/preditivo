@@ -36,6 +36,10 @@ export const BRAKE_H1_COUNT = 24;
 export const BRAKE_M15_COUNT = 48;
 /** Janela ampliada apenas para visualização no minigráfico (24h em 15m). */
 export const BRAKE_M15_DISPLAY_COUNT = 96;
+/** Janela de referência diária para o extremo de 30 dias (somente exibição). */
+export const BRAKE_D1_INTERVAL_MS = 24 * 60 * 60_000;
+export const BRAKE_D1_COUNT = 30;
+export const BRAKE_D1_REFERENCE_CACHE_MS = 10 * 60_000;
 
 const EPSILON = 1e-9;
 
@@ -114,7 +118,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 /** Converte a resposta bruta de /api/v3/klines em barras numéricas ordenadas. */
-export function parseBrakeKlines(rows: unknown): BrakeKline[] {
+export function parseBrakeKlines(rows: unknown, intervalMs = BRAKE_M15_INTERVAL_MS): BrakeKline[] {
   if (!Array.isArray(rows)) return [];
   const out: BrakeKline[] = [];
   for (const row of rows) {
@@ -127,7 +131,7 @@ export function parseBrakeKlines(rows: unknown): BrakeKline[] {
     const close = Number(raw[4]);
     const volume = Number(raw[5]);
     // closeTime é o 7º campo (índice 6). Ausente em fixtures antigas: deriva.
-    const closeTime = Number(raw[6] ?? openTime + BRAKE_M15_INTERVAL_MS - 1);
+    const closeTime = Number(raw[6] ?? openTime + intervalMs - 1);
     if (![openTime, closeTime, open, high, low, close, volume].every(Number.isFinite)) continue;
     if (open <= 0 || high <= 0 || low <= 0 || close <= 0) continue;
     if (high < low - EPSILON) continue;
@@ -689,13 +693,17 @@ async function fetchKlines(
   signal?: AbortSignal,
 ): Promise<BrakeKline[]> {
   let lastError: unknown = null;
+  const intervalMs =
+    interval === "1d" ? BRAKE_D1_INTERVAL_MS
+      : interval === "1h" ? BRAKE_H1_INTERVAL_MS
+        : BRAKE_M15_INTERVAL_MS;
   for (const base of BINANCE_BASES) {
     try {
       const url = `${base}?symbol=${symbol}&interval=${interval}&limit=${limit}`;
       const response = await fetch(url, { cache: "no-store", signal });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const now = Date.now();
-      const bars = closedBrakeKlines(parseBrakeKlines(await response.json()), now);
+      const bars = closedBrakeKlines(parseBrakeKlines(await response.json(), intervalMs), now);
       if (bars.length < minimum) throw new Error("candles fechados insuficientes");
       return bars;
     } catch (error) {
@@ -725,6 +733,111 @@ export async function fetchBrakeKlines(
     fetchKlines(symbol, "15m", BRAKE_M15_DISPLAY_COUNT + 1, BRAKE_M15_COUNT, signal),
   ]);
   return { h1, m15, fetchedAt: Date.now() };
+}
+
+export type BrakeDailyReference = {
+  minLow: number | null;
+  minLowAt: number | null;
+  maxHigh: number | null;
+  maxHighAt: number | null;
+  fetchedAt: number;
+};
+
+type BrakeDailyReferenceCacheEntry = {
+  value: BrakeDailyReference;
+  expiresAt: number;
+  promise: null;
+};
+
+type BrakeDailyReferenceInflightEntry = {
+  value: null;
+  expiresAt: 0;
+  promise: Promise<BrakeDailyReference>;
+};
+
+const brakeDailyReferenceCache = new Map<
+  string,
+  BrakeDailyReferenceCacheEntry | BrakeDailyReferenceInflightEntry
+>();
+
+function computeBrakeDailyReference(bars: BrakeKline[], fetchedAt: number): BrakeDailyReference {
+  const window = bars.slice(-BRAKE_D1_COUNT);
+  let minLow: number | null = null;
+  let minLowAt: number | null = null;
+  let maxHigh: number | null = null;
+  let maxHighAt: number | null = null;
+  for (const bar of window) {
+    const low = Number(bar.low);
+    if (Number.isFinite(low) && low > 0 && (minLow === null || low < minLow)) {
+      minLow = low;
+      minLowAt = bar.openTime;
+    }
+    const high = Number(bar.high);
+    if (Number.isFinite(high) && high > 0 && (maxHigh === null || high > maxHigh)) {
+      maxHigh = high;
+      maxHighAt = bar.openTime;
+    }
+  }
+  return { minLow, minLowAt, maxHigh, maxHighAt, fetchedAt };
+}
+
+const BRAKE_DAILY_REF_LS_PREFIX = "brake-daily-ref:";
+
+export function readBrakeDailyReferenceStorage(symbol: string): BrakeDailyReference | null {
+  try {
+    if (typeof localStorage === "undefined") return null;
+    const raw = localStorage.getItem(BRAKE_DAILY_REF_LS_PREFIX + symbol);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<BrakeDailyReference>;
+    const minLow = typeof parsed.minLow === "number" && Number.isFinite(parsed.minLow) && parsed.minLow > 0 ? parsed.minLow : null;
+    const minLowAt = typeof parsed.minLowAt === "number" && Number.isFinite(parsed.minLowAt) ? parsed.minLowAt : null;
+    const maxHigh = typeof parsed.maxHigh === "number" && Number.isFinite(parsed.maxHigh) && parsed.maxHigh > 0 ? parsed.maxHigh : null;
+    const maxHighAt = typeof parsed.maxHighAt === "number" && Number.isFinite(parsed.maxHighAt) ? parsed.maxHighAt : null;
+    const fetchedAt = typeof parsed.fetchedAt === "number" && Number.isFinite(parsed.fetchedAt) ? parsed.fetchedAt : 0;
+    if (minLow === null && maxHigh === null) return null;
+    return { minLow, minLowAt, maxHigh, maxHighAt, fetchedAt };
+  } catch {
+    return null;
+  }
+}
+
+export function writeBrakeDailyReferenceStorage(symbol: string, value: BrakeDailyReference): void {
+  try {
+    if (typeof localStorage === "undefined") return;
+    localStorage.setItem(BRAKE_DAILY_REF_LS_PREFIX + symbol, JSON.stringify(value));
+  } catch { /* quota/indisponível */ }
+}
+
+/** Referência diária de 30d (somente exibição). Cacheia por ativo por 10 min. Nunca cacheia falha. */
+export async function fetchBrakeDailyReference(
+  symbol: string = "BTCUSDT",
+  signal?: AbortSignal,
+): Promise<BrakeDailyReference> {
+  if (!isValidBrakeRadarSymbol(symbol)) throw new Error("símbolo não permitido");
+  const now = Date.now();
+  const cached = brakeDailyReferenceCache.get(symbol);
+  if (cached && cached.value && cached.expiresAt > now) return cached.value;
+  if (cached?.promise) return cached.promise;
+
+  const promise = (async () => {
+    const bars = await fetchKlines(symbol, "1d", BRAKE_D1_COUNT + 1, 1, signal);
+    const value = computeBrakeDailyReference(bars, Date.now());
+    brakeDailyReferenceCache.set(symbol, {
+      value,
+      expiresAt: Date.now() + BRAKE_D1_REFERENCE_CACHE_MS,
+      promise: null,
+    });
+    return value;
+  })();
+
+  brakeDailyReferenceCache.set(symbol, { value: null, expiresAt: 0, promise });
+  try {
+    return await promise;
+  } catch (error) {
+    const current = brakeDailyReferenceCache.get(symbol);
+    if (current?.promise === promise) brakeDailyReferenceCache.delete(symbol);
+    throw error;
+  }
 }
 
 // ── Cotação spot do ativo selecionado (informativa) ────────────────────────

@@ -6,7 +6,7 @@
 // Não executa ordens, não calcula quantidade de venda e não afirma reversão
 // definitiva da tendência.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   analyzeTopRadar,
   TOP_MAX_CONFIRM_AGE_HOURS,
@@ -15,7 +15,15 @@ import {
   TOP_MIN_NO_NEW_HIGH_MINUTES,
   type TopRadarReading,
 } from "../lib/top-radar";
-import { formatPreservedMinutes, type BrakeAssetSymbol, type BrakeKlinesSnapshot } from "../lib/brake-radar";
+import {
+  fetchBrakeDailyReference,
+  formatPreservedMinutes,
+  readBrakeDailyReferenceStorage,
+  writeBrakeDailyReferenceStorage,
+  type BrakeAssetSymbol,
+  type BrakeDailyReference,
+  type BrakeKlinesSnapshot,
+} from "../lib/brake-radar";
 import { RadarMiniChart } from "./RadarMiniChart";
 
 function fmtPct(value: number | null, signed = false): string {
@@ -65,6 +73,11 @@ function fmtTime(value: number | null): string {
     minute: "2-digit",
     second: "2-digit",
   });
+}
+
+function fmtRefDate(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "";
+  return new Date(value).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
 function clampPct(value: number | null): number {
@@ -176,6 +189,66 @@ export function BtcTopRadar({
   const [priceTrend, setPriceTrend] = useState<PriceTrend>("flat");
   const [trackedQuote, setTrackedQuote] = useState<{ symbol: BrakeAssetSymbol; price: number } | null>(null);
   void priceTrend;
+  const [dailyRef, setDailyRef] = useState<BrakeDailyReference | null>(null);
+  const [dailyRefStatus, setDailyRefStatus] = useState<"loading" | "ready" | "failed">("loading");
+
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+    const timers: number[] = [];
+    const wait = (ms: number) => new Promise<void>((resolve) => {
+      const id = window.setTimeout(resolve, ms);
+      timers.push(id);
+    });
+
+    const stored = readBrakeDailyReferenceStorage(symbol);
+    let hasValue = !!stored;
+    if (stored) {
+      setDailyRef(stored);
+      setDailyRefStatus("ready");
+    } else {
+      setDailyRef(null);
+      setDailyRefStatus("loading");
+    }
+
+    const BACKOFF_MS = [3000, 10_000, 30_000];
+
+    const run = async () => {
+      // Escalona a busca inicial para não competir com as requisições principais da abertura.
+      await wait(2000);
+      if (!active) return;
+      let failures = 0;
+      while (active) {
+        try {
+          const next = await fetchBrakeDailyReference(symbol, controller.signal);
+          if (!active) return;
+          hasValue = true;
+          setDailyRef(next);
+          setDailyRefStatus("ready");
+          writeBrakeDailyReferenceStorage(symbol, next);
+          failures = 0;
+          await wait(10 * 60_000);
+        } catch (error) {
+          if (!active || (error as Error)?.name === "AbortError") return;
+          if (failures < BACKOFF_MS.length) {
+            await wait(BACKOFF_MS[failures]);
+            failures += 1;
+          } else {
+            if (!hasValue) setDailyRefStatus("failed");
+            failures = 0;
+            await wait(10 * 60_000);
+          }
+        }
+      }
+    };
+
+    void run();
+    return () => {
+      active = false;
+      controller.abort();
+      timers.forEach((id) => window.clearTimeout(id));
+    };
+  }, [symbol]);
 
   // Mesma leitura do Caça-Fundos: o tom do preço segue o último movimento do
   // MESMO símbolo. Ao trocar de ativo o rastreio recomeça; na primeira leitura
@@ -194,20 +267,34 @@ export function BtcTopRadar({
   // Referência fechada de 15m usada apenas nos cálculos de recuo; a cotação
   // exibida acima é o spot atual e não altera nenhum critério.
   const referencePrice = reading.lastClose15m;
-  // Máxima 24h para a coluna de referências (somente exibição; não altera cálculos).
-  const maximum24h = (() => {
-    const bars = (snapshot?.m15 ?? []).slice(-96);
-    let max: number | null = null;
-    for (const bar of bars) {
-      const high = Number(bar.high);
-      if (!Number.isFinite(high) || high <= 0) continue;
-      if (max === null || high > max) max = high;
+  // Máxima 30d (somente exibição): maior high entre candles 1d fechados (30d)
+  // e candles 15M carregados (24h), para não excluir o topo de hoje.
+  const dailyMax = dailyRef?.maxHigh ?? null;
+  const dailyMaxAt = dailyRef?.maxHighAt ?? null;
+  let m15MaxHigh: number | null = null;
+  let m15MaxHighAt: number | null = null;
+  for (const bar of (snapshot?.m15 ?? []).slice(-96)) {
+    const high = Number(bar.high);
+    if (!Number.isFinite(high) || high <= 0) continue;
+    if (m15MaxHigh === null || high > m15MaxHigh) {
+      m15MaxHigh = high;
+      m15MaxHighAt = Number(bar.openTime);
     }
-    return max;
-  })();
+  }
+  let maximum30d: number | null = null;
+  let maximum30dAt: number | null = null;
+  if (dailyRef) {
+    if (dailyMax !== null && (m15MaxHigh === null || dailyMax >= m15MaxHigh)) {
+      maximum30d = dailyMax;
+      maximum30dAt = dailyMaxAt;
+    } else if (m15MaxHigh !== null) {
+      maximum30d = m15MaxHigh;
+      maximum30dAt = m15MaxHighAt;
+    }
+  }
   const distanceBase = validLivePrice ?? reading.lastClose15m ?? null;
-  const maximum24hDistancePct = maximum24h !== null && distanceBase !== null && distanceBase > 0
-    ? ((maximum24h / distanceBase) - 1) * 100
+  const maximum30dDistancePct = maximum30d !== null && distanceBase !== null && distanceBase > 0
+    ? ((maximum30d / distanceBase) - 1) * 100
     : null;
   const bar = barWidth(reading);
   const barMark = (TOP_MIN_DRAWDOWN_PCT / TOP_MAX_WATCH_DRAWDOWN_PCT) * 100;
@@ -312,16 +399,24 @@ export function BtcTopRadar({
       <div className="brContext brFundContext">
         <div className="brFundLeft">
           <div className="brContextRefs">
-            <div className="brContextRef brRefMaxima24">
+            <div className="brContextRef brRefMaxima30d">
               <span>
-                Máx. 24h
-                {maximum24hDistancePct !== null ? (
-                  <small className="brRefLabelPct"> ({fmtPct(maximum24hDistancePct, true)}):</small>
+                Máx. 30d
+                {maximum30dDistancePct !== null ? (
+                  <small className="brRefLabelPct"> ({fmtPct(maximum30dDistancePct, true)}):</small>
                 ) : (
                   ":"
                 )}
               </span>
-              <b className="brNegative">{fmtPrice(maximum24h)}</b>
+              <b
+                className={`${maximum30d !== null ? "brNegative" : "brMuted"} brRefValueWithDate${maximum30d === null && dailyRefStatus !== "failed" ? " brRefPending" : ""}`}
+                title={maximum30dAt !== null ? `Topo em ${fmtRefDate(maximum30dAt)}` : undefined}
+              >
+                {maximum30d !== null ? fmtPrice(maximum30d) : (dailyRefStatus === "failed" ? "—" : "···")}
+                <small className={`brRefDate${maximum30dAt !== null && maximum30d !== null ? "" : " brRefDateHidden"}`} aria-hidden={!(maximum30dAt !== null && maximum30d !== null)}>
+                  {maximum30dAt !== null && maximum30d !== null ? fmtRefDate(maximum30dAt) : "00/00"}
+                </small>
+              </b>
             </div>
             <div className="brContextRef">
               <span>Mínima de origem:</span>

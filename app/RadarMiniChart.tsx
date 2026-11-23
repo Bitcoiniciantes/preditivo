@@ -131,7 +131,20 @@ export function RadarMiniChart({
   ema9?: number | null;
   state?: "loading" | "ready" | "failed" | "stale";
 }) {
-  const [mode, setMode] = useState<ChartMode>("line");
+  const CHART_MODE_KEY = "radar-mini-chart-mode";
+  const [mode, setMode] = useState<ChartMode>("candle");
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(CHART_MODE_KEY);
+      if (saved === "line" || saved === "candle") setMode(saved);
+    } catch { /* localStorage indisponível */ }
+  }, []);
+
+  const setChartMode = (next: ChartMode) => {
+    setMode(next);
+    try { localStorage.setItem(CHART_MODE_KEY, next); } catch { /* localStorage indisponível */ }
+  };
   const [limit, setLimit] = useState(MAX_CANDLES);
   const rootRef = useRef<HTMLDivElement | null>(null);
 
@@ -309,9 +322,9 @@ export function RadarMiniChart({
           <span className="brMiniLastHead" title="Último candle de 15M fechado">últ. fech. 15M</span>
         </div>
         <div className="brMiniModes" role="group" aria-label="Visualização do minigráfico de 15M">
-          <button type="button" className="brMiniModeBtn" aria-pressed={mode === "line"} onClick={() => setMode("line")}>LINHA</button>
+          <button type="button" className="brMiniModeBtn" aria-pressed={mode === "line"} onClick={() => setChartMode("line")}>LINHA</button>
           <span className="brMiniModeDivider" aria-hidden="true" />
-          <button type="button" className="brMiniModeBtn" aria-pressed={mode === "candle"} onClick={() => setMode("candle")}>CANDLE</button>
+          <button type="button" className="brMiniModeBtn" aria-pressed={mode === "candle"} onClick={() => setChartMode("candle")}>CANDLE</button>
         </div>
       </div>
 

@@ -291,6 +291,29 @@
   color: #8a9892;
   letter-spacing: .01em;
 }
+.brRefValueWithDate {
+  white-space: nowrap;
+}
+.brRefDate {
+  display: inline-block;
+  width: 5ch;
+  margin-left: 6px;
+  color: #8a9892;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-align: right;
+}
+.brRefDateHidden {
+  visibility: hidden;
+}
+.brRefPending {
+  display: inline-block;
+  min-width: 72px;
+  text-align: right;
+  color: #8a9892 !important;
+  letter-spacing: .12em;
+}
 /* Todos os rótulos de referência usam a mesma escala e o mesmo respiro. */
 .brContextRef span { letter-spacing: .03em; }
 /* Referências e gráfico usam 30/70, sem cotação duplicada na coluna esquerda. */
@@ -302,20 +325,24 @@
 .brFundLeft {
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
   min-width: 0;
 }
 .brFundContext .brContextRefs {
-  grid-template-columns: 1fr;
-  gap: 5px;
-  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  flex: 1;
 }
 .brFundContext .brContextRef {
   flex-direction: row;
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
+  padding: 4px 0;
 }
+.topRadar .brFundContext .brContextRefs { gap: 6px; }
+.topRadar .brFundContext .brContextRef { padding: 2px 0; }
 .brFundChart {
   min-width: 0;
   display: flex;
@@ -688,16 +715,21 @@
   .brContextRefs { gap: 8px 10px; }
   .brFundContext { grid-template-columns: 1fr; gap: 10px; }
   .brFundContext .brContextRefs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px 10px;
-    margin-top: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 8px;
+    flex: initial;
   }
   .brFundContext .brContextRef {
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: flex-start;
-    gap: 3px;
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0;
   }
+  .topRadar .brFundContext .brContextRefs { gap: 8px; }
+  .topRadar .brFundContext .brContextRef { padding: 0; }
   .brFundChart .brMiniSvg { height: 96px; min-height: 96px; }
   .brMiniLastHead { display: none; }
   .brMiniLastFoot { display: inline; margin-left: auto; }
@@ -720,6 +752,7 @@
   .brContextRefs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
   .brContextRef span { font-size: 10px; white-space: normal; }
   .brRefLabelPct { display: block; font-size: 11px; }
+  .brRefDate { display: none; }
   .brContextRef b { font-size: 14px; }
   .brQuoteLine { gap: 6px; }
   .brQuoteValue { font-size: 26px; }

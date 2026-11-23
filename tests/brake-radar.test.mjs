@@ -429,7 +429,7 @@ test("integração: card renderizado abaixo do NEXUS na home", async () => {
   assert.match(component, /MOVIMENTO RECENTE \(3H\)/);
   assert.match(component, /RECUPERAÇÃO DA QUEDA/);
   assert.match(component, /FUNDO PRESERVADO/);
-  assert.match(component, /Mín\. 24h/);
+  assert.match(component, /Mín\. 30d/);
   assert.match(component, /Máxima da amplitude/);
   assert.match(component, /Recuperação:/);
   assert.match(component, /Cotação spot de \$\{symbol\}/);

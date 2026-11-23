@@ -11,9 +11,13 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   analyzeBrakeRadar,
+  fetchBrakeDailyReference,
   fetchBrakeKlines,
   formatPreservedMinutes,
+  readBrakeDailyReferenceStorage,
+  writeBrakeDailyReferenceStorage,
   BRAKE_PRESERVED_REFERENCE_MIN,
+  type BrakeDailyReference,
   type BrakeKlinesSnapshot,
   type BrakeRadarReading,
   type BrakeAssetSymbol,
@@ -70,6 +74,11 @@ function fmtTime(value: number | null): string {
     minute: "2-digit",
     second: "2-digit",
   });
+}
+
+function fmtRefDate(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "";
+  return new Date(value).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
 type BarView = {
@@ -263,6 +272,67 @@ export function BtcBrakeRadar({
     };
   }, [shared]);
 
+  const [dailyRef, setDailyRef] = useState<BrakeDailyReference | null>(null);
+  const [dailyRefStatus, setDailyRefStatus] = useState<"loading" | "ready" | "failed">("loading");
+
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+    const timers: number[] = [];
+    const wait = (ms: number) => new Promise<void>((resolve) => {
+      const id = window.setTimeout(resolve, ms);
+      timers.push(id);
+    });
+
+    const stored = readBrakeDailyReferenceStorage(symbol);
+    let hasValue = !!stored;
+    if (stored) {
+      setDailyRef(stored);
+      setDailyRefStatus("ready");
+    } else {
+      setDailyRef(null);
+      setDailyRefStatus("loading");
+    }
+
+    const BACKOFF_MS = [3000, 10_000, 30_000];
+
+    const run = async () => {
+      // Escalona a busca inicial para não competir com as requisições principais da abertura.
+      await wait(2000);
+      if (!active) return;
+      let failures = 0;
+      while (active) {
+        try {
+          const next = await fetchBrakeDailyReference(symbol, controller.signal);
+          if (!active) return;
+          hasValue = true;
+          setDailyRef(next);
+          setDailyRefStatus("ready");
+          writeBrakeDailyReferenceStorage(symbol, next);
+          failures = 0;
+          await wait(10 * 60_000);
+        } catch (error) {
+          if (!active || (error as Error)?.name === "AbortError") return;
+          if (failures < BACKOFF_MS.length) {
+            await wait(BACKOFF_MS[failures]);
+            failures += 1;
+          } else {
+            if (!hasValue) setDailyRefStatus("failed");
+            failures = 0;
+            await wait(10 * 60_000);
+          }
+        }
+      }
+    };
+
+    void run();
+    return () => {
+      active = false;
+      controller.abort();
+      timers.forEach((id) => window.clearTimeout(id));
+    };
+  }, [symbol]);
+
   const reading = useMemo(
     () => analyzeBrakeRadar({
       h1: snapshot?.h1 ?? [],
@@ -287,20 +357,34 @@ export function BtcBrakeRadar({
   const preservedTrack = reading.preservedMinutes === null
     ? 0
     : Math.max(0, Math.min(100, (reading.preservedMinutes / (BRAKE_PRESERVED_REFERENCE_MIN * 2)) * 100));
-  // Mínima 24h para a coluna de referências (somente exibição; não altera cálculos).
-  const minimum24h = (() => {
-    const bars = (snapshot?.m15 ?? []).slice(-96);
-    let min: number | null = null;
-    for (const bar of bars) {
-      const low = Number(bar.low);
-      if (!Number.isFinite(low) || low <= 0) continue;
-      if (min === null || low < min) min = low;
+  // Mínima 30d (somente exibição): menor low entre candles 1d fechados (30d)
+  // e candles 15M carregados (24h), para não excluir o fundo de hoje.
+  const dailyMin = dailyRef?.minLow ?? null;
+  const dailyMinAt = dailyRef?.minLowAt ?? null;
+  let m15MinLow: number | null = null;
+  let m15MinLowAt: number | null = null;
+  for (const bar of (snapshot?.m15 ?? []).slice(-96)) {
+    const low = Number(bar.low);
+    if (!Number.isFinite(low) || low <= 0) continue;
+    if (m15MinLow === null || low < m15MinLow) {
+      m15MinLow = low;
+      m15MinLowAt = Number(bar.openTime);
     }
-    return min;
-  })();
+  }
+  let minimum30d: number | null = null;
+  let minimum30dAt: number | null = null;
+  if (dailyRef) {
+    if (dailyMin !== null && (m15MinLow === null || dailyMin <= m15MinLow)) {
+      minimum30d = dailyMin;
+      minimum30dAt = dailyMinAt;
+    } else if (m15MinLow !== null) {
+      minimum30d = m15MinLow;
+      minimum30dAt = m15MinLowAt;
+    }
+  }
   const distanceBase = validLivePrice ?? reading.lastClose15m ?? null;
-  const minimum24hDistancePct = minimum24h !== null && distanceBase !== null && distanceBase > 0
-    ? ((minimum24h / distanceBase) - 1) * 100
+  const minimum30dDistancePct = minimum30d !== null && distanceBase !== null && distanceBase > 0
+    ? ((minimum30d / distanceBase) - 1) * 100
     : null;
 
   return (
@@ -399,14 +483,22 @@ export function BtcBrakeRadar({
           <div className="brContextRefs">
             <div className="brContextRef brRefMinima">
               <span>
-                Mín. 24h
-                {minimum24hDistancePct !== null ? (
-                  <small className="brRefLabelPct"> ({fmtPct(minimum24hDistancePct, true)}):</small>
+                Mín. 30d
+                {minimum30dDistancePct !== null ? (
+                  <small className="brRefLabelPct"> ({fmtPct(minimum30dDistancePct, true)}):</small>
                 ) : (
                   ":"
                 )}
               </span>
-              <b className="brNegative">{fmtPrice(minimum24h)}</b>
+              <b
+                className={`${minimum30d !== null ? "brNegative" : "brMuted"} brRefValueWithDate${minimum30d === null && dailyRefStatus !== "failed" ? " brRefPending" : ""}`}
+                title={minimum30dAt !== null ? `Fundo em ${fmtRefDate(minimum30dAt)}` : undefined}
+              >
+                {minimum30d !== null ? fmtPrice(minimum30d) : (dailyRefStatus === "failed" ? "—" : "···")}
+                <small className={`brRefDate${minimum30dAt !== null && minimum30d !== null ? "" : " brRefDateHidden"}`} aria-hidden={!(minimum30dAt !== null && minimum30d !== null)}>
+                  {minimum30dAt !== null && minimum30d !== null ? fmtRefDate(minimum30dAt) : "00/00"}
+                </small>
+              </b>
             </div>
             <div className="brContextRef">
               <span>Máxima da amplitude:</span>
