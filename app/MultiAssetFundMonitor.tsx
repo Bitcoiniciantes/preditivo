@@ -391,6 +391,11 @@ export function MultiAssetFundMonitor({
           </button>
         </div>
       </div>
+      {radar === "fundos" && allSymbols.length > 0 && fallingAssets / allSymbols.length >= 0.8 && (
+        <p className="rrMarketAlert" role="status">
+          {fallingAssets}/{allSymbols.length} ativos em queda — movimento de mercado, não isolado
+        </p>
+      )}
       {addDisabled && (
         <p className="rrLimitNotice" role="status">
           Limite de 3 ativos atingido. Remova um ativo pelo × para adicionar outro.

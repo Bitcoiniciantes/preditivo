@@ -428,7 +428,7 @@ test("integração: card ocupa a largura total da mesa na home", async () => {
   assert.match(component, /brTitle/);
   assert.match(component, /BTC\/USDT/);
   assert.match(component, /MOVIMENTO RECENTE \(3H\)/);
-  assert.match(component, /ESTRUTURA DA AMPLITUDE/);
+  assert.doesNotMatch(component, /ESTRUTURA DA AMPLITUDE/);
   assert.match(component, /FUNDO PRESERVADO/);
   assert.match(component, /Mín\. 30d/);
   assert.match(component, /Máx\. da amplitude/);
@@ -452,7 +452,7 @@ test("integração: card ocupa a largura total da mesa na home", async () => {
   assert.match(component, /FREIO NÃO APLICÁVEL/);
   assert.doesNotMatch(component, /SEM MÉTRICA/);
   assert.doesNotMatch(component, /INATIVO/);
-  assert.match(component, /brBarAreaEmpty/);
+  assert.doesNotMatch(component, /brBarAreaEmpty/);
   assert.match(component, /brPreserveTrack/);
 
   const brakeCss = await readFile(new URL("../app/brake-radar.css", import.meta.url), "utf8");

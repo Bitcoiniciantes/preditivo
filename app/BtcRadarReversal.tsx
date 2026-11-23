@@ -218,33 +218,43 @@ export function BtcRadarReversal({
           <span className="rrSource">BINANCE SPOT · 15M + 1H</span>
         </div>
 
-        <div className="rrTabs" role="tablist" aria-label="Radar de reversão">
-          <button
-            type="button"
-            role="tab"
-            id="rr-tab-fundos"
-            aria-controls="rr-panel-fundos"
-            aria-selected={tab === "fundos"}
-            tabIndex={tab === "fundos" ? 0 : -1}
-            className="rrTab"
-            onClick={() => setTab("fundos")}
-          >
-            CAÇA-FUNDOS
-          </button>
-          <button
-            type="button"
-            role="tab"
-            id="rr-tab-topos"
-            aria-controls="rr-panel-topos"
-            aria-selected={tab === "topos"}
-            tabIndex={tab === "topos" ? 0 : -1}
-            className="rrTab"
-            onClick={() => setTab("topos")}
-          >
-            CAÇA-TOPOS
-          </button>
-          <button type="button" className={`rrModeTab ${mode === "fast" ? "active" : ""}`} onClick={() => setMode("fast")}>RÁPIDO</button>
-          <button type="button" className={`rrModeTab ${mode === "conservative" ? "active" : ""}`} onClick={() => setMode("conservative")}>CONSERVADOR</button>
+        <div className="rrTabs" aria-label="Radar de reversão">
+          <div className="rrTabGroup" role="tablist" aria-label="Estratégia">
+            <span className="rrTabGroupLabel">ESTRATÉGIA</span>
+            <div className="rrTabGroupBtns">
+              <button
+                type="button"
+                role="tab"
+                id="rr-tab-fundos"
+                aria-controls="rr-panel-fundos"
+                aria-selected={tab === "fundos"}
+                tabIndex={tab === "fundos" ? 0 : -1}
+                className="rrTab"
+                onClick={() => setTab("fundos")}
+              >
+                CAÇA-FUNDOS
+              </button>
+              <button
+                type="button"
+                role="tab"
+                id="rr-tab-topos"
+                aria-controls="rr-panel-topos"
+                aria-selected={tab === "topos"}
+                tabIndex={tab === "topos" ? 0 : -1}
+                className="rrTab"
+                onClick={() => setTab("topos")}
+              >
+                CAÇA-TOPOS
+              </button>
+            </div>
+          </div>
+          <div className="rrTabGroup" role="group" aria-label="Modo">
+            <span className="rrTabGroupLabel">MODO</span>
+            <div className="rrTabGroupBtns">
+              <button type="button" className={`rrModeTab ${mode === "fast" ? "active" : ""}`} aria-pressed={mode === "fast"} onClick={() => setMode("fast")}>RÁPIDO</button>
+              <button type="button" className={`rrModeTab ${mode === "conservative" ? "active" : ""}`} aria-pressed={mode === "conservative"} onClick={() => setMode("conservative")}>CONSERVADOR</button>
+            </div>
+          </div>
         </div>
         <MultiAssetFundMonitor
           btcSnapshot={snapshot}

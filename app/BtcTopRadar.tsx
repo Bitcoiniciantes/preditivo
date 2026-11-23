@@ -337,12 +337,12 @@ export function BtcTopRadar({
             : quoteView === "failed" ? <small className="brQuoteRef">nova tentativa em 60s</small>
               : quoteView === "stale" ? <small className="brQuoteRef">desatualizada · última às {fmtTime(quoteUpdatedAt)}</small>
                 : referencePrice !== null && Number.isFinite(referencePrice) && (
-            <small className="brQuoteRef">ref. cálculo (fech. 15M): {fmtCurrentPrice(referencePrice)}</small>
+            <small className="brQuoteRef">Preço ao vivo (tick) · ref. 15M: {fmtCurrentPrice(referencePrice)}</small>
           )}
         </div>
         <div className="brHeadSide">
           <span className="brBadge">{reading.badge}</span>
-          <small className="brUpdated">Atualizado às {fmtTime(reading.updatedAt)}</small>
+          <small className="brUpdated">Snapshot 15M atualizado às {fmtTime(reading.updatedAt)}</small>
         </div>
       </div>
 

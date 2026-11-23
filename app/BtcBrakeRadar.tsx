@@ -99,7 +99,7 @@ function clampPct(value: number | null): number {
 // A barra única representa a métrica do estado atual: freio durante a queda,
 // retração durante repique/reção. Sem métrica válida, nenhuma barra é desenhada
 // (e nenhum percentual falso é inventado).
-function barView(reading: BrakeRadarReading): BarView {
+function barView(reading: BrakeRadarReading, brakeMinPct: number): BarView {
   if (reading.barMetric === "recovery") {
     return {
       label: "RECUPERAÇÃO DA AMPLITUDE (%)",
@@ -115,8 +115,8 @@ function barView(reading: BrakeRadarReading): BarView {
       label: "FREIO DA QUEDA (%)",
       value: clampPct(reading.brakePct),
       display: fmtPct(reading.brakePct),
-      mark: 25,
-      markTitle: "Mínimo de 25% para sinal de reação",
+      mark: brakeMinPct,
+      markTitle: `Mínimo de ${brakeMinPct}% para sinal de reação`,
       track: true,
     };
   }
@@ -337,21 +337,26 @@ export function BtcBrakeRadar({
     };
   }, [symbol]);
 
+  // A: config do modo Rápido (agressivo, somente quando ativo)
+  const RAPIDO = { fundoPreservadoMin: 15, freioMinPct: 10, stopMaxPct: 0.8, stopLookback5m: 12, alvoPrincipal: "alvo50" as const, usarPrecoAoVivoEma9: true, bloquearComContexto1hContrario: false };
   const reading = useMemo(
-    () => analyzeBrakeRadar({
-      h1: snapshot?.h1 ?? [],
-      m15: snapshot?.m15 ?? [],
-      fetchedAt: snapshot?.fetchedAt ?? null,
-      now,
-    }),
-    [snapshot, now],
+    () => analyzeBrakeRadar(
+      {
+        h1: snapshot?.h1 ?? [],
+        m15: snapshot?.m15 ?? [],
+        fetchedAt: snapshot?.fetchedAt ?? null,
+        now,
+      },
+      mode === "fast" ? { brakeMinPct: RAPIDO.freioMinPct, preservedReferenceMin: RAPIDO.fundoPreservadoMin } : undefined,
+    ),
+    [snapshot, now, mode, RAPIDO.freioMinPct, RAPIDO.fundoPreservadoMin],
   );
   const assetCode = symbol.replace("USDT", "");
   const displayReason = reading.reason
     .replace(/\bBTC\b/g, assetCode)
     .replace(/Bitcoin/g, assetName);
 
-  const bar = barView(reading);
+  const bar = barView(reading, mode === "fast" ? RAPIDO.freioMinPct : 25);
   // Referência fechada de 15m usada somente nos cálculos; a cotação exibida é
   // o spot atual do próprio ativo.
   const referencePrice = reading.lastClose15m;
@@ -402,6 +407,19 @@ export function BtcBrakeRadar({
   const liveRecovery = entry !== null && reading.minimum12h !== null && amplitude !== null && amplitude > 0 ? (entry - reading.minimum12h) / amplitude * 100 : null;
   const closedRecovery = reading.retracementPct;
   const emaDistance = entry !== null && reading.ema9 !== null ? (entry / reading.ema9 - 1) * 100 : null;
+  const closedBars = snapshot?.m15 ?? [];
+  const last15 = closedBars.at(-1) ?? null;
+  const closedEmaDistance = reading.lastClose15m !== null && reading.ema9 !== null ? (reading.lastClose15m / reading.ema9 - 1) * 100 : null;
+  const fmtHHMM = (value: number | null | undefined) => {
+    if (value === null || value === undefined || !Number.isFinite(value)) return "—";
+    return new Date(value).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  };
+  const fmtHHMMRange = (closeTime: number | null | undefined, intervalMs: number) => {
+    if (closeTime === null || closeTime === undefined || !Number.isFinite(closeTime)) return "—";
+    const end = closeTime + 1;
+    const start = end - intervalMs;
+    return `${fmtHHMM(start)}–${fmtHHMM(end)}`;
+  };
   type CheckState = "confirmed" | "waiting" | "invalid" | "unavailable";
   const context1h: CheckState = reading.previousReturnPct === null || reading.recentReturnPct === null
     ? "unavailable"
@@ -412,8 +430,8 @@ export function BtcBrakeRadar({
         : "waiting";
   const conservativeChecks: { label: string; state: CheckState }[] = [
     { label: "Fundo preservado por 60 min", state: reading.preservedMinutes === null ? "unavailable" : setupInvalidated ? "invalid" : preservedMet ? "confirmed" : "waiting" },
-    { label: "Fechamento 15M acima da EMA9", state: reading.lastClose15m === null || reading.ema9 === null ? "unavailable" : setupInvalidated || reading.lastClose15m < reading.ema9 ? "invalid" : reading.lastClose15m > reading.ema9 ? "confirmed" : "waiting" },
-    { label: "Freio da queda mínimo de 25%", state: !reading.brakeApplicable || reading.brakePct === null ? "unavailable" : (reading.brakePct >= 25 ? "confirmed" : "waiting") },
+    { label: `Fechamento 15M (${fmtHHMM(last15?.closeTime ?? null)}) acima da EMA9`, state: reading.lastClose15m === null || reading.ema9 === null ? "unavailable" : setupInvalidated || reading.lastClose15m < reading.ema9 ? "invalid" : reading.lastClose15m > reading.ema9 ? "confirmed" : "waiting" },
+    { label: "Freio da queda (mín. 25%)", state: !reading.brakeApplicable || reading.brakePct === null ? "unavailable" : (reading.brakePct >= 25 ? "confirmed" : "waiting") },
     { label: "Contexto 1H favorável", state: context1h },
   ];
   const conservativeConfirmed = !setupInvalidated && conservativeChecks.every((check) => check.state === "confirmed");
@@ -426,17 +444,52 @@ export function BtcBrakeRadar({
       : reading.state === "UNSTABLE" || reading.state === "ACCELERATING" || !reading.brakeApplicable ? "SEM ESTABILIZAÇÃO"
         : preservedMet ? "FUNDO PRESERVADO" : "TESTANDO O FUNDO";
   const recoveryClass = (value: number | null) => value === null ? "brMuted" : value < 0 ? "brNegative" : value > 0 ? "brPositive" : "brCaution";
-  const closedBars = snapshot?.m15 ?? [];
   const recentVolume = closedBars.slice(-12).reduce((sum, bar) => sum + bar.volume, 0);
   const olderBars = closedBars.slice(-96, -12);
   const avgVolume3h = olderBars.length ? olderBars.reduce((sum, bar) => sum + bar.volume, 0) / (olderBars.length / 12) : null;
   const volumeRatio = avgVolume3h && avgVolume3h > 0 ? recentVolume / avgVolume3h : null;
+  const volumeStabilizing = quality !== "SEM ESTABILIZAÇÃO" && quality !== "FUNDO ROMPIDO";
+  const volumeTone = volumeRatio === null ? "brMuted" : (volumeStabilizing && volumeRatio >= 1 ? "brPositive" : "brMuted");
+  const volumeHeadline = volumeRatio === null ? "—" : `${volumeRatio >= 1 ? "▲" : "▼"} ${volumeRatio.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}×`;
+  const volumeDetail = volumeRatio === null ? "" : `a média 24h · volume na queda · ${volumeStabilizing ? "estabilização em observação" : "sem estabilização"}`;
   const m5 = snapshot?.m5 ?? [];
   const ema5 = emaLast(m5.map((bar) => bar.close), 9);
   const last5 = m5.at(-1) ?? null;
   const prior5 = m5.at(-2) ?? null;
-  const fastCriteria = last5 && prior5 && ema5 !== null ? [last5.close > ema5, last5.close > prior5.high] : null;
-  const fastAgainstTrend = Boolean(fastCriteria?.every(Boolean) && (context1h === "invalid" || quality === "SEM ESTABILIZAÇÃO"));
+  const fastCriteria = last5 && prior5 && ema5 !== null ? [last5.close > ema5, last5.close > prior5.high] as const : null;
+  const fastTriggerCount = fastCriteria ? fastCriteria.filter(Boolean).length : 0;
+  const fastTriggerState = fastCriteria ? (fastTriggerCount === 2 ? "DISPARADO" : fastTriggerCount === 1 ? "ARMADO" : "AGUARDANDO") : "INDISPONÍVEL";
+  const fastAgainstTrend = Boolean(fastTriggerCount === 2 && (context1h === "invalid" || quality === "SEM ESTABILIZAÇÃO"));
+  const fastVerdictBadge = fastTriggerCount === 2 ? "ENTRADA ESPECULATIVA" : "NÃO INICIAR";
+  const fastDistanceEma5 = last5 && ema5 !== null ? (last5.close / ema5 - 1) * 100 : null;
+  const fastDistancePrevHigh = last5 && prior5 ? (last5.close / prior5.high - 1) * 100 : null;
+  const last12m5Low = m5.slice(-RAPIDO.stopLookback5m).reduce<number | null>((min, bar) => {
+    const low = Number(bar.low);
+    if (!Number.isFinite(low) || low <= 0) return min;
+    return min === null || low < min ? low : min;
+  }, null);
+  const fastStopPct = entry !== null ? entry * (1 - RAPIDO.stopMaxPct / 100) : null;
+  const fastStop = entry !== null ? Math.max(last12m5Low ?? -Infinity, fastStopPct ?? -Infinity) : null;
+  const fastStopValid = fastStop !== null && Number.isFinite(fastStop) && fastStop > 0 && entry !== null && fastStop < entry;
+  const fastStopFinal = fastStopValid ? fastStop : null;
+  const fastTargetPrincipal = RAPIDO.alvoPrincipal === "alvo50" ? target50 : target100;
+  const fastTarget2 = target100;
+  const fastSetupInvalidated = entry !== null && ((reading.minimum12h !== null && entry < reading.minimum12h) || (fastStopFinal !== null && entry <= fastStopFinal));
+  const fastRisk = !fastSetupInvalidated && entry !== null && fastStopFinal !== null && entry > fastStopFinal ? (entry - fastStopFinal) / entry * 100 : null;
+  const fastRR = !fastSetupInvalidated && fastRisk !== null && fastRisk > 0 && fastTargetPrincipal !== null && entry !== null ? (fastTargetPrincipal - entry) / (entry * fastRisk / 100) : null;
+  const fastPreservedMet = reading.preservedMinutes !== null && reading.preservedMinutes >= RAPIDO.fundoPreservadoMin;
+  const fastPreservedTrack = reading.preservedMinutes === null ? 0 : Math.max(0, Math.min(100, (reading.preservedMinutes / (RAPIDO.fundoPreservadoMin * 2)) * 100));
+  const fastPreservedMark = 50; // 15 min em escala 0..30 min
+  const preservedRefMin = mode === "fast" ? RAPIDO.fundoPreservadoMin : BRAKE_PRESERVED_REFERENCE_MIN;
+  const freioReason = !reading.brakeApplicable
+    ? (!reading.hasDrop
+      ? "n/d: sem queda relevante"
+      : reading.preservedMinutes !== null && reading.preservedMinutes < preservedRefMin
+        ? `n/d: exige fundo preservado ≥ ${preservedRefMin} min`
+        : "n/d: freio não aplicável neste contexto")
+    : reading.brakePct === null
+      ? "n/d: dados insuficientes"
+      : null;
 
   return (
     <article
@@ -474,33 +527,85 @@ export function BtcBrakeRadar({
             : quoteView === "failed" ? <small className="brQuoteRef">nova tentativa em 60s</small>
               : quoteView === "stale" ? <small className="brQuoteRef">desatualizada · última às {fmtTime(quoteUpdatedAt)}</small>
                 : referencePrice !== null && Number.isFinite(referencePrice) && (
-            <small className="brQuoteRef">ref. cálculo (fech. 15M): {fmtCurrentPrice(referencePrice)}</small>
+            <small className="brQuoteRef">Preço ao vivo (tick) · ref. 15M: {fmtCurrentPrice(referencePrice)}</small>
           )}
         </div>
         <div className="brHeadSide">
-          <span className="brBadge">{reading.badge}</span>
-          <small className="brUpdated">Atualizado às {fmtTime(reading.updatedAt)}</small>
+          <span className={`brBadge${mode === "fast" && fastTriggerCount === 2 ? " brBadgeSpeculative" : ""}`}>{mode === "fast" ? fastVerdictBadge : reading.badge}</span>
+          <small className="brUpdated">Snapshot 15M atualizado às {fmtTime(reading.updatedAt)}</small>
         </div>
       </div>
 
       <section className="brEvolution" aria-label="Evolução 1 do radar">
         <div className="brOperationalGrid">
-          <div className={`brOpCard brMap${conservativeConfirmed ? "" : " brMapHypothetical"}`}>
-            <span>{conservativeConfirmed ? "SETUP ATIVO" : "CENÁRIO HIPOTÉTICO — não ativo"} · MAPA DO SETUP</span>
-            <dl><div><dt>Entrada de referência</dt><dd>{setupInvalidated ? "INVÁLIDA" : fmtPrice(entry)}</dd></div><div><dt>Stop técnico</dt><dd className="brNegative">{fmtPrice(stop)}</dd></div><div><dt>Custo do erro</dt><dd>{fmtPct(risk)}</dd></div><div><dt>Alvo 50% (histórico)</dt><dd className={setupInvalidated ? "brMuted" : "brPositive"}>{fmtPrice(target50)}</dd></div><div><dt>Alvo principal (histórico)</dt><dd className={setupInvalidated ? "brMuted" : "brPositive"}>{fmtPrice(target100)}</dd></div><div><dt>R/R</dt><dd>{risk !== null && target100 !== null && entry !== null && risk > 0 ? `1 : ${((target100 - entry) / (entry * risk / 100)).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}` : "—"}</dd></div></dl>
+          <div className={`brOpCard brMap${(mode === "fast" ? !fastSetupInvalidated && fastTriggerCount === 2 : conservativeConfirmed) ? "" : " brMapHypothetical"}`}>
+            <span>{mode === "fast"
+              ? (fastSetupInvalidated ? "CENÁRIO HIPOTÉTICO — não ativo" : fastTriggerCount === 2 ? "SETUP ATIVO" : "CENÁRIO HIPOTÉTICO — não ativo")
+              : (conservativeConfirmed ? "SETUP ATIVO" : "CENÁRIO HIPOTÉTICO — não ativo")} · MAPA DO SETUP</span>
+            {mode === "fast" ? (
+              <>
+                <dl>
+                  <div><dt>Entrada de referência</dt><dd>{fastSetupInvalidated ? "INVÁLIDA" : fmtPrice(entry)}</dd></div>
+                  <div><dt>Stop técnico</dt><dd className="brNegative">{fmtPrice(fastStopFinal)}</dd></div>
+                  <div><dt>Custo do erro</dt><dd>{fmtPct(fastRisk)}</dd></div>
+                  <div><dt>Alvo principal (50%)</dt><dd className={fastSetupInvalidated ? "brMuted" : "brPositive"}>{fmtPrice(fastTargetPrincipal)}</dd></div>
+                  <div><dt>Alvo 2 (topo amplitude)</dt><dd className={fastSetupInvalidated ? "brMuted" : "brPositive"}>{fmtPrice(fastTarget2)}</dd></div>
+                  <div><dt>R/R</dt><dd>{fastRR !== null && Number.isFinite(fastRR) ? `1 : ${fastRR.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}` : "—"}</dd></div>
+                </dl>
+                {fastRisk !== null && fastRisk < 0.5 && <small className="brFastMeta brCaution">Stop curto: sensível a pavios</small>}
+              </>
+            ) : (
+              <dl>
+                <div><dt>Entrada de referência</dt><dd>{setupInvalidated ? "INVÁLIDA" : fmtPrice(entry)}</dd></div>
+                <div><dt>Stop técnico</dt><dd className="brNegative">{fmtPrice(stop)}</dd></div>
+                <div><dt>Custo do erro</dt><dd>{fmtPct(risk)}</dd></div>
+                <div><dt>Alvo 50% (histórico)</dt><dd className={setupInvalidated ? "brMuted" : "brPositive"}>{fmtPrice(target50)}</dd></div>
+                <div><dt>Alvo principal (histórico)</dt><dd className={setupInvalidated ? "brMuted" : "brPositive"}>{fmtPrice(target100)}</dd></div>
+                <div><dt>R/R</dt><dd>{risk !== null && target100 !== null && entry !== null && risk > 0 ? `1 : ${((target100 - entry) / (entry * risk / 100)).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}` : "—"}</dd></div>
+              </dl>
+            )}
           </div>
           <div className="brOpCard brTrigger">
             <span>{mode === "fast" ? "GATILHO RÁPIDO (5M)" : `${conservativeChecks.filter((check) => check.state === "confirmed").length}/4 confirmações`}</span>
-            {mode === "fast" ? fastCriteria ? <><p>Sinal de curto prazo. Não substitui o veredito 15M/1H.</p><small>Últ. fech. 5M: {fmtTime(last5?.closeTime ?? null)}</small><ul className="brCheckList"><li className={fastCriteria[0] ? "confirmed" : "waiting"}>{fastCriteria[0] ? "✓" : "○"} Fech. 5M acima da EMA9</li><li className={fastCriteria[1] ? "confirmed" : "waiting"}>{fastCriteria[1] ? "✓" : "○"} Fech. 5M acima da máxima anterior</li><li className="waiting">{fastCriteria.filter(Boolean).length}/2 critérios do gatilho 5M</li></ul>{fastAgainstTrend && <b className="brCaution">Gatilho 5M ativo contra a tendência maior</b>}</> : <><b className={setupInvalidated ? "brNegative" : "brMuted"}>{setupInvalidated ? "SETUP INVALIDADO" : "GATILHO 5M INDISPONÍVEL"}</b><p>Provisório (15M) · última tentativa: {fmtTime(snapshot?.fetchedAt ?? null)}</p></> : <ul className="brCheckList">{conservativeChecks.map((check, index) => <li key={check.label} className={check.state}>{check.state === "confirmed" ? "✓" : check.state === "invalid" ? "✕" : check.state === "unavailable" ? "—" : "○"} {check.label}{index === 0 && `: ${reading.preservedMinutes ?? "—"} / 60 min`}{index === 1 && `: ${fmtPct(emaDistance, true)} (precisa ≥ 0%)`}{index === 2 && `: ${reading.brakePct === null ? "—" : fmtPct(reading.brakePct)} / 25%`}</li>)}</ul>}
+            {mode === "fast" ? (
+              fastCriteria ? (
+                <>
+                  <div className={`brFastState brFastState-${fastTriggerState.toLowerCase()}`}>
+                    <b>{fastTriggerCount}/2 {fastTriggerState}</b>
+                    {fastAgainstTrend && <span className="brFastContra">DISPARADO · CONTRA TENDÊNCIA</span>}
+                  </div>
+                  <small className="brFastMeta">Sinal de curto prazo. Não substitui o veredito 15M/1H.</small>
+                  <small className="brFastMeta">Candle 5M fechado: {fmtHHMMRange(last5?.closeTime ?? null, 5 * 60_000)}</small>
+                  <small className="brFastDistance">Fech. 5M vs EMA9 5M: {fmtPct(fastDistanceEma5, true)} · vs máxima anterior: {fmtPct(fastDistancePrevHigh, true)}</small>
+                  <ul className="brCheckList">
+                    <li className={fastCriteria[0] ? "confirmed" : "waiting"}>{fastCriteria[0] ? "✓" : "○"} Fech. 5M acima da EMA9</li>
+                    <li className={fastCriteria[1] ? "confirmed" : "waiting"}>{fastCriteria[1] ? "✓" : "○"} Fech. 5M acima da máxima anterior</li>
+                  </ul>
+                  {fastAgainstTrend && <b className="brCaution">Risco alto: 1H contrário</b>}
+                  {fastTriggerCount === 2 && <small className="brFastDisclaimer">Indicador técnico, não é recomendação</small>}
+                </>
+              ) : (
+                <>
+                  <b className={setupInvalidated ? "brNegative" : "brMuted"}>{setupInvalidated ? "SETUP INVALIDADO" : "GATILHO 5M INDISPONÍVEL"}</b>
+                  <p>Provisório (15M) · última tentativa: {fmtTime(snapshot?.fetchedAt ?? null)}</p>
+                </>
+              )
+            ) : (
+              <ul className="brCheckList">{conservativeChecks.map((check, index) => <li key={check.label} className={check.state}>{check.state === "confirmed" ? "✓" : check.state === "invalid" ? "✕" : check.state === "unavailable" ? "—" : "○"} {check.label}{index === 0 && `: ${reading.preservedMinutes ?? "—"} / 60 min`}{index === 1 && `: ${fmtPct(closedEmaDistance, true)} (precisa ≥ 0%)`}{index === 2 && `: ${reading.brakePct === null ? `n/d — ${(freioReason ?? "n/d: motivo indisponível").replace(/^n\/d:\s*/i, "")}` : fmtPct(reading.brakePct)}`}</li>)}</ul>
+            )}
           </div>
           <div className="brOpStats">
-            <div title="(preço atual − mínima da amplitude) ÷ amplitude"><span>RECUPERAÇÃO AO VIVO ⓘ</span><b className={recoveryClass(liveRecovery)}>{fmtPct(liveRecovery)}</b><small>da amplitude topo→mínima, não é ganho de preço</small></div><div title="(fechamento 15M − mínima da amplitude) ÷ amplitude"><span>RECUPERAÇÃO FECHADA (15M) ⓘ</span><b className={recoveryClass(closedRecovery)}>{fmtPct(closedRecovery)}</b><small>da amplitude topo→mínima, não é ganho de preço</small></div><div title="(preço atual ÷ EMA9 15M − 1) × 100"><span>PREÇO VS. EMA9 (15M) ⓘ</span><b className={emaDistance !== null && emaDistance < 0 ? "brNegative" : "brPositive"}>{fmtPct(emaDistance, true)}</b></div><div title="Desaceleração entre dois blocos fechados de 3h"><span>FREIO DA QUEDA ⓘ</span><b className={reading.brakeApplicable ? (reading.brakePct ?? 0) >= 25 ? "brPositive" : "brCaution" : "brMuted"}>{reading.brakeApplicable ? fmtPct(reading.brakePct) : "—"}</b></div><div title="Volume dos últimos 12 candles de 15M comparado à média dos 24h anteriores"><span>VOLUME (3H VS MÉDIA 24H) ⓘ</span><b className={volumeRatio === null ? "brMuted" : volumeRatio >= 1 ? "brPositive" : "brCaution"}>{volumeRatio === null ? "—" : `${volumeRatio >= 1 ? "▲" : "▼"} ${volumeRatio.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}×`}</b></div>
+            <div title="(preço atual − mínima da amplitude) ÷ amplitude"><span>RECUPERAÇÃO AO VIVO ⓘ</span><b className={recoveryClass(liveRecovery)}>{fmtPct(liveRecovery)}</b><small>da amplitude topo→mínima · inclui o candle em formação</small></div>
+            <div title="(fechamento 15M − mínima da amplitude) ÷ amplitude"><span>RECUPERAÇÃO FECHADA (15M) ⓘ</span><b className={recoveryClass(closedRecovery)}>{fmtPct(closedRecovery)}</b><small>da amplitude topo→mínima, não é ganho de preço</small></div>
+            <div title="(preço atual ÷ EMA9 15M − 1) × 100"><span>PREÇO VS. EMA9 (15M) · AO VIVO ⓘ</span><b className={emaDistance !== null && emaDistance < 0 ? "brNegative" : "brPositive"}>{fmtPct(emaDistance, true)}</b></div>
+            <div title="Desaceleração entre dois blocos fechados de 3h"><span>FREIO DA QUEDA ⓘ</span><b className={reading.brakeApplicable ? (reading.brakePct ?? 0) >= (mode === "fast" ? RAPIDO.freioMinPct : 25) ? "brPositive" : "brCaution" : "brMuted"}>{reading.brakeApplicable ? fmtPct(reading.brakePct) : "n/d"}</b><small>{reading.brakeApplicable ? `limite ${mode === "fast" ? RAPIDO.freioMinPct : 25}% (${mode === "fast" ? "Rápido" : "Conservador"})` : (freioReason ?? "motivo indisponível")}</small></div>
+            <div className="brOpStatWide" title="Volume dos últimos 12 candles de 15M comparado à média dos 24h anteriores"><span>VOLUME (3H VS MÉDIA 24H) ⓘ</span><b className={volumeTone}>{volumeHeadline}</b><small>{volumeDetail || "—"}</small></div>
           </div>
         </div>
         <div className="brDiagnostics"><span>DIREÇÃO <b>{direction}</b></span><span>QUALIDADE <b>{quality}</b></span><span>CONTEXTO 1H <b>{context1h === "confirmed" ? "Favorável" : context1h === "invalid" ? "Contrário" : context1h === "unavailable" ? "Indisponível" : "Neutro"}</b></span></div>
       </section>
 
-      <div className="brMetrics">
+      <div className="brMetrics brMetricsTwo">
         <div className="brMetric">
           <span title="Retorno entre os fechamentos dos últimos 3h">MOVIMENTO RECENTE (3H) ⓘ</span>
           <b className={returnTone(reading.recentReturnPct)}>{fmtPct(reading.recentReturnPct, true)}</b>
@@ -509,29 +614,35 @@ export function BtcBrakeRadar({
           </small>
         </div>
         <div className="brMetric">
-          <span title="Estrutura medida pela amplitude topo→mínima">ESTRUTURA DA AMPLITUDE ⓘ</span>
-          <b className={recoveryTone(reading)}>Ver cards acima</b>
-          <small className="brMetricSub">
-            {reading.hasDrop ? "recuperação exibida no painel operacional" : "contexto · sem DCA"}
-          </small>
-        </div>
-        <div className="brMetric">
           <span title="Tempo desde a mínima sem nova mínima por fechamento">FUNDO PRESERVADO ⓘ</span>
-          <b className={preservedTone(reading)}>{preservedText}</b>
-          <div className={`brPreserveTrack${preservedMet ? " brPreserveTrackMet" : ""}`} aria-hidden="true">
-            <i style={{ width: `${preservedTrack}%` }} />
-            <em title="Referência de 60 minutos" />
-          </div>
-          <small className="brMetricSub">{preservedMet ? "meta atingida" : "meta 60 min"}</small>
+          {mode === "fast" ? (
+            <>
+              <b className={fastPreservedMet ? "brPositive" : preservedTone(reading)}>{preservedText}</b>
+              <div className={`brPreserveTrack${fastPreservedMet ? " brPreserveTrackMet" : ""}`} aria-hidden="true">
+                <i style={{ width: `${fastPreservedTrack}%` }} />
+                <em style={{ left: `${fastPreservedMark}%` }} title={`Referência de ${RAPIDO.fundoPreservadoMin} minutos`} />
+              </div>
+              <small className="brMetricSub">{fastPreservedMet ? `meta ${RAPIDO.fundoPreservadoMin} min atingida` : `meta ${RAPIDO.fundoPreservadoMin} min`}</small>
+            </>
+          ) : (
+            <>
+              <b className={preservedTone(reading)}>{preservedText}</b>
+              <div className={`brPreserveTrack${preservedMet ? " brPreserveTrackMet" : ""}`} aria-hidden="true">
+                <i style={{ width: `${preservedTrack}%` }} />
+                <em title="Referência de 60 minutos" />
+              </div>
+              <small className="brMetricSub">{preservedMet ? "meta atingida" : "meta 60 min"}</small>
+            </>
+          )}
         </div>
       </div>
 
-      <div className={`brBarArea${bar.track ? "" : " brBarAreaEmpty"}`}>
-        <div className="brBarHead">
-          <span>{bar.label}</span>
-          {bar.display ? <b>{bar.display}</b> : null}
-        </div>
-        {bar.track && (
+      {bar.track && (
+        <div className="brBarArea">
+          <div className="brBarHead">
+            <span>{bar.label}</span>
+            {bar.display ? <b>{bar.display}{reading.barMetric === "recovery" ? " · recuperação (ref. 20%)" : reading.barMetric === "brake" ? ` · freio (mín. ${mode === "fast" ? RAPIDO.freioMinPct : 25}% ${mode === "fast" ? "Rápido" : "Conservador"})` : ""}</b> : null}
+          </div>
           <div
             className="brBarTrack"
             role="progressbar"
@@ -543,8 +654,8 @@ export function BtcBrakeRadar({
             <i style={{ width: `${bar.value}%` }} />
             {bar.mark !== null && <em style={{ left: `${bar.mark}%` }} title={bar.markTitle} />}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="brContext brFundContext">
         <div className="brFundLeft">
@@ -595,8 +706,22 @@ export function BtcBrakeRadar({
 
       <div className="brAction">
         <span className="brActionLabel">AÇÃO — {mode === "fast" ? "MODO RÁPIDO" : "MODO CONSERVADOR"}</span>
-        <b>{setupInvalidated ? "SETUP INVALIDADO — AGUARDAR NOVA REFERÊNCIA" : mode === "conservative" ? (conservativeConfirmed ? "SETUP CONSERVADOR CONFIRMADO" : "AGUARDAR — Confirmação ainda incompleta.") : reading.action}</b>
-        <p>{displayReason}</p>
+        {mode === "fast" ? (
+          <>
+            <b>{fastSetupInvalidated ? "SETUP INVALIDADO — AGUARDAR NOVA REFERÊNCIA" : fastTriggerCount === 2 ? "ENTRADA ESPECULATIVA" : "NÃO INICIAR"}</b>
+            <p>
+              Gatilho 5M {fastTriggerCount}/2 {fastTriggerState}{last5 ? ` · candle fechado ${fmtHHMMRange(last5.closeTime, 5 * 60_000)}` : ""}.
+              {` Movimento ${fmtPct(reading.recentReturnPct, true)} (3h), ${fmtPct(reading.dropPct, true)} (topo→mínima).`}
+              {fastTriggerCount === 2 ? " Indicador técnico, não é recomendação." : " Aguardar confirmação do gatilho 5M."}
+              {fastAgainstTrend ? " Risco alto: 1H contrário." : ""}
+            </p>
+          </>
+        ) : (
+          <>
+            <b>{setupInvalidated ? "SETUP INVALIDADO — AGUARDAR NOVA REFERÊNCIA" : conservativeConfirmed ? "SETUP CONSERVADOR CONFIRMADO" : "AGUARDAR — Confirmação ainda incompleta."}</b>
+            <p>{`${displayReason} Movimento ${fmtPct(reading.recentReturnPct, true)} (3h), ${fmtPct(reading.dropPct, true)} (topo→mínima).`}</p>
+          </>
+        )}
       </div>
 
       <p className="brNote">

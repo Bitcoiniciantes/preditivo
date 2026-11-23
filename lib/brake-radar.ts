@@ -368,8 +368,13 @@ export function formatPreservedMinutes(minutes: number | null): string {
   return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`;
 }
 
-export function analyzeBrakeRadar(input: BrakeKlineInput): BrakeRadarReading {
+export function analyzeBrakeRadar(
+  input: BrakeKlineInput,
+  opts?: { brakeMinPct?: number; preservedReferenceMin?: number },
+): BrakeRadarReading {
   const { fetchedAt, now } = input;
+  const brakeMinPct = opts?.brakeMinPct ?? BRAKE_MIN_BRAKE_PCT;
+  const preservedReferenceMin = opts?.preservedReferenceMin ?? BRAKE_PRESERVED_REFERENCE_MIN;
 
   if (fetchedAt === null || !Number.isFinite(fetchedAt)) {
     return unavailable("Sem leitura válida dos candles.", null);
@@ -449,14 +454,14 @@ export function analyzeBrakeRadar(input: BrakeKlineInput): BrakeRadarReading {
   const reactionConfirmed = Boolean(
     hasDrop
       && brakeApplicable
-      && (brakePct ?? 0) >= BRAKE_MIN_BRAKE_PCT
+      && (brakePct ?? 0) >= brakeMinPct
       && (structure.candlesWithoutNewLow ?? 0) >= 4
       && (structure.retracementPct ?? -Infinity) >= BRAKE_MIN_RETRACEMENT_PCT
       && lastCloseAboveEma
   );
 
   const accelerating = previous !== null && recent !== null && previous < 0 && recent < previous;
-  const measurableBrakeBelow = brakeApplicable && (brakePct ?? 0) < BRAKE_MIN_BRAKE_PCT;
+  const measurableBrakeBelow = brakeApplicable && (brakePct ?? 0) < brakeMinPct;
   // Recuo moderado dentro de uma recuperação relevante. Sem freio mensurável o
   // bloco anterior foi de alta ou lateral; se o recuo recente é pequeno, o fundo
   // segue preservado e a retração continua acima de 15%, não existe retomada de
@@ -537,7 +542,7 @@ export function analyzeBrakeRadar(input: BrakeKlineInput): BrakeRadarReading {
       if (!brakeApplicable) {
         details.push("sem freio mensurável");
       } else if ((brakePct ?? 0) < BRAKE_MIN_BRAKE_PCT) {
-        details.push(`freio de ${pctText(brakePct ?? 0)} abaixo de 25%`);
+        details.push(`freio de ${pctText(brakePct ?? 0)} abaixo de ${Math.round(brakeMinPct)}%`);
       }
       if (recentNewLow) {
         details.push(`nova mínima recente (fundo preservado por ${preservedTxt})`);
@@ -555,25 +560,25 @@ export function analyzeBrakeRadar(input: BrakeKlineInput): BrakeRadarReading {
     tone = "cyan";
     badge = "AGUARDAR";
     const preservedClause = preservedMinutes !== null
-      && preservedMinutes < BRAKE_PRESERVED_REFERENCE_MIN
+      && preservedMinutes < preservedReferenceMin
       ? `mas preservou a mínima por apenas ${preservedTxt}`
       : `e preservou a mínima por ${preservedTxt}`;
     const missing: string[] = [];
-    if ((structure.candlesWithoutNewLow ?? 0) < 4) {
-      missing.push("pelo menos 60 minutos de fundo preservado");
+    if ((structure.candlesWithoutNewLow ?? 0) < Math.max(1, Math.ceil(preservedReferenceMin / (BRAKE_M15_INTERVAL_MS / 60_000)))) {
+      missing.push(`pelo menos ${Math.round(preservedReferenceMin)} minutos de fundo preservado`);
     }
     if ((structure.retracementPct ?? 0) < BRAKE_MIN_RETRACEMENT_PCT) {
       missing.push("retração de pelo menos 20%");
     }
     if (!lastCloseAboveEma) missing.push("fechamento acima da EMA(9)");
-    if (!brakeApplicable || (brakePct ?? 0) < BRAKE_MIN_BRAKE_PCT) {
-      missing.push("freio aplicável de pelo menos 25%");
+    if (!brakeApplicable || (brakePct ?? 0) < brakeMinPct) {
+      missing.push(`freio aplicável de pelo menos ${Math.round(brakeMinPct)}%`);
     }
     const pullbackClause = moderatePullback
       ? ` O recuo recente de ${recentTxt} é moderado e não caracteriza retomada da queda.`
       : "";
     reason = `BTC recuperou ${pctText(structure.retracementPct ?? 0)} da amplitude da queda, ${preservedClause}.${pullbackClause} ${missing.length ? `Confirmação exige ${missing.join(", ")}.` : "Aguardando os demais critérios."}`;
-  } else if (brakeApplicable && (brakePct ?? 0) >= BRAKE_MIN_BRAKE_PCT) {
+  } else if (brakeApplicable && (brakePct ?? 0) >= brakeMinPct) {
     state = "SLOWING";
     label = "QUEDA DESACELERANDO";
     tone = "amber";
@@ -582,8 +587,8 @@ export function analyzeBrakeRadar(input: BrakeKlineInput): BrakeRadarReading {
     if ((structure.retracementPct ?? 0) < BRAKE_MIN_REBOUND_RETRACEMENT_PCT) {
       missing.push(`recuperação de ${pctText(structure.retracementPct ?? 0)} (repique exige 15%)`);
     }
-    if ((structure.candlesWithoutNewLow ?? 0) < 4) {
-      missing.push(`fundo preservado de ${preservedTxt} (mínimo 60 min)`);
+    if ((structure.candlesWithoutNewLow ?? 0) < Math.max(1, Math.ceil(preservedReferenceMin / (BRAKE_M15_INTERVAL_MS / 60_000)))) {
+      missing.push(`fundo preservado de ${preservedTxt} (mínimo ${Math.round(preservedReferenceMin)} min)`);
     }
     if (!lastCloseAboveEma) missing.push("fechamento abaixo da EMA(9)");
     reason = `${brakeText}, com mínima preservada por ${preservedTxt}. ${missing.length ? `Ainda falta ${missing.join("; ")} para reação.` : "Aguardando confirmação estrutural."}`;
@@ -893,4 +898,46 @@ export async function fetchBrakeSpotQuote(
     }
   }
   throw lastError instanceof Error ? lastError : new Error("cotação indisponível");
+}
+
+
+// ── Helpers do modo Rápido (Caça-Fundos) ───────────────────────────────────
+// Funções puras para testes e UI; não alteram o motor conservador.
+
+export type FastTriggerInput = {
+  lastClose: number | null;
+  ema9: number | null;
+  previousHigh: number | null;
+};
+
+export function calcFastTrigger(input: FastTriggerInput): { criteria: [boolean, boolean] | null; count: 0 | 1 | 2; state: "INDISPONÍVEL" | "AGUARDANDO" | "ARMADO" | "DISPARADO" } {
+  const { lastClose, ema9, previousHigh } = input;
+  if (lastClose === null || ema9 === null || previousHigh === null || ![lastClose, ema9, previousHigh].every(Number.isFinite)) {
+    return { criteria: null, count: 0, state: "INDISPONÍVEL" };
+  }
+  const c0 = lastClose > ema9;
+  const c1 = lastClose > previousHigh;
+  const criteria: [boolean, boolean] = [c0, c1];
+  const count = (Number(c0) + Number(c1)) as 0 | 1 | 2;
+  const state = count === 2 ? "DISPARADO" : count === 1 ? "ARMADO" : "AGUARDANDO";
+  return { criteria, count, state };
+}
+
+export function calcFastStop(entry: number | null, lows5m: number[], stopMaxPct = 0.8, lookback = 12): number | null {
+  if (entry === null || !Number.isFinite(entry) || entry <= 0) return null;
+  const recent = lows5m.filter((v) => Number.isFinite(v) && v > 0).slice(-lookback);
+  const minLow = recent.length ? Math.min(...recent) : null;
+  const pctStop = entry * (1 - stopMaxPct / 100);
+  const stop = Math.max(minLow ?? -Infinity, pctStop);
+  if (!Number.isFinite(stop) || stop <= 0 || stop >= entry) return null;
+  return stop;
+}
+
+export function calcFastRR(entry: number | null, stop: number | null, targetPrincipal: number | null): number | null {
+  if (entry === null || stop === null || targetPrincipal === null) return null;
+  if (![entry, stop, targetPrincipal].every(Number.isFinite)) return null;
+  const risk = entry - stop;
+  const reward = targetPrincipal - entry;
+  if (risk <= 0) return null;
+  return reward / risk;
 }

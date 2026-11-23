@@ -68,9 +68,14 @@
 
 .rrTabs {
   display: flex;
-  gap: 6px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 18px;
   padding: 0 16px 10px;
 }
+.rrTabGroup { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rrTabGroupLabel { color: #6f8078; font-size: 7px; font-weight: 900; letter-spacing: .14em; line-height: 1; padding-left: 2px; }
+.rrTabGroupBtns { display: flex; gap: 6px; }
 .rrTab {
   position: relative;
   min-height: 36px;
@@ -386,11 +391,12 @@
     white-space: normal;
   }
   .rrTabs {
+    gap: 12px;
     padding: 0 14px 10px;
   }
+  .rrTabGroup { flex: 1; min-width: 0; }
+  .rrTabGroupBtns .rrTab, .rrTabGroupBtns .rrModeTab { flex: 1; min-width: 0; }
   .rrTab {
-    flex: 1;
-    min-width: 0;
     padding: 8px 6px;
     font-size: 9px;
   }
