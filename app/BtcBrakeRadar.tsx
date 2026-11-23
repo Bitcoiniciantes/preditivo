@@ -599,7 +599,6 @@ export function BtcBrakeRadar({
             <div title="(fechamento 15M − mínima da amplitude) ÷ amplitude"><span>RECUPERAÇÃO FECHADA (15M) ⓘ</span><b className={recoveryClass(closedRecovery)}>{fmtPct(closedRecovery)}</b><small>da amplitude topo→mínima, não é ganho de preço</small></div>
             <div title="(preço atual ÷ EMA9 15M − 1) × 100"><span>PREÇO VS. EMA9 (15M) · AO VIVO ⓘ</span><b className={emaDistance !== null && emaDistance < 0 ? "brNegative" : "brPositive"}>{fmtPct(emaDistance, true)}</b></div>
             <div title="Desaceleração entre dois blocos fechados de 3h"><span>FREIO DA QUEDA ⓘ</span><b className={reading.brakeApplicable ? (reading.brakePct ?? 0) >= (mode === "fast" ? RAPIDO.freioMinPct : 25) ? "brPositive" : "brCaution" : "brMuted"}>{reading.brakeApplicable ? fmtPct(reading.brakePct) : "n/d"}</b><small>{reading.brakeApplicable ? `limite ${mode === "fast" ? RAPIDO.freioMinPct : 25}% (${mode === "fast" ? "Rápido" : "Conservador"})` : (freioReason ?? "motivo indisponível")}</small></div>
-            <div className="brOpStatWide" title="Volume dos últimos 12 candles de 15M comparado à média dos 24h anteriores"><span>VOLUME (3H VS MÉDIA 24H) ⓘ</span><b className={volumeTone}>{volumeHeadline}</b><small>{volumeDetail || "—"}</small></div>
           </div>
         </div>
         <div className="brDiagnostics"><span>DIREÇÃO <b>{direction}</b></span><span>QUALIDADE <b>{quality}</b></span><span>CONTEXTO 1H <b>{context1h === "confirmed" ? "Favorável" : context1h === "invalid" ? "Contrário" : context1h === "unavailable" ? "Indisponível" : "Neutro"}</b></span></div>
@@ -637,6 +636,17 @@ export function BtcBrakeRadar({
         </div>
       </div>
 
+      <div className="brActionRow">
+      <div className="brAction">
+        <span className="brActionLabel">AÇÃO — {mode === "fast" ? "MODO RÁPIDO" : "MODO CONSERVADOR"}</span>
+        {mode === "fast" ? (
+          <><b>{fastSetupInvalidated ? "SETUP INVALIDADO — AGUARDAR NOVA REFERÊNCIA" : fastTriggerCount === 2 ? "ENTRADA ESPECULATIVA" : "NÃO INICIAR"}</b><p>Gatilho 5M {fastTriggerCount}/2 {fastTriggerState}{last5 ? ` · candle fechado ${fmtHHMMRange(last5.closeTime, 5 * 60_000)}` : ""}. {` Movimento ${fmtPct(reading.recentReturnPct, true)} (3h), ${fmtPct(reading.dropPct, true)} (topo→mínima).`}{fastTriggerCount === 2 ? " Indicador técnico, não é recomendação." : " Aguardar confirmação do gatilho 5M."}{fastAgainstTrend ? " Risco alto: 1H contrário." : ""}</p></>
+        ) : (
+          <><b>{setupInvalidated ? "SETUP INVALIDADO — AGUARDAR NOVA REFERÊNCIA" : conservativeConfirmed ? "SETUP CONSERVADOR CONFIRMADO" : "AGUARDAR — Confirmação ainda incompleta."}</b><p>{`${displayReason} Movimento ${fmtPct(reading.recentReturnPct, true)} (3h), ${fmtPct(reading.dropPct, true)} (topo→mínima).`}</p></>
+        )}
+      </div>
+      <div className="brVolumeCard" title="Volume dos últimos 12 candles de 15M comparado à média dos 24h anteriores"><span>VOLUME (3H VS MÉDIA 24H) ⓘ</span><b className={volumeTone}>{volumeHeadline}</b><small>{volumeDetail || "—"}</small></div>
+      </div>
       {bar.track && (
         <div className="brBarArea">
           <div className="brBarHead">
@@ -704,25 +714,6 @@ export function BtcBrakeRadar({
         </div>
       </div>
 
-      <div className="brAction">
-        <span className="brActionLabel">AÇÃO — {mode === "fast" ? "MODO RÁPIDO" : "MODO CONSERVADOR"}</span>
-        {mode === "fast" ? (
-          <>
-            <b>{fastSetupInvalidated ? "SETUP INVALIDADO — AGUARDAR NOVA REFERÊNCIA" : fastTriggerCount === 2 ? "ENTRADA ESPECULATIVA" : "NÃO INICIAR"}</b>
-            <p>
-              Gatilho 5M {fastTriggerCount}/2 {fastTriggerState}{last5 ? ` · candle fechado ${fmtHHMMRange(last5.closeTime, 5 * 60_000)}` : ""}.
-              {` Movimento ${fmtPct(reading.recentReturnPct, true)} (3h), ${fmtPct(reading.dropPct, true)} (topo→mínima).`}
-              {fastTriggerCount === 2 ? " Indicador técnico, não é recomendação." : " Aguardar confirmação do gatilho 5M."}
-              {fastAgainstTrend ? " Risco alto: 1H contrário." : ""}
-            </p>
-          </>
-        ) : (
-          <>
-            <b>{setupInvalidated ? "SETUP INVALIDADO — AGUARDAR NOVA REFERÊNCIA" : conservativeConfirmed ? "SETUP CONSERVADOR CONFIRMADO" : "AGUARDAR — Confirmação ainda incompleta."}</b>
-            <p>{`${displayReason} Movimento ${fmtPct(reading.recentReturnPct, true)} (3h), ${fmtPct(reading.dropPct, true)} (topo→mínima).`}</p>
-          </>
-        )}
-      </div>
 
       <p className="brNote">
         Nível 20% é referência de recuperação da amplitude, não ordem nem gatilho de compra. Somente candles fechados · Binance spot · atualização a cada 60s · não é recomendação.

@@ -784,6 +784,14 @@
 /* Sem R:R: as referências do mapa ocupam toda a largura disponível. */
 .brMap dl { margin-right: 0; }
 .brMapHypothetical { opacity: .55; }
+.brActionRow{display:grid;grid-template-columns:minmax(0,1fr) minmax(250px,.55fr);gap:10px;margin:12px 18px 0}.brActionRow .brAction{margin:0}.brVolumeCard{display:flex;flex-direction:column;justify-content:center;gap:5px;padding:11px 13px;border:1px solid #1d2925;border-radius:6px;background:#0a110f}.brVolumeCard span{color:#b8c8c0;font-size:9px;font-weight:900;letter-spacing:.06em}.brVolumeCard b{font-size:20px}.brVolumeCard small{color:#b7c3bd;font-size:9px}@media(max-width:720px){.brActionRow{grid-template-columns:1fr;margin:10px 14px 0}}
+
+/* Desktop: Mapa do Setup e Confirmações compartilham a mesma altura da linha. */
+@media (min-width: 961px) {
+  .brOperationalGrid { align-items: stretch; }
+  .brOperationalGrid > .brMap,
+  .brOperationalGrid > .brTrigger { height: 100%; }
+}
 .brOpStats small { display:block; margin-top:4px; color:#c4d0ca; font-size:9px; line-height:1.25; }
 .brMetricSub { font-size:12px; color:#b7c3bd; }
 .brNote { color:#aebbb4; font-size:11px; }
