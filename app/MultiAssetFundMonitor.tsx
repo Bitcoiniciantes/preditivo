@@ -17,13 +17,13 @@ import { analyzeTopRadar } from "../lib/top-radar";
 
 const REFRESH_MS = 60_000;
 const fundPillLabel: Record<string, string> = {
-  REACTION: "CONFIRMADA",
-  REBOUND: "OBSERVAR",
+  REACTION: "LIBERADA",
+  REBOUND: "AGUARDAR",
   SLOWING: "DESACELERA",
-  ACCELERATING: "QUEDA",
-  UNSTABLE: "QUEDA",
-  NO_DROP: "STAND-BY",
-  UNAVAILABLE: "SEM DADOS",
+  ACCELERATING: "BLOQUEADA",
+  UNSTABLE: "BLOQUEADA",
+  NO_DROP: "AGUARDAR",
+  UNAVAILABLE: "BLOQUEADA",
 };
 const topPillLabel: Record<string, string> = {
   EXHAUSTION_CONFIRMED: "EXAUSTÃO",

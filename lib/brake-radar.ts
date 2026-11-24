@@ -502,7 +502,7 @@ export function analyzeBrakeRadar(
     if (recovery) {
       // Repique sem queda relevante: leitura contextual, sem gatilho de DCA.
       state = "REBOUND";
-      label = "REPIQUE EM OBSERVAÇÃO";
+      label = "RECUPERAÇÃO EM OBSERVAÇÃO";
       tone = "cyan";
       badge = "AGUARDAR";
       const bits: string[] = [];
@@ -556,7 +556,7 @@ export function analyzeBrakeRadar(
   } else if (recovery) {
     // Repique com queda relevante, ainda sem os cinco critérios de DCA.
     state = "REBOUND";
-    label = "REPIQUE EM OBSERVAÇÃO";
+    label = "RECUPERAÇÃO EM OBSERVAÇÃO";
     tone = "cyan";
     badge = "AGUARDAR";
     const preservedClause = preservedMinutes !== null

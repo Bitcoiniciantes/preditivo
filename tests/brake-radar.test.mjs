@@ -218,7 +218,7 @@ test("QUEDA SEM ESTABILIZAÇÃO: nova mínima recente sem aceleração", () => {
   assert.match(reading.reason, /nova mínima recente/);
 });
 
-test("REPIQUE EM OBSERVAÇÃO: 30 min de fundo preservado, sem DCA", () => {
+test("RECUPERAÇÃO EM OBSERVAÇÃO: 30 min de fundo preservado, sem DCA", () => {
   const closes = [...Array(18).fill(100), 99, 98, 96.5, 96.8, 96.9, 97];
   const lows = Array(24);
   lows[23] = 95.5;
@@ -231,7 +231,7 @@ test("REPIQUE EM OBSERVAÇÃO: 30 min de fundo preservado, sem DCA", () => {
     m15: m15Series(points, { 45: 95.5 }),
   });
   assert.equal(reading.state, "REBOUND");
-  assert.equal(reading.label, "REPIQUE EM OBSERVAÇÃO");
+  assert.equal(reading.label, "RECUPERAÇÃO EM OBSERVAÇÃO");
   assert.equal(reading.tone, "cyan");
   assert.equal(reading.badge, "AGUARDAR");
   assert.equal(reading.hasDrop, true);
@@ -244,14 +244,14 @@ test("REPIQUE EM OBSERVAÇÃO: 30 min de fundo preservado, sem DCA", () => {
   assert.match(reading.reason, /Confirmação exige/);
 });
 
-test("REPIQUE EM OBSERVAÇÃO: retorno positivo sem queda relevante não libera DCA", () => {
+test("RECUPERAÇÃO EM OBSERVAÇÃO: retorno positivo sem queda relevante não libera DCA", () => {
   const closes = [...Array(18).fill(100), 100, 99.8, 100, 100.2, 100.4, 100.5];
   const reading = readingOf({
     h1: hourly(closes),
     m15: fifteenMinute({ lastClose: 100.5 }),
   });
   assert.equal(reading.state, "REBOUND");
-  assert.equal(reading.label, "REPIQUE EM OBSERVAÇÃO");
+  assert.equal(reading.label, "RECUPERAÇÃO EM OBSERVAÇÃO");
   assert.equal(reading.tone, "cyan");
   assert.equal(reading.badge, "AGUARDAR");
   assert.equal(reading.hasDrop, false);
@@ -282,7 +282,7 @@ test("REPIQUE SEM FREIO: recuo moderado após recuperação não é retomada de 
   // preservado. O recuo é acomodação dentro da recuperação, não nova queda.
   const reading = readingOf(pullbackScenario());
   assert.equal(reading.state, "REBOUND");
-  assert.equal(reading.label, "REPIQUE EM OBSERVAÇÃO");
+  assert.equal(reading.label, "RECUPERAÇÃO EM OBSERVAÇÃO");
   assert.equal(reading.tone, "cyan");
   assert.equal(reading.badge, "AGUARDAR");
   assert.equal(reading.hasDrop, true);

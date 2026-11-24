@@ -460,7 +460,6 @@ export function BtcBrakeRadar({
   const fastTriggerCount = fastCriteria ? fastCriteria.filter(Boolean).length : 0;
   const fastTriggerState = fastCriteria ? (fastTriggerCount === 2 ? "DISPARADO" : fastTriggerCount === 1 ? "ARMADO" : "AGUARDANDO") : "INDISPONÍVEL";
   const fastAgainstTrend = Boolean(fastTriggerCount === 2 && (context1h === "invalid" || quality === "SEM ESTABILIZAÇÃO"));
-  const fastVerdictBadge = fastTriggerCount === 2 ? "ENTRADA ESPECULATIVA" : "NÃO INICIAR";
   const fastDistanceEma5 = last5 && ema5 !== null ? (last5.close / ema5 - 1) * 100 : null;
   const fastDistancePrevHigh = last5 && prior5 ? (last5.close / prior5.high - 1) * 100 : null;
   const last12m5Low = m5.slice(-RAPIDO.stopLookback5m).reduce<number | null>((min, bar) => {
@@ -490,6 +489,28 @@ export function BtcBrakeRadar({
     : reading.brakePct === null
       ? "n/d: dados insuficientes"
       : null;
+  // O diagnóstico de preço (reading) não autoriza operação. Esta decisão única
+  // abastece selo, AÇÃO e o estado do setup/DCA em ambos os modos.
+  const operationalBlocked = reading.state === "UNAVAILABLE"
+    || setupInvalidated
+    || fastSetupInvalidated
+    || reading.state === "ACCELERATING"
+    || reading.state === "UNSTABLE";
+  const operationalStatus = operationalBlocked
+    ? "ENTRADA BLOQUEADA"
+    : mode === "fast"
+      ? fastTriggerCount === 2 ? "ENTRADA LIBERADA" : "AGUARDAR CONFIRMAÇÃO"
+      : conservativeConfirmed ? "ENTRADA LIBERADA" : "AGUARDAR CONFIRMAÇÃO";
+  const entryAuthorized = operationalStatus === "ENTRADA LIBERADA";
+  const operationalReason = operationalBlocked
+    ? (setupInvalidated || fastSetupInvalidated ? "Setup invalidado: aguardar nova referência." : displayReason)
+    : mode === "fast"
+      ? `Gatilho 5M ${fastTriggerCount}/2 ${fastTriggerState}${fastAgainstTrend ? "; contexto 1H contrário permanece como alerta." : "."}`
+      : `${conservativeChecks.filter((check) => check.state === "confirmed").length}/4 confirmações; ${conservativeConfirmed ? "todos os filtros obrigatórios foram atendidos." : "filtros obrigatórios ainda incompletos."}`;
+  const technicalLabel = reading.recovery && !entryAuthorized
+    ? "RECUPERAÇÃO EM OBSERVAÇÃO"
+    : entryAuthorized ? "REAÇÃO CONFIRMADA"
+      : reading.label;
 
   return (
     <article
@@ -501,7 +522,7 @@ export function BtcBrakeRadar({
         <div className="brHeadMain">
           <h3 className="brTitle">{assetName.toUpperCase()} — Radar de freio da queda</h3>
           <span className="brKicker">{symbol}</span>
-          <div className="brState">{reading.label}</div>
+          <div className="brState">{technicalLabel}</div>
         </div>
         <div className={`brCurrentPrice brHeadQuote brHeadQuote-${quoteView === "ready" || quoteView === "stale" ? changeTone(validDailyChange) : "brMuted"}`} aria-label={`Cotação spot de ${symbol}`}>
           <div className="brQuoteLine">
@@ -531,17 +552,15 @@ export function BtcBrakeRadar({
           )}
         </div>
         <div className="brHeadSide">
-          <span className={`brBadge${mode === "fast" && fastTriggerCount === 2 ? " brBadgeSpeculative" : ""}`}>{mode === "fast" ? fastVerdictBadge : reading.badge}</span>
+          <span className={`brBadge${entryAuthorized ? " brBadgeSpeculative" : ""}`}>{operationalStatus}</span>
           <small className="brUpdated">Snapshot 15M atualizado às {fmtTime(reading.updatedAt)}</small>
         </div>
       </div>
 
       <section className="brEvolution" aria-label="Evolução 1 do radar">
         <div className="brOperationalGrid">
-          <div className={`brOpCard brMap${(mode === "fast" ? !fastSetupInvalidated && fastTriggerCount === 2 : conservativeConfirmed) ? "" : " brMapHypothetical"}`}>
-            <span>{mode === "fast"
-              ? (fastSetupInvalidated ? "CENÁRIO HIPOTÉTICO — não ativo" : fastTriggerCount === 2 ? "SETUP ATIVO" : "CENÁRIO HIPOTÉTICO — não ativo")
-              : (conservativeConfirmed ? "SETUP ATIVO" : "CENÁRIO HIPOTÉTICO — não ativo")} · MAPA DO SETUP</span>
+          <div className={`brOpCard brMap${entryAuthorized ? "" : " brMapHypothetical"}`}>
+            <span>{entryAuthorized ? "SETUP ATIVO" : "CENÁRIO HIPOTÉTICO — não ativo"} · MAPA DO SETUP</span>
             {mode === "fast" ? (
               <>
                 <dl>
@@ -639,11 +658,7 @@ export function BtcBrakeRadar({
       <div className="brActionRow">
       <div className="brAction">
         <span className="brActionLabel">AÇÃO — {mode === "fast" ? "MODO RÁPIDO" : "MODO CONSERVADOR"}</span>
-        {mode === "fast" ? (
-          <><b>{fastSetupInvalidated ? "SETUP INVALIDADO — AGUARDAR NOVA REFERÊNCIA" : fastTriggerCount === 2 ? "ENTRADA ESPECULATIVA" : "NÃO INICIAR"}</b><p>Gatilho 5M {fastTriggerCount}/2 {fastTriggerState}{last5 ? ` · candle fechado ${fmtHHMMRange(last5.closeTime, 5 * 60_000)}` : ""}. {` Movimento ${fmtPct(reading.recentReturnPct, true)} (3h), ${fmtPct(reading.dropPct, true)} (topo→mínima).`}{fastTriggerCount === 2 ? " Indicador técnico, não é recomendação." : " Aguardar confirmação do gatilho 5M."}{fastAgainstTrend ? " Risco alto: 1H contrário." : ""}</p></>
-        ) : (
-          <><b>{setupInvalidated ? "SETUP INVALIDADO — AGUARDAR NOVA REFERÊNCIA" : conservativeConfirmed ? "SETUP CONSERVADOR CONFIRMADO" : "AGUARDAR — Confirmação ainda incompleta."}</b><p>{`${displayReason} Movimento ${fmtPct(reading.recentReturnPct, true)} (3h), ${fmtPct(reading.dropPct, true)} (topo→mínima).`}</p></>
-        )}
+        <><b>{operationalStatus}</b><p>{operationalReason} Movimento {fmtPct(reading.recentReturnPct, true)} (3h), {fmtPct(reading.dropPct, true)} (topo→mínima).</p></>
       </div>
       <div className="brVolumeCard" title="Volume dos últimos 12 candles de 15M comparado à média dos 24h anteriores"><span>VOLUME (3H VS MÉDIA 24H) ⓘ</span><b className={volumeTone}>{volumeHeadline}</b><small>{volumeDetail || "—"}</small></div>
       </div>
