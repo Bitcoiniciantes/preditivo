@@ -1,6 +1,6 @@
 # FASE 1 — EXPERIMENTO MÍNIMO (relatório gerado por scripts/fase1-experimento-minimo.mjs)
 
-Fonte: `C:\Users\joelh\Site Bitcoiniciantes\BACKUP\preditivo\services\market-ingestion\data\market.db`
+Fonte: `services/market-ingestion/data/market.db`
 Gerado em: 2026-09-05T22:13:40.401Z
 
 ## 0. Qualidade dos dados utilizados

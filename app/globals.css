@@ -502,6 +502,48 @@ html{overflow-anchor:none}
 
 footer{border-top:2px solid #344a40;background:#0d1512;box-shadow:inset 0 1px 0 #ffffff0a,0 -8px 22px #0000002e}#grafico{scroll-margin-top:34px}
 
+/* RSI projetado — módulo independente acima do rodapé. */
+.reverseRsiCard{margin:0 0 22px;padding:0 3px;color:#f4f7f5;background:#071410;border:1px solid #2e5c49;border-radius:6px;box-shadow:none}
+.reverseRsiCard>header{position:static;height:auto;padding:13px 20px;background:#0B1512!important;border:0!important;border-bottom:1px solid #2f6d55!important;box-shadow:none!important;display:flex;gap:15px;align-items:center}
+.reverseRsiCard>header>span{font-size:25px;font-weight:900;letter-spacing:-6px;color:#4ADE80}
+.reverseRsiCard h2{margin:0;font-size:clamp(16px,2vw,28px);letter-spacing:.015em}
+.reverseRsiCard h2 b{color:#4ADE80}
+.reverseRsiCard h2 em{font-style:normal;font-weight:500}
+.reverseRsiPanels{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;padding:18px 16px 12px;align-items:stretch}
+.reverseRsiPanel{display:flex;flex-direction:column;min-width:0;border:1px solid #2f6d55;border-radius:14px;padding:15px 17px;background:#06120e;box-shadow:none}
+.reverseRsiControls{display:grid;grid-template-columns:auto minmax(180px,1fr) auto;align-items:center;gap:13px;min-height:70px;padding-bottom:13px;border-bottom:1px solid #244a3a}
+.reverseRsiCategory{padding:9px 15px;border:1px solid #15e8ed;border-radius:10px;background:#062a2c;color:#22e6ea;font-size:19px;font-weight:900;text-shadow:none;white-space:nowrap}
+.reverseRsiPanel.crypto .reverseRsiCategory{border-color:#d4a900;background:#2b2206;color:#ffd84d}
+.reverseRsiSearch{min-width:0}
+.reverseRsiSearch label{display:block;margin-bottom:5px;font-size:9px;font-weight:900;letter-spacing:.05em;color:#9fb6a9}
+.reverseRsiSearch>div{display:flex;border:1px solid #3c6b56;border-radius:8px;overflow:hidden;background:#f5f5f5}
+.reverseRsiSearch input{min-width:0;width:100%;border:0;padding:7px 10px;background:#f5f5f5;color:#080b09;font-size:15px;font-weight:900;outline:none;text-transform:uppercase}
+.reverseRsiSearch button{border:0;border-left:1px solid #35bf58;background:#0d2c1d;color:#a9ffc0;padding:0 11px;font-size:12px;font-weight:900;cursor:pointer}
+.reverseRsiTimeframes,.reverseRsiTargets>div{display:flex;gap:5px;flex-wrap:wrap}
+.reverseRsiTimeframes button,.reverseRsiTargets button{border:1px solid #355a49;border-radius:7px;background:#0a1a14;color:#e8f1eb;padding:5px 8px;font-size:12px;font-weight:900;cursor:pointer}
+.reverseRsiTimeframes button.selected,.reverseRsiTargets button.selected{background:#1d5c38;border-color:#4ADE80;color:#d9ffe4}
+.reverseRsiTargets{display:flex;align-items:center;gap:14px;min-height:52px;padding:9px 6px 11px;border-bottom:1px solid #244a3a}
+.reverseRsiTargets>b{font-size:14px;line-height:1.05;white-space:nowrap}
+.reverseRsiTargets small{display:block;font-size:10px}
+.reverseRsiTargets>div{flex:1}
+.reverseRsiTargets button{min-width:38px}
+.reverseRsiSummary{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;padding:12px 6px 14px;align-items:stretch}
+.reverseRsiQuote,.reverseRsiFeatured{display:flex;flex-direction:column;justify-content:center;gap:3px;min-height:118px;min-width:0}
+.reverseRsiLabel{font-size:11px;font-weight:800;letter-spacing:.05em;color:#9fb6a9}
+.reverseRsiQuoteValue{color:#fff;font-size:clamp(21px,2vw,31px);line-height:1.05;font-weight:900;white-space:nowrap;font-variant-numeric:tabular-nums}
+.reverseRsiReferenceInline{font-size:10.5px;line-height:1.2;color:#9fb6a9;white-space:nowrap;font-variant-numeric:tabular-nums}
+.reverseRsiRsiLine{display:flex;align-items:baseline;gap:4px;font-size:13px;font-weight:700;color:#cfe0d5;font-variant-numeric:tabular-nums}
+.reverseRsiRsiLine strong{font-size:16px;font-weight:900;color:#fff;line-height:1}
+.reverseRsiFeatured{padding:10px 14px;border:1px solid #2f6d55;border-radius:10px;background:#0a1a12}
+.reverseRsiFeaturedValue{color:#FACC15;font-size:clamp(23px,2.1vw,33px);line-height:1.05;font-weight:900;white-space:nowrap;font-variant-numeric:tabular-nums}
+.reverseRsiFeatured b{font-size:15px;line-height:1.1;font-weight:900;font-variant-numeric:tabular-nums}
+.reverseRsiMessage{min-height:190px;display:grid;place-items:center;color:#b5c4bb;font-size:15px;font-weight:700}
+.reverseRsiCard>p{margin:10px 16px 14px;padding:9px 13px;border-radius:6px;background:#0d2119;color:#dbe8df;font-size:11px}
+.reverseRsiCard .negative{color:#F87171}
+.reverseRsiCard .positive{color:#4ADE80}
+@media(max-width:1100px){.reverseRsiControls{grid-template-columns:auto 1fr}.reverseRsiTimeframes{grid-column:1/-1}.reverseRsiSummary{gap:10px}.reverseRsiFeaturedValue{font-size:21px}}
+@media(max-width:980px){.reverseRsiCard{margin-bottom:16px}.reverseRsiCard>header{padding:11px 12px}.reverseRsiCard h2 em{display:block;margin-top:3px;font-size:12px}.reverseRsiPanels{grid-template-columns:1fr;padding:12px 8px;gap:10px}.reverseRsiPanel{padding:12px 10px;border-radius:10px}.reverseRsiControls{gap:10px;min-height:0}.reverseRsiCategory{padding:8px 11px;font-size:15px}.reverseRsiTargets{align-items:flex-start;gap:10px}.reverseRsiTargets>div{gap:4px}.reverseRsiTargets button{min-width:34px;padding:5px 6px}.reverseRsiSummary{grid-template-columns:1fr;padding:12px 0}.reverseRsiQuote,.reverseRsiFeatured{min-height:0}.reverseRsiQuoteValue{font-size:24px}.reverseRsiFeatured{padding:10px 12px}.reverseRsiFeaturedValue{font-size:24px}.reverseRsiCard>p{font-size:10px;margin:0 8px 10px}.reverseRsiTimeframes button{padding:5px 7px}}
+
 /* Em telas de toque, nenhum painel fica preso durante a rolagem. */
 @media (hover:none) and (pointer:coarse){
   header,.deskTop,.marketFreshness{position:static!important;top:auto!important}

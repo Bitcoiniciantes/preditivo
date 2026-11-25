@@ -188,6 +188,30 @@ export async function fetchMarket(
   };
 }
 
+/** Same market providers as fetchMarket, with the larger candle window needed for RSI initialization. */
+export async function fetchReverseRsiMarket(
+  asset: string,
+  period: string,
+  category: "crypto" | "stock",
+  signal?: AbortSignal,
+): Promise<MarketData> {
+  if (category === "stock") return fetchLiveStockMarket(asset, period, signal);
+  const symbol = `${asset}USDT`;
+  const body = await fetchJson(
+    `https://data-api.binance.vision/api/v3/klines?symbol=${symbol}` +
+      `&interval=${intervals[period] || "1d"}&limit=300`,
+    { signal },
+  );
+  return {
+    asset,
+    pair: `${asset}/USDT`,
+    source: "Binance Public Market Data",
+    updatedAt: Date.now(),
+    period,
+    candles: parseCandles(body),
+  };
+}
+
 export async function fetchLiveStockMarket(
   asset: string,
   period: string,

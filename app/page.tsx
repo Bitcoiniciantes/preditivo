@@ -10,6 +10,7 @@ import PositionPanel from "./PositionPanel";
 import { MarketStreamProvider } from "./MarketStreamProvider";
 import { AlertPanel } from "./AlertPanel";
 import { BtcRadarReversal } from "./BtcRadarReversal";
+import ReverseRsiCard from "./ReverseRsiCard";
 import "./brake-radar.css";
 import "./radar-reversal.css";
 import { analyze, avg, scoreDistanceLabel, scoreLabel } from "../lib/analysis";
@@ -188,6 +189,7 @@ export function Termometro(){
   <BtcRadarReversal livePrice={ticker === "BTC" ? (livePrice ?? null) : null} dailyChangePct={ticker === "BTC" ? change24h : null} />
 </section>
   <div className="alertPanelSection" id="alertas"><AlertPanel currency="USDT" /></div>
+  <ReverseRsiCard />
   <footer><span><b>T°</b> TERMÔMETRO PREDITIVO INVESTIDOR ARROJADO</span><p>Motor determinístico • Interpretação opcional assistida por IA</p><span data-goatcounter-total aria-label="Total de acessos"> · visitas: —</span><small>PILOTO v0.2</small></footer>
  </main>
  </MarketStreamProvider>
