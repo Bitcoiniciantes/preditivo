@@ -82,6 +82,8 @@ function ProjectionPanel({ config }: { config: PanelConfig }) {
   }, [projections, quote]);
   const submit = () => { const next = cleanTicker(query, config.category); if (next) { setTicker(next); setQuery(next); } };
   const unavailable = status === "unavailable" || (status === "ready" && !reading);
+  const roundedAverageChange = averageProjection.change === null ? null : Number(averageProjection.change.toFixed(2));
+  const averageTrend = roundedAverageChange === null || roundedAverageChange === 0 ? "neutral" : roundedAverageChange > 0 ? "up" : "down";
   const categoryLabel = config.category === "stock" ? "STOCKS" : "CRIPTO";
   const referenceLabel = REFERENCE_LABELS[period] ?? period;
   return <article className={`reverseRsiPanel ${config.category}`} aria-busy={status === "loading"}>
@@ -102,10 +104,10 @@ function ProjectionPanel({ config }: { config: PanelConfig }) {
           <small className="reverseRsiReferenceInline">Ref. {referenceLabel}: {formatPrice(closedReading!.referencePrice, currency)}</small>
           <div className="reverseRsiRsiLine">RSI <strong>{formatNumber(reading!.rsi)}</strong> <span aria-hidden="true">→</span> ALVO <strong>{formatNumber(target)}</strong></div>
         </div>
-        <div className="reverseRsiFeatured">
+        <div className={`reverseRsiFeatured ${averageTrend}`}>
           <span className="reverseRsiLabel">PREÇO PROJETADO MÉDIO</span>
-          <strong className="reverseRsiFeaturedValue">{formatPrice(averageProjection.price, currency)}</strong>
-          <b className={averageProjection.change !== null && averageProjection.change < 0 ? "negative" : "positive"}>{formatPercent(averageProjection.change)}</b>
+          <strong className="reverseRsiFeaturedValue">{formatPrice(averageProjection.price, "$")}</strong>
+          <b className="reverseRsiFeaturedChange">{averageTrend !== "neutral" && <span aria-hidden="true">{averageTrend === "up" ? "↑" : "↓"}</span>}{formatPercent(averageProjection.change)}</b>
         </div>
       </div>
     </>}
